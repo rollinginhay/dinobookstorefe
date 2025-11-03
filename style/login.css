@@ -1,0 +1,86 @@
+.login {
+  max-width: 400px;
+  margin: 60px auto;
+  font-family: Arial, sans-serif;
+  color: #444;
+}
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  border-bottom: 1px solid #ddd;
+}
+.tab {
+  padding: 12px 24px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  user-select: none;
+}
+.tab.active {
+  color: #d10000;
+  border-bottom-color: #d10000;
+  font-weight: 600;
+}
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1.5px solid #ccc;
+  border-radius: 4px;
+  outline-offset: 2px;
+  transition: border-color 0.3s;
+}
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: #7bb5ff;
+  outline: none;
+}
+.password-wrapper {
+  position: relative;
+}
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #337ab7;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+.forgot-link {
+  font-size: 13px;
+  color: #d10000;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 6px;
+  cursor: pointer;
+}
+button {
+  width: 100%;
+  padding: 12px 0;
+  margin-top: 30px;
+  background: #ccc;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 16px;
+  color: #666;
+  cursor: not-allowed;
+  transition: background 0.3s, color 0.3s;
+}
+button.enabled {
+  background: #d10000;
+  color: #fff;
+  cursor: pointer;
+}
