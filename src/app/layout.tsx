@@ -1,26 +1,31 @@
-import { Outfit } from "next/font/google";
+import {Outfit} from "next/font/google";
 import "./globals.css";
 import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
-import { SidebarProvider } from "@/context/SidebarContext";
-import { ThemeProvider } from "@/context/ThemeContext";
+import {SidebarProvider} from "@/context/SidebarContext";
+import {ThemeProvider} from "@/context/ThemeContext";
+import {AppDataProvider} from "@/lib/providers";
 
 const outfit = Outfit({
-  subsets: ["latin"],
+    subsets: ["latin"],
 });
 
 export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
+                                       children,
+                                   }: Readonly<{
+    children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={`${outfit.className} dark:bg-gray-900`}>
+    return (
+        <html lang="en">
+        <body className={`${outfit.className} dark:bg-gray-900`}>
         <ThemeProvider>
-          <SidebarProvider>{children}</SidebarProvider>
+            <SidebarProvider>
+                <AppDataProvider>
+                    {children}
+                </AppDataProvider>
+            </SidebarProvider>
         </ThemeProvider>
-      </body>
-    </html>
-  );
+        </body>
+        </html>
+    );
 }
