@@ -1,67 +1,120 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { useState, useEffect, useMemo } from 'react';
-import BookCard, { Book } from '@/components/BookCard';
-import Breadcrumb from '@/components/Breadcrumb';
+import dynamic from "next/dynamic";
+import { useState, useEffect, useMemo } from "react";
+import BookCard, { Book } from "@/components/BookCard";
+import Breadcrumb from "@/components/Breadcrumb";
 
-type SortOption = 'default' | 'bestseller' | 'newest' | 'price-asc' | 'price-desc' | 'rating';
-type ViewMode = 'grid' | 'list';
+type SortOption =
+  | "default"
+  | "bestseller"
+  | "newest"
+  | "price-asc"
+  | "price-desc"
+  | "rating";
+type ViewMode = "grid" | "list";
 
 function SachTrongNuoc() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
- const [page, setPage] = useState(0);
-const limit = 10;
+  const [page, setPage] = useState(0);
+  const limit = 10;
 
-useEffect(() => {
-  async function fetchBooks() {
-    try {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    async function fetchBooks() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const res = await fetch(`http://localhost:8080/v1/books?e=true&page=${page}&limit=${limit}`);
+        const res = await fetch(
+          `http://localhost:8080/v1/books?e=true&page=0&limit=10`
+        );
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("❌ Lỗi BE:", res.status, text);
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const json = await res.json();
+        console.log("📚 Dữ liệu BE trả về:", json);
+
+        // Tạo map để tra nhanh từ id -> dữ liệu trong included
+        const includedMap = new Map();
+        json.included?.forEach((item: any) => {
+          includedMap.set(`${item.type}-${item.id}`, item);
+        });
+
+        const books =
+          json.data?.map((item: any) => {
+            // 🔹 Lấy danh sách ID tác giả
+            const creatorIds =
+              item.relationships?.creators?.data?.map((c: any) => c.id) || [];
+
+            // 🔹 Tìm tên các tác giả trong `included`
+            const authors =
+              creatorIds
+                .map((id: string) => {
+                  const creator = includedMap.get(`creator-${id}`);
+                  return creator?.attributes?.name;
+                })
+                .filter(Boolean)
+                .join(", ") || "Không rõ tác giả";
+
+            // 🔹 Lấy thể loại (genre)
+            const genreIds =
+              item.relationships?.genres?.data?.map((g: any) => g.id) || [];
+            const genreName =
+              genreIds
+                .map((id: string) => {
+                  const genre = includedMap.get(`genre-${id}`);
+                  return genre?.attributes?.name;
+                })
+                .filter(Boolean)
+                .join(", ") || "Chưa phân loại";
+
+            // 🔹 Lấy giá từ bookDetail (bookCopies)
+            const copyIds =
+              item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
+            const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
+            const price = firstCopy?.attributes?.price || 0;
+
+            // Trả về object chuẩn cho frontend
+            return {
+              id: item.id,
+              title: item.attributes?.title || "Không có tên",
+              author: authors,
+              genreName,
+              price,
+            };
+          }) || [];
+
+        console.log("✅ Books sau khi xử lý:", books);
+        setBooks(books);
+      } catch (err: any) {
+        console.error("❌ Fetch lỗi:", err);
+        setError(err.message);
+        setBooks([]);
+      } finally {
+        setLoading(false);
       }
-
-      const json = await res.json();
-      console.log("📚 Dữ liệu BE trả về:", json);
-
-      // Nếu BE trả JSON:API
-      const books = json.data?.map((item: any) => ({
-        id: item.id,
-        title: item.attributes?.title || "Không có tên",
-        author: item.attributes?.author || "Không rõ tác giả",
-        price: item.attributes?.price || 0,
-      })) || [];
-
-      setBooks(books);
-    } catch (err: any) {
-      setError(err.message);
-      setBooks([]);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  fetchBooks();
-}, [page]);
-
+    fetchBooks();
+  }, []);
 
   // 🟢 Tạo danh mục từ genreName (BE trả là chuỗi, không phải mảng)
   const allCategories = [
-    'Tất cả',
+    "Tất cả",
     ...Array.from(new Set(books.map((b) => b.genreName).filter(Boolean))),
   ];
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Tất cả');
-  const [sortOption, setSortOption] = useState<SortOption>('default');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const [sortOption, setSortOption] = useState<SortOption>("default");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
@@ -81,7 +134,7 @@ useEffect(() => {
     }
 
     // Lọc theo thể loại
-    if (selectedCategory !== 'Tất cả') {
+    if (selectedCategory !== "Tất cả") {
       filtered = filtered.filter(
         (book) =>
           book.genreName &&
@@ -96,15 +149,15 @@ useEffect(() => {
   const sortedBooks = useMemo(() => {
     const sorted = [...filteredBooks];
     switch (sortOption) {
-      case 'bestseller':
+      case "bestseller":
         return sorted.sort((a, b) => (b.sold || 0) - (a.sold || 0));
-      case 'newest':
+      case "newest":
         return sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
-      case 'price-asc':
+      case "price-asc":
         return sorted.sort((a, b) => a.price - b.price);
-      case 'price-desc':
+      case "price-desc":
         return sorted.sort((a, b) => b.price - a.price);
-      case 'rating':
+      case "rating":
         return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
       default:
         return sorted;
@@ -114,7 +167,10 @@ useEffect(() => {
   // 🟢 Phân trang
   const totalPages = Math.ceil(sortedBooks.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBooks = sortedBooks.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedBooks = sortedBooks.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   // Reset khi thay filter
   const handleFilterChange = () => setCurrentPage(1);
@@ -139,8 +195,8 @@ useEffect(() => {
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
         items={[
-          { label: 'Trang chủ', href: '/' },
-          { label: 'Sách trong nước' },
+          { label: "Trang chủ", href: "/" },
+          { label: "Sách trong nước" },
         ]}
       />
 
@@ -234,12 +290,12 @@ useEffect(() => {
             <p className="text-gray-600 mb-6">
               {searchQuery
                 ? `Không có kết quả cho "${searchQuery}"`
-                : 'Không có sách trong danh mục này'}
+                : "Không có sách trong danh mục này"}
             </p>
             <button
               onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('Tất cả');
+                setSearchQuery("");
+                setSelectedCategory("Tất cả");
                 setCurrentPage(1);
               }}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
@@ -250,7 +306,7 @@ useEffect(() => {
         ) : (
           <>
             {/* Grid */}
-            {viewMode === 'grid' && (
+            {viewMode === "grid" && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {paginatedBooks.map((book) => (
                   <BookCard key={book.id} book={book} />
@@ -258,23 +314,18 @@ useEffect(() => {
               </div>
             )}
             {/* 🟦 Pagination */}
-<div className="flex justify-center items-center gap-4 mt-10">
-  <button 
-  onClick={() => setPage(page - 1)} 
-  disabled={page === 1}
->
-  ← Trước
-</button>
+            <div className="flex justify-center items-center gap-4 mt-10">
+              <button onClick={() => setPage(page - 1)} disabled={page === 1}>
+                ← Trước
+              </button>
 
-<button 
-  onClick={() => setPage(page + 1)} 
-  disabled={books.length < limit} // <= nếu số sách ít hơn limit thì hết trang
->
-  Sau →
-</button>
-
-</div>
-
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={books.length < limit} // <= nếu số sách ít hơn limit thì hết trang
+              >
+                Sau →
+              </button>
+            </div>
           </>
         )}
       </div>
