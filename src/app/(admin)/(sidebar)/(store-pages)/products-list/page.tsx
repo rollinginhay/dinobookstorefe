@@ -1,5 +1,5 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ProductListTable from "@/components/ecommerce/ProductListTable";
+import DeprecatedProductListTable from "@/components/ecommerce/DeprecatedProductListTable";
 import { Metadata } from "next";
 import React from "react";
 
@@ -13,7 +13,7 @@ export default function ProductPage() {
   return (
     <div>
       <PageBreadcrumb pageTitle="Products" />
-      <ProductListTable />
+      <DeprecatedProductListTable />
     </div>
   );
 }

@@ -4,7 +4,8 @@ import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
 import {SidebarProvider} from "@/context/SidebarContext";
 import {ThemeProvider} from "@/context/ThemeContext";
-import {AppDataProvider} from "@/lib/providers";
+import {AppProviders} from "@/lib/providers";
+import {Toaster} from "sonner";
 
 const outfit = Outfit({
     subsets: ["latin"],
@@ -20,9 +21,10 @@ export default function RootLayout({
         <body className={`${outfit.className} dark:bg-gray-900`}>
         <ThemeProvider>
             <SidebarProvider>
-                <AppDataProvider>
+                <AppProviders>
                     {children}
-                </AppDataProvider>
+                    <Toaster richColors={true} position="top-right"/>
+                </AppProviders>
             </SidebarProvider>
         </ThemeProvider>
         </body>

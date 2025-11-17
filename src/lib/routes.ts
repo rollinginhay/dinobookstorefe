@@ -1,59 +1,113 @@
-/** Auto-generated from Routes.java (fixed) */
 export const API_ROUTES = {
-  GET_BOOKS: "/v1/books",
-  GET_BOOK_BY_ID: ({ id }: { id: string | number }) => `/v1/book/${id}`,
-  POST_BOOK_CREATE: "/v1/book/create",
-  PUT_BOOK_UPDATE: "/v1/book/update",
-  DELETE_BOOK_DELETE: ({ id }: { id: string | number }) => `/v1/book/${id}`,
-  MULTI_BOOK_RELATIONSHIP_CREATOR: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/creator`,
-  MULTI_BOOK_RELATIONSHIP_PUBLISHER: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/publisher`,
-  MULTI_BOOK_RELATIONSHIP_SERIES: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/series`,
-  MULTI_BOOK_RELATIONSHIP_GENRE: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/genre`,
-  MULTI_BOOK_RELATIONSHIP_BOOK_DETAIL: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/bookDetail`,
-  MULTI_BOOK_RELATIONSHIP_REVIEW: ({ id }: { id: string | number }) => `/v1/book/${id}/relationships/review`,
-  MULTI_BOOK_RELATIONSHIP_GENERIC: ({ id, dependent }: { id: string | number; dependent: string | number }) => `/v1/book/${id}/relationships/${dependent}`,
-  GET_GENRES: "/v1/genres",
-  GET_GENRE_BY_ID: ({ id }: { id: string | number }) => `/v1/genre/${id}`,
-  POST_GENRE_CREATE: "/v1/genre/create",
-  PUT_GENRE_UPDATE: "/v1/genre/update",
-  DELETE_GENRE_DELETE: ({ id }: { id: string | number }) => `/v1/genre/${id}`,
-  GET_PUBLISHERS: "/v1/publishers",
-  GET_PUBLISHER_BY_ID: ({ id }: { id: string | number }) => `/v1/publisher/${id}`,
-  POST_PUBLISHER_CREATE: "/v1/publisher/create",
-  PUT_PUBLISHER_UPDATE: "/v1/publisher/update",
-  DELETE_PUBLISHER_DELETE: ({ id }: { id: string | number }) => `/v1/publisher/${id}`,
-  GET_SERIES: "/v1/seriess",
-  GET_SERIES_BY_ID: ({ id }: { id: string | number }) => `/v1/series/${id}`,
-  POST_SERIES_CREATE: "/v1/series/create",
-  PUT_SERIES_UPDATE: "/v1/series/update",
-  DELETE_SERIES_DELETE: ({ id }: { id: string | number }) => `/v1/series/${id}`,
-  GET_CREATORS: "/v1/creators",
-  GET_CREATOR_BY_ID: ({ id }: { id: string | number }) => `/v1/creator/${id}`,
-  POST_CREATOR_CREATE: "/v1/creator/create",
-  PUT_CREATOR_UPDATE: "/v1/creator/update",
-  DELETE_CREATOR_DELETE: ({ id }: { id: string | number }) => `/v1/creator/${id}`,
-  GET_BOOK_DETAIL_BY_ID: ({ id }: { id: string | number }) => `/v1/bookDetail/${id}`,
-  POST_BOOK_DETAIL_CREATE: "/v1/bookDetail/create",
-  PUT_BOOK_DETAIL_UPDATE: "/v1/bookDetail/update",
-  DELETE_BOOK_DETAIL_DELETE: ({ id }: { id: string | number }) => `/v1/bookDetail/${id}`,
-  GET_REVIEW_BY_ID: ({ id }: { id: string | number }) => `/v1/review/${id}`,
-  POST_REVIEW_CREATE: "/v1/review/create",
-  PUT_REVIEW_UPDATE: "/v1/review/update",
-  DELETE_REVIEW_DELETE: ({ id }: { id: string | number }) => `/v1/review/${id}`,
-  GET_RECEIPT_DETAIL_BY_ID: ({ id }: { id: string | number }) => `/v1/receiptDetail/${id}`,
-  POST_RECEIPT_DETAIL_CREATE: "/v1/receiptDetail/create",
-  PUT_RECEIPT_DETAIL_UPDATE: "/v1/receiptDetail/update",
-  DELETE_RECEIPT_DETAIL_DELETE: ({ id }: { id: string | number }) => `/v1/receiptDetail/${id}`,
-  MULTI_RECEIPT_DETAIL_RELATIONSHIP_GENERIC: ({ id, dependent }: { id: string | number; dependent: string | number }) => `/v1/receiptDetail/${id}/relationships/${dependent}`,
-  GET_PAYMENT_DETAIL_BY_ID: ({ id }: { id: string | number }) => `/v1/paymentDetail/${id}`,
-  POST_PAYMENT_DETAIL_CREATE: "/v1/paymentDetail/create",
-  PUT_PAYMENT_DETAIL_UPDATE: "/v1/paymentDetail/update",
-  DELETE_PAYMENT_DETAIL_DELETE: ({ id }: { id: string | number }) => `/v1/paymentDetail/${id}`,
-  GET_RECEIPTS: "/v1/receipts",
-  POST_RECEIPT_CREATE: "/v1/receipt/create",
-  PUT_RECEIPT_UPDATE: "/v1/receipt/update",
-  DELETE_RECEIPT_DELETE: ({ id }: { id: string | number }) => `/v1/receipt/${id}`,
-  MULTI_RECEIPT_RELATIONSHIP_RECEIPT_DETAIL: ({ id }: { id: string | number }) => `/v1/receipt/${id}/relationships/receiptDetail`,
-  MULTI_RECEIPT_RELATIONSHIP_PAYMENT_DETAIL: ({ id }: { id: string | number }) => `/v1/receipt/${id}/relationships/paymentDetail`,
-  MULTI_RECEIPT_RELATIONSHIP_GENERIC: ({ id, dependent }: { id: string | number; dependent: string | number }) => `/v1/receipt/${id}/relationships/${dependent}`,
+    GET_BOOKS: "/v1/books",
+    GET_BOOK_BY_ID: ({id}: { id: string | number }) => `/v1/book/${id}`,
+    POST_BOOK_CREATE: "/v1/book/create",
+    PUT_BOOK_UPDATE: "/v1/book/update",
+    DELETE_BOOK_DELETE: ({id}: { id: string | number }) => `/v1/book/${id}`,
+    MULTI_BOOK_RELATIONSHIP_CREATOR: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/creator`,
+    MULTI_BOOK_RELATIONSHIP_PUBLISHER: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/publisher`,
+    MULTI_BOOK_RELATIONSHIP_SERIES: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/series`,
+    MULTI_BOOK_RELATIONSHIP_GENRE: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/genre`,
+    MULTI_BOOK_RELATIONSHIP_BOOK_DETAIL: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/bookDetail`,
+    MULTI_BOOK_RELATIONSHIP_REVIEW: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/review`,
+    MULTI_BOOK_RELATIONSHIP_GENERIC: ({id, dependent}: {
+        id: string | number;
+        dependent: string | number
+    }) => `/v1/book/${id}/relationships/${dependent}`,
+    GET_GENRES: "/v1/genres",
+    GET_GENRE_BY_ID: ({id}: { id: string | number }) => `/v1/genre/${id}`,
+    POST_GENRE_CREATE: "/v1/genre/create",
+    PUT_GENRE_UPDATE: "/v1/genre/update",
+    DELETE_GENRE_DELETE: ({id}: { id: string | number }) => `/v1/genre/${id}`,
+    GET_PUBLISHERS: "/v1/publishers",
+    GET_PUBLISHER_BY_ID: ({id}: { id: string | number }) => `/v1/publisher/${id}`,
+    POST_PUBLISHER_CREATE: "/v1/publisher/create",
+    PUT_PUBLISHER_UPDATE: "/v1/publisher/update",
+    DELETE_PUBLISHER_DELETE: ({id}: { id: string | number }) => `/v1/publisher/${id}`,
+    GET_SERIES: "/v1/seriess",
+    GET_SERIES_BY_ID: ({id}: { id: string | number }) => `/v1/series/${id}`,
+    POST_SERIES_CREATE: "/v1/series/create",
+    PUT_SERIES_UPDATE: "/v1/series/update",
+    DELETE_SERIES_DELETE: ({id}: { id: string | number }) => `/v1/series/${id}`,
+    GET_CREATORS: "/v1/creators",
+    GET_CREATOR_BY_ID: ({id}: { id: string | number }) => `/v1/creator/${id}`,
+    POST_CREATOR_CREATE: "/v1/creator/create",
+    PUT_CREATOR_UPDATE: "/v1/creator/update",
+    DELETE_CREATOR_DELETE: ({id}: { id: string | number }) => `/v1/creator/${id}`,
+    GET_BOOK_DETAIL_BY_ID: ({id}: { id: string | number }) => `/v1/bookDetail/${id}`,
+    POST_BOOK_DETAIL_CREATE: "/v1/bookDetail/create",
+    PUT_BOOK_DETAIL_UPDATE: "/v1/bookDetail/update",
+    DELETE_BOOK_DETAIL_DELETE: ({id}: { id: string | number }) => `/v1/bookDetail/${id}`,
+    GET_REVIEW_BY_ID: ({id}: { id: string | number }) => `/v1/review/${id}`,
+    POST_REVIEW_CREATE: "/v1/review/create",
+    PUT_REVIEW_UPDATE: "/v1/review/update",
+    DELETE_REVIEW_DELETE: ({id}: { id: string | number }) => `/v1/review/${id}`,
+    GET_RECEIPT_DETAIL_BY_ID: ({id}: { id: string | number }) => `/v1/receiptDetail/${id}`,
+    POST_RECEIPT_DETAIL_CREATE: "/v1/receiptDetail/create",
+    PUT_RECEIPT_DETAIL_UPDATE: "/v1/receiptDetail/update",
+    DELETE_RECEIPT_DETAIL_DELETE: ({id}: { id: string | number }) => `/v1/receiptDetail/${id}`,
+    MULTI_RECEIPT_DETAIL_RELATIONSHIP_GENERIC: ({id, dependent}: {
+        id: string | number;
+        dependent: string | number
+    }) => `/v1/receiptDetail/${id}/relationships/${dependent}`,
+    GET_PAYMENT_DETAIL_BY_ID: ({id}: { id: string | number }) => `/v1/paymentDetail/${id}`,
+    POST_PAYMENT_DETAIL_CREATE: "/v1/paymentDetail/create",
+    PUT_PAYMENT_DETAIL_UPDATE: "/v1/paymentDetail/update",
+    DELETE_PAYMENT_DETAIL_DELETE: ({id}: { id: string | number }) => `/v1/paymentDetail/${id}`,
+    GET_RECEIPTS: "/v1/receipts",
+    POST_RECEIPT_CREATE: "/v1/receipt/create",
+    PUT_RECEIPT_UPDATE: "/v1/receipt/update",
+    DELETE_RECEIPT_DELETE: ({id}: { id: string | number }) => `/v1/receipt/${id}`,
+    MULTI_RECEIPT_RELATIONSHIP_RECEIPT_DETAIL: ({id}: {
+        id: string | number
+    }) => `/v1/receipt/${id}/relationships/receiptDetail`,
+    MULTI_RECEIPT_RELATIONSHIP_PAYMENT_DETAIL: ({id}: {
+        id: string | number
+    }) => `/v1/receipt/${id}/relationships/paymentDetail`,
+    MULTI_RECEIPT_RELATIONSHIP_GENERIC: ({id, dependent}: {
+        id: string | number;
+        dependent: string | number
+    }) => `/v1/receipt/${id}/relationships/${dependent}`,
+} as const;
+
+
+export const API_ROUTES_TREE = {
+    property: {
+        genre: {
+            getMultiple: API_ROUTES.GET_GENRES,
+            getOne: API_ROUTES.GET_GENRE_BY_ID,
+            create: API_ROUTES.POST_GENRE_CREATE,
+            update: API_ROUTES.PUT_GENRE_UPDATE,
+            delete: API_ROUTES.DELETE_GENRE_DELETE
+        },
+        creator: {
+            getMultiple: API_ROUTES.GET_CREATORS,
+            getOne: API_ROUTES.GET_CREATOR_BY_ID,
+            create: API_ROUTES.POST_CREATOR_CREATE,
+            update: API_ROUTES.PUT_CREATOR_UPDATE,
+            delete: API_ROUTES.DELETE_CREATOR_DELETE
+        },
+        publisher: {
+            getMultiple: API_ROUTES.GET_PUBLISHERS,
+            getOne: API_ROUTES.GET_PUBLISHER_BY_ID,
+            create: API_ROUTES.POST_PUBLISHER_CREATE,
+            update: API_ROUTES.PUT_PUBLISHER_UPDATE,
+            delete: API_ROUTES.DELETE_PUBLISHER_DELETE
+        },
+        series: {
+            getMultiple: API_ROUTES.GET_SERIES,
+            getOne: API_ROUTES.GET_SERIES_BY_ID,
+            create: API_ROUTES.POST_SERIES_CREATE,
+            update: API_ROUTES.PUT_SERIES_UPDATE,
+            delete: API_ROUTES.DELETE_SERIES_DELETE
+        },
+
+    },
+    book: {
+        getMultiple: API_ROUTES.GET_BOOKS,
+        getOne: API_ROUTES.GET_BOOK_BY_ID,
+        create: API_ROUTES.POST_BOOK_CREATE,
+        update: API_ROUTES.PUT_BOOK_UPDATE,
+        delete: API_ROUTES.DELETE_BOOK_DELETE
+    }
 } as const;

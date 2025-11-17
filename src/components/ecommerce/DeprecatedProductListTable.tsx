@@ -1,10 +1,10 @@
 "use client";
 import React, {useState} from "react";
 
+import Button from "../ui/button/Button";
 import Link from "next/link";
 import Image from "next/image";
 import TableActionButtons from "@/components/custom/TableActionButtons";
-import PropertyFilterDropdown from "@/components/custom/PropertyFilterDropdown";
 
 interface Product {
     id: number;
@@ -95,7 +95,7 @@ interface Sort {
 //     );
 // };
 
-const ProductPropertyListTable: React.FC = () => {
+const DeprecatedProductListTable: React.FC = () => {
     const [products] = useState<Product[]>([
         {
             id: 1,
@@ -355,35 +355,81 @@ const ProductPropertyListTable: React.FC = () => {
     return (
         <div
             className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div
+                className="flex flex-col justify-between gap-5 border-b border-gray-200 px-5 py-4 sm:flex-row sm:items-center dark:border-gray-800">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+                        Books List
+                    </h3>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="outline">
+                        Export
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                        >
+                            <path
+                                d="M16.667 13.3333V15.4166C16.667 16.1069 16.1074 16.6666 15.417 16.6666H4.58295C3.89259 16.6666 3.33295 16.1069 3.33295 15.4166V13.3333M10.0013 13.3333L10.0013 3.33325M6.14547 9.47942L9.99951 13.331L13.8538 9.47942"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </Button>
+                    <Link
+                        href="/add-product"
+                        className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                        >
+                            <path
+                                d="M5 10.0002H15.0006M10.0002 5V15.0006"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                        Add Product
+                    </Link>
+                </div>
+            </div>
             <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
                 <div className="flex gap-3 sm:justify-between">
                     <div className="relative flex-1 sm:flex-auto">
-                        <PropertyFilterDropdown></PropertyFilterDropdown>
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <svg
+                  className="fill-current"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M3.04199 9.37336937363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z"
+                    fill=""
+                />
+              </svg>
+            </span>
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            className="shadow-sm focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-none sm:w-[300px] sm:min-w-[300px] dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                        />
                     </div>
-                    <div className="flex gap-3">
-                        <Link
-                            href="/add-product"
-                            className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                            >
-                                <path
-                                    d="M5 10.0002H15.0006M10.0002 5V15.0006"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
-                            Add Property
-                        </Link>
-                    </div>
-
                     {/*<FilterDropdown*/}
                     {/*    showFilter={showFilter}*/}
                     {/*    setShowFilter={setShowFilter}*/}
@@ -748,4 +794,4 @@ const ProductPropertyListTable: React.FC = () => {
     );
 };
 
-export default ProductPropertyListTable;
+export default DeprecatedProductListTable;
