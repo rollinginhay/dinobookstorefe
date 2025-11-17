@@ -109,5 +109,8 @@ export const API_ROUTES_TREE = {
         create: API_ROUTES.POST_BOOK_CREATE,
         update: API_ROUTES.PUT_BOOK_UPDATE,
         delete: API_ROUTES.DELETE_BOOK_DELETE
-    }
+    },
+    bookDetail: {
+        getMultiple: API_ROUTES.MULTI_BOOK_RELATIONSHIP_BOOK_DETAIL,
+    },
 } as const;
