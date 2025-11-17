@@ -21,6 +21,7 @@ function SachTrongNuoc() {
 
   const [page, setPage] = useState(0);
   const limit = 10;
+  const [allGenres, setAllGenres] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchBooks() {
@@ -28,8 +29,12 @@ function SachTrongNuoc() {
         setLoading(true);
         setError(null);
 
+        const genre = "Sách trong nước"; // hoặc m cho dynamic sau này
+
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=0&limit=10`
+          `http://localhost:8080/v1/books?e=true&page=${page}&limit=${limit}&genre=${encodeURIComponent(
+            genre
+          )}`
         );
 
         if (!res.ok) {
@@ -46,6 +51,18 @@ function SachTrongNuoc() {
         json.included?.forEach((item: any) => {
           includedMap.set(`${item.type}-${item.id}`, item);
         });
+        // 🔹 Lấy toàn bộ genre con từ included (không lấy genre cha)
+        const genres =
+          json.included
+            ?.filter((item: any) => item.type === "genre")
+            .map((g: any) => g.attributes?.name)
+            .filter(
+              (name: string) =>
+                name && !["Sách trong nước", "Sách nước ngoài"].includes(name)
+            ) || [];
+
+        // 🔹 Lưu lại vào state
+        setAllGenres(Array.from(new Set(genres)));
 
         const books =
           json.data?.map((item: any) => {
@@ -66,13 +83,15 @@ function SachTrongNuoc() {
             // 🔹 Lấy thể loại (genre)
             const genreIds =
               item.relationships?.genres?.data?.map((g: any) => g.id) || [];
+            const parentGenres = ["Sách trong nước", "Sách nước ngoài"];
+
             const genreName =
               genreIds
                 .map((id: string) => {
                   const genre = includedMap.get(`genre-${id}`);
                   return genre?.attributes?.name;
                 })
-                .filter(Boolean)
+                .filter((name: string) => name && !parentGenres.includes(name)) // ❗ chỉ lấy genre con
                 .join(", ") || "Chưa phân loại";
 
             // 🔹 Lấy giá từ bookDetail (bookCopies)
@@ -106,10 +125,7 @@ function SachTrongNuoc() {
   }, []);
 
   // 🟢 Tạo danh mục từ genreName (BE trả là chuỗi, không phải mảng)
-  const allCategories = [
-    "Tất cả",
-    ...Array.from(new Set(books.map((b) => b.genreName).filter(Boolean))),
-  ];
+  const allCategories = ["Tất cả", ...allGenres];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
@@ -277,6 +293,37 @@ function SachTrongNuoc() {
                 <option value="rating">⭐ Đánh giá cao</option>
               </select>
             </div>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <p className="text-gray-600 font-medium">
+            Tìm thấy{" "}
+            <span className="text-cyan-600 font-bold">
+              {sortedBooks.length}
+            </span>{" "}
+            sản phẩm
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                viewMode === "grid"
+                  ? "bg-purple-600 text-white border-2 border-purple-600"
+                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              🔲 Grid
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                viewMode === "list"
+                  ? "bg-pink-600 text-white border-2 border-pink-600"
+                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              ☰ List
+            </button>
           </div>
         </div>
 
