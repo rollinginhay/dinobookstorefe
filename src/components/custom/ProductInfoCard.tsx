@@ -7,7 +7,7 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Image from "next/image";
 import {Book} from "@/types/appContextTypes";
-import {formatLocalDateTime} from "@/lib/dateTimeFormatter";
+import {formatdateForInput, normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
 
 export default function ProductInfoCard({book}) {
     const {isOpen, openModal, closeModal} = useModal();
@@ -81,7 +81,7 @@ export default function ProductInfoCard({book}) {
                                     Published
                                 </p>
                                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                    {formatLocalDateTime(book.published)}
+                                    {normalizeLocalDateTime(book.published)}
                                 </p>
                             </div>
                             <div>
@@ -160,7 +160,7 @@ export default function ProductInfoCard({book}) {
                     className="relative w-full p-4 overflow-y-auto bg-white no-scrollbar rounded-3xl dark:bg-gray-900 lg:p-11">
                     <div className="px-2 pr-14">
                         <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                            Edit Address
+                            Edit BookDetail
                         </h4>
                         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
                             Update your details to keep your profile up-to-date.
@@ -170,23 +170,12 @@ export default function ProductInfoCard({book}) {
                         <div className="px-2 overflow-y-auto custom-scrollbar">
                             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                                 <div>
-                                    <Label>Country</Label>
-                                    <Input type="text" defaultValue="United States"/>
+                                    <Label>Edition</Label>
+                                    <Input type="text" defaultValue={book.edition}/>
                                 </div>
-
                                 <div>
-                                    <Label>City/State</Label>
-                                    <Input type="text" defaultValue="Arizona, United States."/>
-                                </div>
-
-                                <div>
-                                    <Label>Postal Code</Label>
-                                    <Input type="text" defaultValue="ERT 2489"/>
-                                </div>
-
-                                <div>
-                                    <Label>TAX ID</Label>
-                                    <Input type="text" defaultValue="AS4568384"/>
+                                    <Label>Published</Label>
+                                    <Input type="date" defaultValue={formatdateForInput(book.published)}/>
                                 </div>
                             </div>
                         </div>

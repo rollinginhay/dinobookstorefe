@@ -7,7 +7,7 @@ import {API_ROUTES_TREE} from "@/lib/routes";
 import Button from "@/components/ui/button/Button";
 import ProductPropertyForm from "@/components/custom/ProductPropertyForm";
 import * as sea from "node:sea";
-import {formatLocalDateTime} from "@/lib/dateTimeFormatter";
+import {normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
 
 
 const ProductPropertyListTable: React.FC = () => {
@@ -441,7 +441,7 @@ const ProductPropertyListTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {formatLocalDateTime(e.createdAt)}
+                                        {normalizeLocalDateTime(e.createdAt)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">

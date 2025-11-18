@@ -4,7 +4,7 @@ import TableActionButtons from "@/components/custom/TableActionButtons";
 import Button from "@/components/ui/button/Button";
 import {useBook} from "@/hooks/api-calls/useBook";
 import Image from "next/image";
-import {formatLocalDateTime} from "@/lib/dateTimeFormatter";
+import {normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
 
 
 const ProductListTable: React.FC = () => {
@@ -513,12 +513,12 @@ const ProductListTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {formatLocalDateTime(e.published)}
+                                        {normalizeLocalDateTime(e.published)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {formatLocalDateTime(e.createdAt)}
+                                        {normalizeLocalDateTime(e.createdAt)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
