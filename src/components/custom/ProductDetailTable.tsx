@@ -21,7 +21,7 @@ const ProductDetailTable: React.FC = () => {
 
 
     const {bookDetailQuery} = useBookDetail((useParams().id as any));
-    const bookFetch = useBookSingle(useParams().id as any).data;
+    const bookFetch = useBookSingle(useParams().id as any);
 
 
     const formRef: any = useRef(null);
@@ -44,9 +44,9 @@ const ProductDetailTable: React.FC = () => {
     if (bookDetailQuery.isLoading || bookFetch.isLoading) return <p className="p-6">Loading...</p>;
     const resBody = bookDetailQuery.data;
     const items: any[] = resBody?.data;
-    const book = bookFetch.data;
+    const book = bookFetch.data.data;
 
-    console.log(items)
+    console.log(items);
 
     return (
         <div>
@@ -111,292 +111,39 @@ const ProductDetailTable: React.FC = () => {
                     <table className="w-full">
                         <thead>
                         <tr className="border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                            <th
-                                // onClick={() => sortBy("name")}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        No.
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "name" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "name" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                ISBN
                             </th>
-
-                            <th
-                                // onClick={() => sortBy("name")}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Title
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "name" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "name" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Format
                             </th>
-                            <th
-                                // onClick={() => sortBy("category")}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Published
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "category" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "category" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Length
                             </th>
-                            <th
-                                // onClick={() => sortBy("brand")}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Created At
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "brand" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "brand" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Dimensions
                             </th>
-                            <th
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Variations
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "price" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "price" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Price
                             </th>
-
-
-                            <th
-                                onClick={() => setEnabled(!enabled)}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Status
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "price" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "price" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Stock
+                            </th>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Created at
+                            </th>
+                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Status
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                                 Action
                             </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                <div className="relative">
-                                    <span className="sr-only">Action</span>
-                                </div>
-                            </th>
+
+                            {/*<th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">*/}
+                            {/*    <div className="relative">*/}
+                            {/*        <span className="sr-only">Action</span>*/}
+                            {/*    </div>*/}
+                            {/*</th>*/}
                         </tr>
                         </thead>
                         <tbody className="divide-x divide-y divide-gray-200 dark:divide-gray-800">
@@ -407,21 +154,33 @@ const ProductDetailTable: React.FC = () => {
                             >
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {i + 1}
-                                    </p>
+                                        {e.isbn}</p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {e.bookFormat}</p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {e.printLength}</p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {e.dimensions}</p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {e.price}</p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {e.stock}</p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
                                         {formatLocalDateTime(e.createdAt)}
                                     </p>
                                 </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-700 dark:text-gray-400 pl-4">
-                                        {e.bookCopies.data.length}
-                                    </p>
-                                </td>
-
-
                                 <td className="px-5 py-4 whitespace-nowrap">
                   <span
                       className={`text-xs rounded-full px-2 py-0.5 font-medium ${

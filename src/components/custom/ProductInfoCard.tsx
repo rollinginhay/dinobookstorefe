@@ -94,10 +94,13 @@ export default function ProductInfoCard({book}) {
                             </div>
                         </div>
                     </div>
-
-                    <button
+                    <Button
+                        className="bg-emerald-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
+                        // onClick={() => {
+                        //     setEditingItem(null);
+                        //     setShowForm(true);
+                        // }}
                         onClick={openModal}
-                        className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
                     >
                         <svg
                             className="fill-current"
@@ -115,7 +118,8 @@ export default function ProductInfoCard({book}) {
                             />
                         </svg>
                         Edit
-                    </button>
+                    </Button>
+
                 </div>
                 <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
                     {/*<button*/}
