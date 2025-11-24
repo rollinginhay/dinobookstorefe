@@ -1,8 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import BookCard, { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
+import FilterSidebar from "@/components/FilterSidebar";
 
 type SortOption =
   | "default"
@@ -14,12 +16,16 @@ type SortOption =
 
 type ViewMode = "grid" | "list";
 
-export default function MangaComic() {
+function MangaComic() {
+  // =========================
+  // STATE
+  // =========================
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [allGenres, setAllGenres] = useState<string[]>([]);
+
+  // FILTER STATE
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [sortOption, setSortOption] = useState<SortOption>("default");
@@ -27,8 +33,20 @@ export default function MangaComic() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
+  const [filterValues, setFilterValues] = useState<any>({
+    priceRange: [],
+    publisher: [],
+    language: [],
+    genres: [],
+  });
+
+  const handleFilterChange = (filters: any) => {
+    setFilterValues(filters);
+    setCurrentPage(1);
+  };
+
   // =========================
-  // LOAD DATA FROM BACKEND
+  // FETCH DATA
   // =========================
   useEffect(() => {
     async function fetchBooks() {
@@ -36,11 +54,11 @@ export default function MangaComic() {
         setLoading(true);
         setError(null);
 
-        const genreParent = "Manga / Comic";
+        const parentGenre = "Manga / Comic";
 
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=0&limit=50&genre=${encodeURIComponent(
-            genreParent
+          `http://localhost:8080/v1/books?e=true&page=0&limit=10&genre=${encodeURIComponent(
+            parentGenre
           )}`
         );
 
@@ -50,33 +68,38 @@ export default function MangaComic() {
         }
 
         const json = await res.json();
-        const includedMap = new Map();
 
-        json.included?.forEach((item: any) =>
-          includedMap.set(`${item.type}-${item.id}`, item)
+        const includedMap = new Map();
+        json.included?.forEach((i: any) =>
+          includedMap.set(`${i.type}-${i.id}`, i)
         );
 
-        // 🔹 Lấy genre con (Shounen / Shoujo)
-        const genres =
-          json.included
-            ?.filter((i: any) => i.type === "genre")
-            .map((g: any) => g.attributes?.name)
-            .filter(
-              (name: string) =>
-                name &&
-                ![
-                  "Sách trong nước",
-                  "Sách nước ngoài",
-                  "Manga / Comic",
-                ].includes(name)
-            ) || [];
+        // Lấy genre CON theo từng cuốn sách — giống thiếu nhi
+        const genreSet = new Set<string>();
 
-        setAllGenres(Array.from(new Set(genres)));
+        json.data.forEach((item: any) => {
+          const genreIds =
+            item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
-        // =========================
-        // PARSE JSON:API
-        // =========================
-        const parsed =
+          genreIds.forEach((id: string) => {
+            const g = includedMap.get(`genre-${id}`);
+            const name = g?.attributes?.name;
+
+            if (
+              name &&
+              name !== "Sách thiếu nhi" &&
+              name !== "Sách trong nước" &&
+              name !== "Sách nước ngoài" &&
+              name !== "Manga / Comic"
+            ) {
+              genreSet.add(name);
+            }
+          });
+        });
+
+        setAllGenres(Array.from(genreSet));
+
+        const parsed: Book[] =
           json.data?.map((item: any) => {
             // --- Tác giả ---
             const creatorIds =
@@ -91,18 +114,27 @@ export default function MangaComic() {
                 .filter(Boolean)
                 .join(", ") || "Không rõ tác giả";
 
-            // --- Genre con ---
+            // --- Genres (array) ---
             const genreIds =
               item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
-            const genreName =
+            const genreList =
               genreIds
                 .map((id: string) => {
                   const g = includedMap.get(`genre-${id}`);
                   return g?.attributes?.name;
                 })
-                .filter((n: string) => n && n !== genreParent)
-                .join(", ") || genreParent;
+                .filter(Boolean) || [];
+
+            const genreChildren = genreList.filter(
+              (g: string) =>
+                g !== "Sách thiếu nhi" &&
+                g !== "Sách trong nước" &&
+                g !== "Sách nước ngoài" &&
+                g !== "Manga / Comic"
+            );
+
+            const genres = genreChildren.length > 0 ? genreChildren : ["Khác"];
 
             // --- Price ---
             const copyIds =
@@ -111,20 +143,27 @@ export default function MangaComic() {
             const detail =
               includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
 
+            const publisherId = item.relationships?.publisher?.data?.id;
+            const publisherName =
+              (publisherId &&
+                includedMap.get(`publisher-${publisherId}`)?.attributes
+                  ?.name) ||
+              "Không rõ";
+
             return {
               id: item.id,
-              title: item.attributes?.title || "Không tên",
+              title: item.attributes?.title,
               author: authors,
-              genreName,
+              genres,
               price: detail.price || 0,
               originalPrice: detail.originalPrice || detail.price || 0,
               discount: detail.discount || 0,
-              sold: item.attributes?.sold || 0,
               rating: item.attributes?.rating || 0,
+              sold: item.attributes?.sold || 0,
               description: item.attributes?.description || "",
-              year: item.attributes?.publishedYear || 0,
-              image: detail?.image || "/images/default-book.jpg",
-            };
+              image: item.attributes?.imageUrl,
+              publisher: publisherName,
+            } as Book;
           }) || [];
 
         setBooks(parsed);
@@ -145,11 +184,44 @@ export default function MangaComic() {
   const allCategories = ["Tất cả", ...allGenres];
 
   // =========================
-  // FILTER
+  // PUBLISHER COUNTS
+  // =========================
+  const publisherCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    books.forEach((b) => {
+      const pub = b.publisher || "Không rõ";
+      map[pub] = (map[pub] || 0) + 1;
+    });
+
+    return map;
+  }, [books]);
+
+  // =========================
+  // FILTERING
   // =========================
   const filteredBooks = useMemo(() => {
     let filtered = books;
 
+    // ⭐ LỌC THEO GIÁ
+    if (filterValues.priceRange.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.priceRange.some((range: string) => {
+          if (range === "500000+") return book.price >= 500000;
+          const [min, max] = range.split("-").map(Number);
+          return book.price >= min && book.price <= max;
+        })
+      );
+    }
+
+    // ⭐ LỌC THEO NXB
+    if (filterValues.publisher.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.publisher.includes(book.publisher)
+      );
+    }
+
+    // ⭐ SEARCH
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -160,19 +232,23 @@ export default function MangaComic() {
       );
     }
 
-    if (selectedCategory !== "Tất cả") {
-      filtered = filtered.filter(
-        (b) =>
-          b.genreName &&
-          b.genreName.toLowerCase() === selectedCategory.toLowerCase()
+    // ⭐ LỌC THEO GENRE (SIDEBAR)
+    if (filterValues.genres && filterValues.genres.length > 0) {
+      filtered = filtered.filter((b) =>
+        b.genres?.some((g) => filterValues.genres.includes(g))
       );
     }
 
+    // ⭐ LỌC THEO CATEGORY (dropdown)
+    if (selectedCategory !== "Tất cả") {
+      filtered = filtered.filter((b) => b.genres?.includes(selectedCategory));
+    }
+
     return filtered;
-  }, [books, searchQuery, selectedCategory]);
+  }, [books, searchQuery, selectedCategory, filterValues]);
 
   // =========================
-  // SORT
+  // SORTING
   // =========================
   const sortedBooks = useMemo(() => {
     const sorted = [...filteredBooks];
@@ -197,10 +273,36 @@ export default function MangaComic() {
   // PAGINATION
   // =========================
   const totalPages = Math.ceil(sortedBooks.length / itemsPerPage);
+
   const paginatedBooks = sortedBooks.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // =========================
+  // PRICE COUNTS (SIDEBAR)
+  // =========================
+  const priceCounts = useMemo(() => {
+    const count = {
+      "0-50000": 0,
+      "50000-100000": 0,
+      "100000-200000": 0,
+      "200000-500000": 0,
+      "500000+": 0,
+    };
+
+    books.forEach((b) => {
+      const p = b.price;
+
+      if (p < 50000) count["0-50000"]++;
+      else if (p < 100000) count["50000-100000"]++;
+      else if (p < 200000) count["100000-200000"]++;
+      else if (p < 500000) count["200000-500000"]++;
+      else count["500000+"]++;
+    });
+
+    return count;
+  }, [books]);
 
   // =========================
   // LOADING / ERROR
@@ -215,7 +317,7 @@ export default function MangaComic() {
   if (error)
     return (
       <div className="h-96 flex items-center justify-center text-red-500 text-lg">
-        ⚠️ Lỗi tải dữ liệu: {error}
+        ⚠️ {error}
       </div>
     );
 
@@ -228,9 +330,9 @@ export default function MangaComic() {
         items={[{ label: "Trang chủ", href: "/" }, { label: "Manga/Comic" }]}
       />
 
-      {/* HEADER giữ nguyên */}
+      {/* HEADER – GIỮ MÀU CŨ CỦA MANGA/COMIC */}
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4">
           <h1 className="text-4xl font-bold mb-3">🎨 Manga/Comic</h1>
           <p className="text-lg text-pink-100">
             Khám phá những bộ truyện tranh và comic hay nhất
@@ -238,7 +340,7 @@ export default function MangaComic() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* FILTER BAR */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -269,22 +371,6 @@ export default function MangaComic() {
               </svg>
             </div>
 
-            {/* CATEGORY */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 text-sm font-semibold"
-            >
-              {allCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  📚 {cat}
-                </option>
-              ))}
-            </select>
-
             {/* SORT */}
             <select
               value={sortOption}
@@ -304,6 +390,7 @@ export default function MangaComic() {
           </div>
         </div>
 
+        {/* TOP BAR */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
@@ -336,118 +423,133 @@ export default function MangaComic() {
           </div>
         </div>
 
-        {/* EMPTY */}
-        {paginatedBooks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              Không tìm thấy sách
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchQuery
-                ? `Không có kết quả cho "${searchQuery}"`
-                : "Không có sách trong danh mục này"}
-            </p>
+        {/* SIDEBAR + LIST */}
+        <div className="flex gap-8">
+          {/* SIDEBAR */}
+          <div className="hidden lg:block w-64">
+            <FilterSidebar
+              onFilterChange={handleFilterChange}
+              priceCounts={priceCounts}
+              publisherCounts={publisherCounts}
+              books={books}
+            />
           </div>
-        ) : (
-          <>
-            {/* GRID */}
-            {viewMode === "grid" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {paginatedBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
+
+          {/* MAIN LIST AREA */}
+          <div className="flex-1">
+            {paginatedBooks.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Không tìm thấy sách
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {searchQuery
+                    ? `Không có kết quả cho "${searchQuery}"`
+                    : "Không có sách trong danh mục này"}
+                </p>
               </div>
-            )}
-
-            {/* LIST */}
-            {viewMode === "list" && (
-              <div className="space-y-4">
-                {paginatedBooks.map((book) => (
-                  <div
-                    key={book.id}
-                    className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
-                  >
-                    <div className="aspect-[3/4] w-32 rounded-lg overflow-hidden relative flex-shrink-0">
-                      <img
-                        src={book.image}
-                        alt={book.title}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    </div>
-
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {book.title}
-                      </h3>
-                      <p className="text-gray-600 mb-2">
-                        Tác giả:{" "}
-                        <span className="font-medium">{book.author}</span>
-                      </p>
-
-                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">
-                        {book.description}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-red-600">
-                          {book.price.toLocaleString("vi-VN")} ₫
-                        </span>
-
-                        <a
-                          href={`/san-pham/${book.id}`}
-                          className="bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-semibold"
-                        >
-                          Xem chi tiết
-                        </a>
-                      </div>
-                    </div>
+            ) : (
+              <>
+                {viewMode === "grid" && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+                    {paginatedBooks.map((book) => (
+                      <BookCard key={book.id} book={book} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {viewMode === "list" && (
+                  <div className="space-y-4">
+                    {paginatedBooks.map((book) => (
+                      <div
+                        key={book.id}
+                        className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
+                      >
+                        <div className="aspect-[3/4] w-32 rounded-lg overflow-hidden relative flex-shrink-0">
+                          <img
+                            src={book.image}
+                            alt={book.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {book.title}
+                          </h3>
+                          <p className="text-gray-600 mb-2">
+                            Tác giả:{" "}
+                            <span className="font-medium">{book.author}</span>
+                          </p>
+
+                          <p className="text-sm text-gray-500 mb-4 line-clamp-2">
+                            {book.description}
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-red-600">
+                              {book.price.toLocaleString("vi-VN")} ₫
+                            </span>
+
+                            <a
+                              href={`/san-pham/${book.id}`}
+                              className="bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-semibold"
+                            >
+                              Xem chi tiết
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
+          </div>
+        </div>
 
-            {/* PAGINATION */}
-            {totalPages > 1 && (
-              <div className="mt-16 flex justify-center">
-                <nav className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    ← Trước
-                  </button>
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="mt-16 flex justify-center">
+            <nav className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                ← Trước
+              </button>
 
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                        currentPage === i + 1
-                          ? "bg-pink-600 text-white border-pink-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      } border-2`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                    currentPage === i + 1
+                      ? "bg-pink-600 text-white border-pink-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  } border-2`}
+                >
+                  {i + 1}
+                </button>
+              ))}
 
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Sau →
-                  </button>
-                </nav>
-              </div>
-            )}
-          </>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sau →
+              </button>
+            </nav>
+          </div>
         )}
       </div>
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(MangaComic), { ssr: false });

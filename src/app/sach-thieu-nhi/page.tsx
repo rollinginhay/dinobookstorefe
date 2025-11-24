@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState, useEffect, useMemo } from "react";
 import BookCard, { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
+import FilterSidebar from "@/components/FilterSidebar";
 
 type SortOption =
   | "default"
@@ -27,7 +28,7 @@ function SachThieuNhi() {
   const limit = 50;
 
   // =========================
-  // FETCH DATA FROM BACKEND
+  // FETCH DATA
   // =========================
   useEffect(() => {
     async function fetchBooks() {
@@ -35,12 +36,10 @@ function SachThieuNhi() {
         setLoading(true);
         setError(null);
 
-        const parentGenre = "Thiếu nhi";
+        const parentGenre = "Sách thiếu nhi";
 
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=${page}&limit=${limit}&genre=${encodeURIComponent(
-            parentGenre
-          )}`
+          `http://localhost:8080/v1/books?e=true&page=0&limit=10&genre=S%C3%A1ch%20thi%E1%BA%BFu%20nhi`
         );
 
         if (!res.ok) {
@@ -50,30 +49,37 @@ function SachThieuNhi() {
 
         const json = await res.json();
 
-        // Map included để truy cập nhanh
         const includedMap = new Map();
         json.included?.forEach((i: any) =>
           includedMap.set(`${i.type}-${i.id}`, i)
         );
 
-        // =========== GENRE CON ===========
-        const genres =
-          json.included
-            ?.filter((i: any) => i.type === "genre")
-            .map((g: any) => g.attributes?.name)
-            .filter(
-              (name: string) =>
-                name &&
-                name !== parentGenre &&
-                !["Sách trong nước", "Sách nước ngoài"].includes(name)
-            ) || [];
+        // Lấy genre CON theo từng cuốn sách — CHUẨN NHẤT
+        const genreSet = new Set<string>();
 
-        setAllGenres(Array.from(new Set(genres)));
+        json.data.forEach((item: any) => {
+          const genreIds =
+            item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
-        // =========== PARSE BOOK ===========
+          genreIds.forEach((id: string) => {
+            const g = includedMap.get(`genre-${id}`);
+            const name = g?.attributes?.name;
+
+            if (
+              name &&
+              name !== "Sách thiếu nhi" &&
+              name !== "Sách trong nước" &&
+              name !== "Sách nước ngoài"
+            ) {
+              genreSet.add(name);
+            }
+          });
+        });
+
+        setAllGenres(Array.from(genreSet));
+
         const parsed =
           json.data?.map((item: any) => {
-            // Tác giả
             const creatorIds =
               item.relationships?.creators?.data?.map((c: any) => c.id) || [];
 
@@ -86,38 +92,57 @@ function SachThieuNhi() {
                 .filter(Boolean)
                 .join(", ") || "Không rõ tác giả";
 
-            // Genre con
             const genreIds =
               item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
-            const genreName =
+            // Lấy danh sách tên genre của sách
+            const genreList =
               genreIds
                 .map((id: string) => {
                   const g = includedMap.get(`genre-${id}`);
                   return g?.attributes?.name;
                 })
-                .filter((n: string) => n && n !== parentGenre)
-                .join(", ") || parentGenre;
+                .filter(Boolean) || [];
 
-            // Giá từ bookDetail
+            // Genre con = tất cả genre trừ genre cha
+            const genreChildren = genreList.filter(
+              (g: string) =>
+                g !== "Sách thiếu nhi" &&
+                g !== "Sách trong nước" &&
+                g !== "Sách nước ngoài"
+            );
+
+            // Nếu có genre con → lấy nó, không thì gán "Khác"
+            const genres = genreChildren.length > 0 ? genreChildren : ["Khác"];
+
+            console.log("Name", genres);
+            console.log("Child", genreChildren);
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 
             const detail =
               includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
+            const publisherId = item.relationships?.publisher?.data?.id;
+
+            const publisherName =
+              (publisherId &&
+                includedMap.get(`publisher-${publisherId}`)?.attributes
+                  ?.name) ||
+              "Không rõ";
 
             return {
               id: item.id,
               title: item.attributes?.title,
               author: authors,
-              genreName,
+              genres,
               price: detail.price || 0,
               originalPrice: detail.originalPrice || detail.price || 0,
               discount: detail.discount || 0,
               rating: item.attributes?.rating || 0,
               sold: item.attributes?.sold || 0,
               description: item.attributes?.description || "",
-              image: detail?.image || "/images/default-book.jpg",
+              image: item.attributes?.imageUrl,
+              publisher: publisherName,
             };
           }) || [];
 
@@ -134,13 +159,10 @@ function SachThieuNhi() {
   }, []);
 
   // =========================
-  // CATEGORY LIST
+  // CATEGORY + FILTER STATE
   // =========================
   const allCategories = ["Tất cả", ...allGenres];
 
-  // =========================
-  // FILTER UI STATE
-  // =========================
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [sortOption, setSortOption] = useState<SortOption>("default");
@@ -148,12 +170,53 @@ function SachThieuNhi() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
+  const [filterValues, setFilterValues] = useState<any>({
+    priceRange: [],
+    publisher: [],
+    language: [],
+  });
+
+  const handleFilterChange = (filters: any) => {
+    setFilterValues(filters);
+    setCurrentPage(1);
+  };
+  // ⭐⭐⭐ TÍNH SỐ LƯỢNG NXB ⭐⭐⭐
+  const publisherCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    books.forEach((b) => {
+      const pub = b.publisher || "Không rõ";
+      map[pub] = (map[pub] || 0) + 1;
+    });
+
+    return map;
+  }, [books]);
+
   // =========================
   // FILTERING
   // =========================
   const filteredBooks = useMemo(() => {
     let filtered = books;
 
+    // ⭐ LỌC THEO GIÁ
+    if (filterValues.priceRange.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.priceRange.some((range: string) => {
+          if (range === "500000+") return book.price >= 500000;
+          const [min, max] = range.split("-").map(Number);
+          return book.price >= min && book.price <= max;
+        })
+      );
+    }
+
+    // ⭐ LỌC THEO NHÀ XUẤT BẢN
+    if (filterValues.publisher.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.publisher.includes(book.publisher)
+      );
+    }
+
+    // ⭐ LỌC SEARCH
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -163,17 +226,20 @@ function SachThieuNhi() {
           (b.description || "").toLowerCase().includes(q)
       );
     }
-
-    if (selectedCategory !== "Tất cả") {
-      filtered = filtered.filter(
-        (b) =>
-          b.genreName &&
-          b.genreName.toLowerCase() === selectedCategory.toLowerCase()
+    // ⭐ LỌC THEO GENRE CON (SIDEBAR)
+    if (filterValues.genres && filterValues.genres.length > 0) {
+      filtered = filtered.filter((b) =>
+        b.genres?.some((g) => filterValues.genres.includes(g))
       );
     }
 
+    // ⭐ LỌC THEO CATEGORY
+    if (selectedCategory !== "Tất cả") {
+      filtered = filtered.filter((b) => b.genres?.includes(selectedCategory));
+    }
+
     return filtered;
-  }, [books, searchQuery, selectedCategory]);
+  }, [books, searchQuery, selectedCategory, filterValues]);
 
   // =========================
   // SORTING
@@ -201,15 +267,39 @@ function SachThieuNhi() {
   // PAGINATION
   // =========================
   const totalPages = Math.ceil(sortedBooks.length / itemsPerPage);
+
   const paginatedBooks = sortedBooks.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const handleFilterChange = () => setCurrentPage(1);
+  // ======================================================
+  // ⭐⭐⭐ THÊM PHẦN PRICE COUNTS (ĐÚNG CHỖ NÀY) ⭐⭐⭐
+  // ======================================================
+  const priceCounts = useMemo(() => {
+    const count = {
+      "0-50000": 0,
+      "50000-100000": 0,
+      "100000-200000": 0,
+      "200000-500000": 0,
+      "500000+": 0,
+    };
+
+    books.forEach((b) => {
+      const p = b.price;
+
+      if (p < 50000) count["0-50000"]++;
+      else if (p < 100000) count["50000-100000"]++;
+      else if (p < 200000) count["100000-200000"]++;
+      else if (p < 500000) count["200000-500000"]++;
+      else count["500000+"]++;
+    });
+
+    return count;
+  }, [books]);
 
   // =========================
-  // LOADING / ERROR
+  // UI
   // =========================
   if (loading)
     return (
@@ -225,9 +315,6 @@ function SachThieuNhi() {
       </div>
     );
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
@@ -256,11 +343,10 @@ function SachThieuNhi() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  handleFilterChange();
+                  setCurrentPage(1);
                 }}
                 className="w-full pl-12 pr-4 py-3 border-2 border-cyan-200 rounded-xl focus:ring-2 focus:ring-cyan-500"
               />
-
               <svg
                 className="absolute left-4 top-3.5 w-5 h-5 text-gray-400"
                 fill="none"
@@ -276,28 +362,12 @@ function SachThieuNhi() {
               </svg>
             </div>
 
-            {/* CATEGORY */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                handleFilterChange();
-              }}
-              className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 text-sm font-semibold"
-            >
-              {allCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  📚 {cat}
-                </option>
-              ))}
-            </select>
-
             {/* SORT */}
             <select
               value={sortOption}
               onChange={(e) => {
                 setSortOption(e.target.value as SortOption);
-                handleFilterChange();
+                setCurrentPage(1);
               }}
               className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 text-sm font-semibold"
             >
@@ -310,8 +380,6 @@ function SachThieuNhi() {
             </select>
           </div>
         </div>
-
-        {/* TOP BAR */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
@@ -320,7 +388,6 @@ function SachThieuNhi() {
             </span>{" "}
             sản phẩm
           </p>
-
           <div className="flex gap-3">
             <button
               onClick={() => setViewMode("grid")}
@@ -332,12 +399,11 @@ function SachThieuNhi() {
             >
               🔲 Grid
             </button>
-
             <button
               onClick={() => setViewMode("list")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === "list"
-                  ? "bg-cyan-600 text-white border-2 border-cyan-600"
+                  ? "bg-blue-600 text-white border-2 border-cyan-600"
                   : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
               }`}
             >
@@ -346,122 +412,136 @@ function SachThieuNhi() {
           </div>
         </div>
 
-        {/* EMPTY STATE */}
-        {paginatedBooks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              Không tìm thấy sách
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchQuery
-                ? `Không có kết quả cho "${searchQuery}"`
-                : "Không có sách trong danh mục này"}
-            </p>
+        {/* ====================== */}
+        {/*   SIDEBAR + GRID LIST   */}
+        {/* ====================== */}
+        <div className="flex gap-8">
+          {/* SIDEBAR (luôn hiện) */}
+          <div className="hidden lg:block w-64">
+            <FilterSidebar
+              onFilterChange={handleFilterChange}
+              priceCounts={priceCounts}
+              publisherCounts={publisherCounts} // ⭐ THÊM
+              books={books} // ⭐ THÊM
+            />
           </div>
-        ) : (
-          <>
-            {/* GRID */}
-            {viewMode === "grid" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {paginatedBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
+
+          {/* MAIN LIST AREA */}
+          <div className="flex-1">
+            {paginatedBooks.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Không tìm thấy sách
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {searchQuery
+                    ? `Không có kết quả cho "${searchQuery}"`
+                    : "Không có sách trong danh mục này"}
+                </p>
               </div>
-            )}
-
-            {/* LIST */}
-            {viewMode === "list" && (
-              <div className="space-y-4">
-                {paginatedBooks.map((book) => (
-                  <div
-                    key={book.id}
-                    className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
-                  >
-                    <div className="aspect-[3/4] w-32 bg-gradient-to-br from-cyan-50 to-blue-100 rounded-lg overflow-hidden relative flex-shrink-0">
-                      <img
-                        src={book.image}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        alt={book.title}
-                      />
-                    </div>
-
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {book.title}
-                      </h3>
-
-                      <p className="text-gray-600 mb-2">
-                        Tác giả:{" "}
-                        <span className="font-medium">{book.author}</span>
-                      </p>
-
-                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">
-                        {book.description}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-red-600">
-                          {book.price.toLocaleString("vi-VN")} ₫
-                        </span>
-
-                        <a
-                          href={`/san-pham/${book.id}`}
-                          className="bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-colors font-semibold"
-                        >
-                          Xem chi tiết
-                        </a>
-                      </div>
-                    </div>
+            ) : (
+              <>
+                {viewMode === "grid" && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+                    {paginatedBooks.map((book) => (
+                      <BookCard key={book.id} book={book} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {viewMode === "list" && (
+                  <div className="space-y-4">
+                    {paginatedBooks.map((book) => (
+                      <div
+                        key={book.id}
+                        className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
+                      >
+                        <div className="aspect-[3/4] w-32 bg-gradient-to-br from-cyan-50 to-blue-100 rounded-lg overflow-hidden relative flex-shrink-0">
+                          <img
+                            src={book.image}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            alt={book.title}
+                          />
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {book.title}
+                          </h3>
+
+                          <p className="text-gray-600 mb-2">
+                            Tác giả:{" "}
+                            <span className="font-medium">{book.author}</span>
+                          </p>
+
+                          <p className="text-sm text-gray-500 mb-4 line-clamp-2">
+                            {book.description}
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-red-600">
+                              {book.price.toLocaleString("vi-VN")} ₫
+                            </span>
+
+                            <a
+                              href={`/san-pham/${book.id}`}
+                              className="bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-colors font-semibold"
+                            >
+                              Xem chi tiết
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
+          </div>
+        </div>
 
-            {/* PAGINATION */}
-            {totalPages > 1 && (
-              <div className="mt-16 flex justify-center">
-                <nav className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    ← Trước
-                  </button>
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="mt-16 flex justify-center">
+            <nav className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                ← Trước
+              </button>
 
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                        currentPage === i + 1
-                          ? "bg-cyan-600 text-white border-cyan-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      } border-2`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                    currentPage === i + 1
+                      ? "bg-cyan-600 text-white border-cyan-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  } border-2`}
+                >
+                  {i + 1}
+                </button>
+              ))}
 
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Sau →
-                  </button>
-                </nav>
-              </div>
-            )}
-          </>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sau →
+              </button>
+            </nav>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// Disable SSR
 export default dynamic(() => Promise.resolve(SachThieuNhi), { ssr: false });

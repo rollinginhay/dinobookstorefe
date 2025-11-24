@@ -7,7 +7,7 @@ import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { VoucherProvider } from "@/contexts/VoucherContext";
 import FloatingWidgets from "@/components/FloatingWidgets";
 import Footer from "@/components/Footer";
-import AIChatbox from "@/components/AIChatbox";
+// import AIChatbox from "@/components/AIChatbox";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +40,7 @@ export default function RootLayout({
               <Navigation />
               {children}
               <FloatingWidgets />
-              <AIChatbox />
+              {/* <AIChatbox /> */}
               <Footer />
             </VoucherProvider>
           </FavoriteProvider>

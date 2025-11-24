@@ -23,6 +23,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
     "description" | "details" | "reviews"
   >("description");
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     async function fetchBookAndRelated() {
       try {
@@ -34,14 +35,15 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         );
         if (!res.ok) throw new Error("Không thể tải dữ liệu sách");
         const json = await res.json();
-        console.log("json", json);
+
         const includedMap = new Map();
         json.included?.forEach((item: any) => {
           includedMap.set(`${item.type}-${item.id}`, item);
         });
 
         const item = json.data;
-        console.log("item", item);
+
+        // Tác giả
         const creatorIds =
           item.relationships?.creators?.data?.map((c: any) => c.id) || [];
         const authors =
@@ -52,9 +54,9 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
             .filter(Boolean)
             .join(", ") || "Không rõ tác giả";
 
+        // Thể loại
         const genreIds =
           item.relationships?.genres?.data?.map((g: any) => g.id) || [];
-        console.log("genreIds", genreIds);
         const genreName =
           genreIds
             .map(
@@ -62,23 +64,29 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
             )
             .filter(Boolean)
             .join(", ") || "Chưa phân loại";
+
+        // NXB
         const publisherId = item.relationships?.publisher?.data?.id || null;
-        console.log("publisherId", publisherId);
         const publisherName = publisherId
           ? includedMap.get(`publisher-${publisherId}`)?.attributes?.name
           : "Không rõ NXB";
-        console.log("publisherName", publisherName);
+
+        // Năm XB
         const publishedDate = item.attributes.published;
         const year = publishedDate
           ? new Date(publishedDate).getFullYear()
           : "Không rõ năm xuất bản";
+
+        // Ngôn ngữ
         const language = item.attributes.language || "Không rõ ngôn ngữ";
-        console.log("language", language);
+
+        // Giá từ bookDetail
         const copyIds =
           item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
         const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-        console.log(firstCopy, "firstCopy");
         const price = firstCopy?.attributes?.price || 0;
+        const pages = firstCopy?.attributes?.pages || "Không rõ";
+
         const bookData: Book = {
           id: Number(item.id),
           title: item.attributes?.title,
@@ -87,14 +95,14 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
           genreName: genreName,
           rating: item.attributes?.rating || 4.5,
           description: item.attributes?.description || "",
-          image: item.attributes?.image || "/default-book.jpg",
+          image: item.attributes?.imageUrl || "/default-book.jpg",
           sold: item.attributes?.sold || 0,
           publisher: publisherName,
           year: year,
-          pages: item.attributes?.pages,
+          pages: pages,
           language: language,
         };
-        console.log(json.data.attributes, "json");
+
         setBook(bookData);
 
         // --- 🔹 Lấy danh sách sách liên quan theo thể loại ---
@@ -114,7 +122,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
             relatedJson.data
               ?.filter((b: any) => b.id !== item.id)
               .map((b: any) => {
-                // Lấy tác giả
+                // Tác giả
                 const relatedCreatorIds =
                   b.relationships?.creators?.data?.map((c: any) => c.id) || [];
                 const relatedAuthors =
@@ -127,7 +135,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                     .filter(Boolean)
                     .join(", ") || "—";
 
-                // Lấy giá từ bookCopies
+                // Giá từ bookDetail
                 const copyIds =
                   b.relationships?.bookCopies?.data?.map((c: any) => c.id) ||
                   [];
@@ -180,6 +188,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
       </div>
     );
   }
+
   const discount = 15;
   const originalPrice = Math.round(book.price * (1 + discount / 100));
   const isFav = isFavorite(book.id);
@@ -209,7 +218,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         items={[
           { label: "Trang chủ", href: "/" },
           { label: "Sách", href: "/sach" },
-          { label: book.category, href: `/the-loai/${book.category}` },
+          { label: book.genreName, href: `/the-loai/${book.genreName}` },
           { label: book.title },
         ]}
       />
@@ -229,21 +238,6 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                 <div className="absolute top-4 left-4 bg-red-500 text-white text-xl px-4 py-2 rounded-full font-bold">
                   -{discount}%
                 </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                {[0, 1, 2, 3].map((idx) => (
-                  <div
-                    key={idx}
-                    className="aspect-square rounded-lg cursor-pointer hover:ring-2 ring-blue-500 overflow-hidden"
-                  >
-                    <img
-                      src={book.image}
-                      alt={book.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -311,6 +305,8 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
+
+              {/* Thông tin nhanh */}
               <div className="grid grid-cols-2 gap-4 border-b pb-4">
                 <div className="flex items-center gap-2">
                   <svg
@@ -387,6 +383,60 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                 </div>
               </div>
 
+              {/* Bộ chọn số lượng */}
+              <div className="flex items-center gap-4">
+                <span className="text-gray-700 font-medium">Số lượng:</span>
+                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 12H4"
+                      />
+                    </svg>
+                  </button>
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={(e) =>
+                      handleQuantityChange(parseInt(e.target.value) || 1)
+                    }
+                    className="w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0"
+                    min={1}
+                    max={10}
+                  />
+                  <button
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <span className="text-gray-500 text-sm">(Còn 50 sản phẩm)</span>
+              </div>
+
               {/* Các nút hành động */}
               <div className="flex gap-4">
                 <button
@@ -426,10 +476,288 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                   </svg>
                 </button>
               </div>
+
+              {/* Ưu đãi đặc biệt */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-800 mb-3">
+                  Ưu đãi đặc biệt:
+                </h4>
+                <ul className="space-y-2 text-sm text-green-700">
+                  <li className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Miễn phí vận chuyển cho đơn hàng trên 299.000₫
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Đổi trả miễn phí trong 30 ngày
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Thanh toán linh hoạt, đảm bảo an toàn
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* TABS */}
+          <div className="border-t">
+            {/* Tab Navigation */}
+            <div className="flex border-b">
+              {[
+                { id: "description", label: "Mô tả sản phẩm" },
+                { id: "details", label: "Thông tin chi tiết" },
+                { id: "reviews", label: "Đánh giá (123)" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-8 py-4 font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-8">
+              {activeTab === "description" && (
+                <div className="prose max-w-none">
+                  <p className="text-gray-700 text-lg leading-relaxed mb-6">
+                    {book.description}
+                  </p>
+
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      Giới thiệu về cuốn sách
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">
+                      Đây là một cuốn sách đặc biệt với nội dung phong phú và
+                      giá trị văn học cao. Cuốn sách mang đến cho độc giả những
+                      trải nghiệm độc đáo và ý nghĩa sâu sắc.
+                    </p>
+                    <p className="text-gray-700 leading-relaxed">
+                      Tác giả xây dựng câu chuyện hấp dẫn, đầy tính nhân văn và
+                      cảm xúc.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "details" && (
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Tên sách:</span>
+                      <span className="font-medium">{book.title}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Tác giả:</span>
+                      <span className="font-medium">{book.author}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Nhà xuất bản:</span>
+                      <span className="font-medium">{book.publisher}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Năm xuất bản:</span>
+                      <span className="font-medium">{book.year}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Số trang:</span>
+                      <span className="font-medium">{book.pages}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Ngôn ngữ:</span>
+                      <span className="font-medium">{book.language}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Thể loại:</span>
+                      <span className="font-medium">{book.genreName}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600">Bìa:</span>
+                      <span className="font-medium">Bìa cứng</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "reviews" && (
+                <div className="space-y-6">
+                  {/* Review Summary */}
+                  <div className="bg-blue-50 rounded-lg p-6">
+                    <div className="flex items-center gap-8">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-blue-600">
+                          {book.rating.toFixed(1)}
+                        </div>
+                        <div className="flex text-yellow-400 mt-2">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`w-5 h-5 ${
+                                i < Math.round(book.rating)
+                                  ? "fill-current"
+                                  : "text-gray-300"
+                              }`}
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <div className="text-gray-600 text-sm mt-2">
+                          Dựa trên 123 đánh giá
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        {[5, 4, 3, 2, 1].map((stars) => (
+                          <div key={stars} className="flex items-center gap-2">
+                            <span className="w-8 text-sm text-gray-600">
+                              {stars} sao
+                            </span>
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-yellow-400 h-2 rounded-full"
+                                style={{
+                                  width: `${
+                                    stars === 5
+                                      ? 60
+                                      : stars === 4
+                                      ? 25
+                                      : stars === 3
+                                      ? 10
+                                      : 5
+                                  }%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="w-8 text-sm text-gray-600 text-right">
+                              {stars === 5
+                                ? 74
+                                : stars === 4
+                                ? 30
+                                : stars === 3
+                                ? 12
+                                : 5}
+                              %
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Individual Reviews */}
+                  {[
+                    {
+                      username: "Nguyễn Văn A",
+                      rating: 5,
+                      date: "2 ngày trước",
+                      comment:
+                        "Cuốn sách rất hay, nội dung sâu sắc và đáng đọc. Tôi rất hài lòng với chất lượng sách.",
+                    },
+                    {
+                      username: "Trần Thị B",
+                      rating: 5,
+                      date: "5 ngày trước",
+                      comment:
+                        "Tuyệt vời! Sách đúng như mô tả, giao hàng nhanh, bao bì cẩn thận. Sẽ mua thêm.",
+                    },
+                    {
+                      username: "Lê Văn C",
+                      rating: 4,
+                      date: "1 tuần trước",
+                      comment:
+                        "Nội dung hay nhưng bìa sách hơi mỏng. Nhìn chung là hài lòng.",
+                    },
+                  ].map((review, idx) => (
+                    <div key={idx} className="border-b pb-6">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {review.username}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex text-yellow-400">
+                              {[...Array(5)].map((_, i) => (
+                                <svg
+                                  key={i}
+                                  className={`w-4 h-4 ${
+                                    i < review.rating
+                                      ? "fill-current"
+                                      : "text-gray-300"
+                                  }`}
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                                </svg>
+                              ))}
+                            </div>
+                            <span className="text-gray-500 text-sm">
+                              {review.date}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-gray-700 mt-3">{review.comment}</p>
+                    </div>
+                  ))}
+
+                  <button className="w-full py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                    Xem thêm đánh giá
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
       {/* Sản phẩm liên quan */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 border-l-4 border-orange-500 pl-3">
@@ -451,8 +779,6 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                     alt={relatedBook.title}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
-
-                  {/* Lớp overlay khi hover */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </div>
 

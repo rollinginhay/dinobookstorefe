@@ -1,8 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import BookCard, { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
+import FilterSidebar from "@/components/FilterSidebar";
 
 type SortOption =
   | "default"
@@ -14,25 +16,19 @@ type SortOption =
 
 type ViewMode = "grid" | "list";
 
-export default function KyNangSong() {
+function KyNangSong() {
   // =========================
   // STATE
   // =========================
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Filter UI
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
-  const [sortOption, setSortOption] = useState<SortOption>("default");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
   const [allGenres, setAllGenres] = useState<string[]>([]);
+  const [page] = useState(0);
+  const limit = 50;
 
   // =========================
-  // LOAD DATA FROM BACKEND
+  // FETCH DATA (cấu trúc giống Sách nước ngoài)
   // =========================
   useEffect(() => {
     async function fetchBooks() {
@@ -40,11 +36,11 @@ export default function KyNangSong() {
         setLoading(true);
         setError(null);
 
-        const genreParent = "Kỹ năng sống"; // BE phải có genre này
+        const parentGenre = "Kỹ năng sống";
 
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=0&limit=50&genre=${encodeURIComponent(
-            genreParent
+          `http://localhost:8080/v1/books?e=true&page=${page}&limit=${limit}&genre=${encodeURIComponent(
+            parentGenre
           )}`
         );
 
@@ -54,79 +50,105 @@ export default function KyNangSong() {
         }
 
         const json = await res.json();
+
         const includedMap = new Map();
-
-        json.included?.forEach((item: any) =>
-          includedMap.set(`${item.type}-${item.id}`, item)
+        json.included?.forEach((i: any) =>
+          includedMap.set(`${i.type}-${i.id}`, i)
         );
-        // 🔹 Lấy toàn bộ genre con từ included (không lấy genre cha)
-        const genres =
-          json.included
-            ?.filter((item: any) => item.type === "genre")
-            .map((g: any) => g.attributes?.name)
-            .filter(
-              (name: string) =>
-                name && !["Sách trong nước", "Sách nước ngoài"].includes(name)
-            ) || [];
 
-        // 🔹 Lưu lại vào state
-        setAllGenres(Array.from(new Set(genres)));
+        // Lấy genre con
+        const genreSet = new Set<string>();
 
-        // =========================
-        // PARSE JSON:API → BookCard data
-        // =========================
-        const parseBooks =
+        json.data.forEach((item: any) => {
+          const genreIds =
+            item.relationships?.genres?.data?.map((g: any) => g.id) || [];
+
+          genreIds.forEach((id: string) => {
+            const g = includedMap.get(`genre-${id}`);
+            const name = g?.attributes?.name;
+
+            if (
+              name &&
+              name !== "Sách trong nước" &&
+              name !== "Sách nước ngoài" &&
+              name !== "Sách thiếu nhi" &&
+              name !== "Kỹ năng sống"
+            ) {
+              genreSet.add(name);
+            }
+          });
+        });
+
+        setAllGenres(Array.from(genreSet));
+
+        const parsed: Book[] =
           json.data?.map((item: any) => {
-            // ------- Tác giả -------
+            // AUTHORS
             const creatorIds =
               item.relationships?.creators?.data?.map((c: any) => c.id) || [];
 
             const authors =
               creatorIds
                 .map((id: string) => {
-                  const creator = includedMap.get(`creator-${id}`);
-                  return creator?.attributes?.name;
+                  const c = includedMap.get(`creator-${id}`);
+                  return c?.attributes?.name;
                 })
                 .filter(Boolean)
                 .join(", ") || "Không rõ tác giả";
 
-            // ------- Genre con -------
+            // GENRES
             const genreIds =
               item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
-            const genreName =
+            const genreList =
               genreIds
                 .map((id: string) => {
                   const g = includedMap.get(`genre-${id}`);
                   return g?.attributes?.name;
                 })
-                .filter((n: string) => n && n !== "Kỹ năng sống")
-                .join(", ") || "Kỹ năng sống";
+                .filter(Boolean) || [];
 
-            // ------- Price -------
+            const genreChildren = genreList.filter(
+              (g: string) =>
+                g !== "Sách trong nước" &&
+                g !== "Sách nước ngoài" &&
+                g !== "Sách thiếu nhi" &&
+                g !== "Kỹ năng sống"
+            );
+
+            const genres = genreChildren.length > 0 ? genreChildren : ["Khác"];
+
+            // PRICE
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 
             const detail =
               includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
 
+            const publisherId = item.relationships?.publisher?.data?.id;
+            const publisherName =
+              (publisherId &&
+                includedMap.get(`publisher-${publisherId}`)?.attributes
+                  ?.name) ||
+              "Không rõ";
+
             return {
               id: item.id,
-              title: item.attributes?.title || "Không tên",
+              title: item.attributes?.title,
               author: authors,
-              genreName,
+              genres,
               price: detail.price || 0,
               originalPrice: detail.originalPrice || detail.price || 0,
               discount: detail.discount || 0,
               rating: item.attributes?.rating || 0,
               sold: item.attributes?.sold || 0,
               description: item.attributes?.description || "",
-              image: detail?.image || "/images/default-book.jpg",
-              year: item.attributes?.publishedYear || 0,
-            };
+              image: item.attributes?.imageUrl,
+              publisher: publisherName,
+            } as Book;
           }) || [];
 
-        setBooks(parseBooks);
+        setBooks(parsed);
       } catch (err: any) {
         setError(err.message);
         setBooks([]);
@@ -136,19 +158,93 @@ export default function KyNangSong() {
     }
 
     fetchBooks();
-  }, []);
+  }, [page, limit]);
 
   // =========================
-  // CATEGORY LIST
+  // CATEGORY + FILTER STATE
   // =========================
   const allCategories = ["Tất cả", ...allGenres];
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const [sortOption, setSortOption] = useState<SortOption>("default");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  const [filterValues, setFilterValues] = useState<any>({
+    priceRange: [],
+    publisher: [],
+    language: [],
+    genres: [],
+  });
+
+  const handleFilterChange = (filters: any) => {
+    setFilterValues(filters);
+    setCurrentPage(1);
+  };
+
   // =========================
-  // FILTER + SEARCH
+  // COUNT PUBLISHER & PRICE
+  // =========================
+  const publisherCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    books.forEach((b) => {
+      const pub = b.publisher || "Không rõ";
+      map[pub] = (map[pub] || 0) + 1;
+    });
+
+    return map;
+  }, [books]);
+
+  const priceCounts = useMemo(() => {
+    const count = {
+      "0-50000": 0,
+      "50000-100000": 0,
+      "100000-200000": 0,
+      "200000-500000": 0,
+      "500000+": 0,
+    };
+
+    books.forEach((b) => {
+      const p = b.price;
+
+      if (p < 50000) count["0-50000"]++;
+      else if (p < 100000) count["50000-100000"]++;
+      else if (p < 200000) count["100000-200000"]++;
+      else if (p < 500000) count["200000-500000"]++;
+      else count["500000+"]++;
+    });
+
+    return count;
+  }, [books]);
+
+  // =========================
+  // FILTERING
   // =========================
   const filteredBooks = useMemo(() => {
     let filtered = books;
 
+    // price
+    if (filterValues.priceRange.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.priceRange.some((range: string) => {
+          if (range === "500000+") return book.price >= 500000;
+          const [min, max] = range.split("-").map(Number);
+          return book.price >= min && book.price <= max;
+        })
+      );
+    }
+
+    // publisher
+    if (filterValues.publisher.length > 0) {
+      filtered = filtered.filter((book) =>
+        filterValues.publisher.includes(book.publisher)
+      );
+    }
+
+    // search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -159,19 +255,23 @@ export default function KyNangSong() {
       );
     }
 
-    if (selectedCategory !== "Tất cả") {
-      filtered = filtered.filter(
-        (b) =>
-          b.genreName &&
-          b.genreName.toLowerCase() === selectedCategory.toLowerCase()
+    // genres (sidebar)
+    if (filterValues.genres && filterValues.genres.length > 0) {
+      filtered = filtered.filter((b) =>
+        b.genres?.some((g) => filterValues.genres.includes(g))
       );
     }
 
+    // category (dropdown)
+    if (selectedCategory !== "Tất cả") {
+      filtered = filtered.filter((b) => b.genres?.includes(selectedCategory));
+    }
+
     return filtered;
-  }, [books, searchQuery, selectedCategory]);
+  }, [books, searchQuery, selectedCategory, filterValues]);
 
   // =========================
-  // SORT
+  // SORTING
   // =========================
   const sortedBooks = useMemo(() => {
     const sorted = [...filteredBooks];
@@ -196,13 +296,14 @@ export default function KyNangSong() {
   // PAGINATION
   // =========================
   const totalPages = Math.ceil(sortedBooks.length / itemsPerPage);
+
   const paginatedBooks = sortedBooks.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
   // =========================
-  // LOADING / ERROR
+  // UI
   // =========================
   if (loading)
     return (
@@ -214,20 +315,17 @@ export default function KyNangSong() {
   if (error)
     return (
       <div className="h-96 flex items-center justify-center text-red-500 text-lg">
-        ⚠️ Lỗi tải dữ liệu: {error}
+        ⚠️ {error}
       </div>
     );
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
         items={[{ label: "Trang chủ", href: "/" }, { label: "Kỹ năng sống" }]}
       />
 
-      {/* HEADER - GIỮ NGUYÊN */}
+      {/* HEADER — GIỮ MÀU XANH CỦA KNS */}
       <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold mb-3">💼 Kỹ Năng Sống</h1>
@@ -239,7 +337,7 @@ export default function KyNangSong() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* FILTER BAR */}
+        {/* FILTER BAR – cấu trúc như Sách NN, màu xanh lá */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* SEARCH */}
@@ -270,22 +368,6 @@ export default function KyNangSong() {
               </svg>
             </div>
 
-            {/* CATEGORY */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 text-sm font-semibold"
-            >
-              {allCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  📚 {cat}
-                </option>
-              ))}
-            </select>
-
             {/* SORT */}
             <select
               value={sortOption}
@@ -304,10 +386,12 @@ export default function KyNangSong() {
             </select>
           </div>
         </div>
+
+        {/* TOP BAR */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
-            <span className="text-cyan-600 font-bold">
+            <span className="text-green-600 font-bold">
               {sortedBooks.length}
             </span>{" "}
             sản phẩm
@@ -327,8 +411,8 @@ export default function KyNangSong() {
               onClick={() => setViewMode("list")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === "list"
-                  ? "bg-cyan-600 text-white"
-                  : "border-2 border-gray-300 hover:bg-gray-50"
+                  ? "bg-emerald-600 text-white border-2 border-emerald-600"
+                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
               }`}
             >
               ☰ List
@@ -336,42 +420,39 @@ export default function KyNangSong() {
           </div>
         </div>
 
-        {/* EMPTY STATE */}
-        {paginatedBooks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              Không tìm thấy sách
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchQuery
-                ? `Không có kết quả cho "${searchQuery}"`
-                : "Không có sách trong danh mục này"}
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("Tất cả");
-                setCurrentPage(1);
-              }}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-            >
-              Xóa bộ lọc
-            </button>
+        {/* MAIN SECTION: sidebar + content */}
+        <div className="flex gap-8">
+          {/* SIDEBAR */}
+          <div className="hidden lg:block w-64">
+            <FilterSidebar
+              onFilterChange={handleFilterChange}
+              priceCounts={priceCounts}
+              publisherCounts={publisherCounts}
+              books={books}
+            />
           </div>
-        ) : (
-          <>
-            {/* GRID VIEW */}
-            {viewMode === "grid" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+
+          {/* CONTENT */}
+          <div className="flex-1">
+            {paginatedBooks.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Không tìm thấy sách
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {searchQuery
+                    ? `Không có kết quả cho "${searchQuery}"`
+                    : "Không có sách trong danh mục này"}
+                </p>
+              </div>
+            ) : viewMode === "grid" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
                 {paginatedBooks.map((book) => (
                   <BookCard key={book.id} book={book} />
                 ))}
               </div>
-            )}
-
-            {/* LIST VIEW */}
-            {viewMode === "list" && (
+            ) : (
               <div className="space-y-4">
                 {paginatedBooks.map((book) => (
                   <div
@@ -379,17 +460,18 @@ export default function KyNangSong() {
                     className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
                   >
                     <div className="aspect-[3/4] w-32 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg overflow-hidden relative flex-shrink-0">
-                      {book.discount && book.discount > 0 && (
-                        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">
-                          -{book.discount}%
-                        </div>
-                      )}
+                      <img
+                        src={book.image}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        alt={book.title}
+                      />
                     </div>
 
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
                         {book.title}
                       </h3>
+
                       <p className="text-gray-600 mb-2">
                         Tác giả:{" "}
                         <span className="font-medium">{book.author}</span>
@@ -400,19 +482,9 @@ export default function KyNangSong() {
                       </p>
 
                       <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-2xl font-bold text-red-600">
-                              {book.price.toLocaleString("vi-VN")} ₫
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-yellow-500">
-                              ⭐ {book.rating}
-                            </span>
-                          </div>
-                        </div>
+                        <span className="text-2xl font-bold text-red-600">
+                          {book.price.toLocaleString("vi-VN")} ₫
+                        </span>
 
                         <a
                           href={`/san-pham/${book.id}`}
@@ -434,7 +506,7 @@ export default function KyNangSong() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="px-4 py-2 text-sm border-2 border-gray-300 rounded-lg text-gray-600 bg-white disabled:opacity-50"
                   >
                     ← Trước
                   </button>
@@ -443,11 +515,11 @@ export default function KyNangSong() {
                     <button
                       key={i + 1}
                       onClick={() => setCurrentPage(i + 1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg border-2 ${
                         currentPage === i + 1
                           ? "bg-green-600 text-white border-green-600"
                           : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      } border-2`}
+                      }`}
                     >
                       {i + 1}
                     </button>
@@ -458,16 +530,18 @@ export default function KyNangSong() {
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="px-4 py-2 text-sm border-2 border-gray-300 rounded-lg text-gray-600 bg-white disabled:opacity-50"
                   >
                     Sau →
                   </button>
                 </nav>
               </div>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(KyNangSong), { ssr: false });

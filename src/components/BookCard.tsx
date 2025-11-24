@@ -24,6 +24,7 @@ interface Book {
   discount?: number;
   isTrending?: boolean;
   badge?: string;
+  genres?: string[];
 }
 
 interface BookCardProps {
