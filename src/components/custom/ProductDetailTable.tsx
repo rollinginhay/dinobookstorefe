@@ -4,7 +4,7 @@ import TableActionButtons from "@/components/custom/TableActionButtons";
 import Button from "@/components/ui/button/Button";
 import {useBook} from "@/hooks/api-calls/useBook";
 import Image from "next/image";
-import {normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
+import {formatLocalDateTime} from "@/lib/formatters";
 import ProductInfoCard from "@/components/custom/ProductInfoCard";
 import {Book} from "@/types/appContextTypes";
 import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
@@ -178,7 +178,7 @@ const ProductDetailTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {normalizeLocalDateTime(e.createdAt)}
+                                        {formatLocalDateTime(e.createdAt)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
@@ -201,7 +201,15 @@ const ProductDetailTable: React.FC = () => {
                                         }}
                                         onDelete={() => {
                                             // bookDelete.mutate(e.id);
-                                        }}></TableActionButtons>
+                                        }}
+                                        enableButtons={{
+                                            view: true,
+                                            edit: true,
+                                            delete: true,
+                                        }
+                                        }
+
+                                    ></TableActionButtons>
                                 </td>
                             </tr>
                         ))}

@@ -1,16 +1,17 @@
 "use client";
-import React, {useEffect, useRef, useState} from "react";
+import React, {JSX, useEffect, useRef, useState} from "react";
 import TableActionButtons from "@/components/custom/TableActionButtons";
 import Button from "@/components/ui/button/Button";
 import {useBook} from "@/hooks/api-calls/useBook";
 import Image from "next/image";
-import {normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
+import {formatLocalDateTime, formatVND, formatYear} from "@/lib/formatters";
+import Link from "@/components/ui/links/Link";
 
 
 const ProductListTable: React.FC = () => {
-    const limit = 6
+    const [limit, setLimit] = useState<number>(8);
+    const [limitInput, setLimitInput] = useState(limit.toString());
 
-    ;
     const [page, setPage] = useState(0);
     const [inputValue, setInputValue] = useState(page + 1); //page smart input state
     const [searchInput, setSearchInput] = useState("");
@@ -131,10 +132,6 @@ const ProductListTable: React.FC = () => {
                         <div className="flex gap-3">
                             <Button
                                 className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
-                                onClick={() => {
-                                    setEditingItem(null);
-                                    setShowForm(true);
-                                }}
                             >
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
@@ -151,7 +148,7 @@ const ProductListTable: React.FC = () => {
                                         strokeLinejoin="round"
                                     />
                                 </svg>
-                                Add book
+                                <Link href="/create-book">Creates</Link>
                             </Button>
                         </div>
                     </div>
@@ -177,7 +174,7 @@ const ProductListTable: React.FC = () => {
             </span>
                             <input
                                 type="text"
-                                placeholder="Search..."
+                                placeholder="Search by title..."
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value)}
                                 onKeyDown={(e) => {
@@ -204,45 +201,18 @@ const ProductListTable: React.FC = () => {
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                         No.
                                     </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "name" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "name" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
                                 </div>
                             </th>
-
+                            <th
+                                // onClick={() => sortBy("name")}
+                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        Ma
+                                    </p>
+                                </div>
+                            </th>
                             <th
                                 // onClick={() => sortBy("name")}
                                 className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
@@ -251,42 +221,6 @@ const ProductListTable: React.FC = () => {
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                         Title
                                     </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "name" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "name" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
                                 </div>
                             </th>
                             <th
@@ -297,88 +231,6 @@ const ProductListTable: React.FC = () => {
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                         Published
                                     </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "category" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "category" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                                </div>
-                            </th>
-                            <th
-                                // onClick={() => sortBy("brand")}
-                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Created At
-                                    </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "brand" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "brand" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300 dark:text-gray-400/50"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
                                 </div>
                             </th>
                             <th
@@ -388,42 +240,15 @@ const ProductListTable: React.FC = () => {
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                         Variations
                                     </p>
-                                    <span className="flex flex-col gap-0.5">
-                    <svg
-                        // className={
-                        //     sort.key === "price" && sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 0.585167C4.21057 0.300808 3.78943 0.300807 3.59038 0.585166L1.05071 4.21327C0.81874 4.54466 1.05582 5 1.46033 5H6.53967C6.94418 5 7.18126 4.54466 6.94929 4.21327L4.40962 0.585167Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                    <svg
-                        // className={
-                        //     sort.key === "price" && !sort.asc
-                        //         ? "text-gray-500 dark:text-gray-400"
-                        //         : "text-gray-300"
-                        // }
-                        width="8"
-                        height="5"
-                        viewBox="0 0 8 5"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                          d="M4.40962 4.41483C4.21057 4.69919 3.78943 4.69919 3.59038 4.41483L1.05071 0.786732C0.81874 0.455343 1.05582 0 1.46033 0H6.53967C6.94418 0 7.18126 0.455342 6.94929 0.786731L4.40962 4.41483Z"
-                          fill="currentColor"
-                      />
-                    </svg>
-                  </span>
+                                </div>
+                            </th>
+                            <th
+                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        Price range
+                                    </p>
                                 </div>
                             </th>
 
@@ -496,16 +321,22 @@ const ProductListTable: React.FC = () => {
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {"B" + e.id}
+                                    </p>
+                                </td>
+
+                                <td className="px-5 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-12 w-12">
-                                            <Image
-                                                width={48}
-                                                height={48}
-                                                src={e.imageUrl}
-                                                className="h-12 w-12 rounded-md"
-                                                alt="image"
-                                            />
-                                        </div>
+                                        {/*<div className="h-12 w-12">*/}
+                                        {/*    <Image*/}
+                                        {/*        width={48}*/}
+                                        {/*        height={48}*/}
+                                        {/*        src={e.imageUrl}*/}
+                                        {/*        className="h-12 w-12 rounded-md"*/}
+                                        {/*        alt="image"*/}
+                                        {/*    />*/}
+                                        {/*</div>*/}
                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-400">
                                         {e.title}
                                         </span>
@@ -513,17 +344,36 @@ const ProductListTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {normalizeLocalDateTime(e.published)}
-                                    </p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {normalizeLocalDateTime(e.createdAt)}
+                                        {formatYear(e.published)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400 pl-4">
                                         {e.bookCopies.data.length}
+                                    </p>
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <p className="text-sm text-gray-700 dark:text-gray-400 pl-4">
+                                        {(() => {
+                                            const prices = e.bookCopies.data.map(e => e.price);
+                                            if (prices.length === 0) {
+                                                return "Khong co gia";
+                                            }
+                                            let max;
+                                            let min;
+
+                                            if (prices.length === 1) {
+                                                max = prices[0];
+                                                min = prices[0];
+                                            } else {
+                                                max = Math.max(...prices
+                                                );
+                                                min = Math.min(...prices
+                                                );
+                                            }
+
+                                            return (formatVND(min) + " - " + formatVND(max));
+                                        })()}
                                     </p>
                                 </td>
 
@@ -543,163 +393,143 @@ const ProductListTable: React.FC = () => {
                                     <TableActionButtons
                                         viewLink={`/book/${e.id}`}
                                         onEdit={() => {
-                                            setEditingItem(e);
-                                            setShowForm(true);
                                         }}
                                         onDelete={() => {
-                                            bookDelete.mutate(e.id);
-                                        }}></TableActionButtons>
+                                        }}
+                                        enableButtons={{
+                                            view: true,
+                                            edit: false,
+                                            delete: false,
+                                        }
+                                        }
+                                    >
+                                    </TableActionButtons>
                                 </td>
                             </tr>
                         ))}
                         </tbody>
                     </table>
                 </div>
-                <div
-                    className="flex items-center flex-col sm:flex-row justify-between border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-                    <div className="pb-3 sm:pb-0">
+                {/* PAGINATION BLOCK*/}
+                <div className="flex items-center w-full border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+
+                    {/* LEFT — LIMIT INPUT */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-400">Rows:</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={limitInput}
+                            onChange={(e) => setLimitInput(e.target.value)}   // only local
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    const value = Number(limitInput);
+                                    if (!Number.isFinite(value) || value <= 0) return;
+
+                                    setLimit(value);  // <-- commit real change
+                                    setPage(0);       // optional reset
+                                    e.currentTarget.blur(); // optional: unfocus after applying
+                                }
+                            }}
+                            className="h-9 w-20 rounded-lg border border-gray-300 px-2 text-sm text-gray-700
+             dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
                     </div>
-                    <div
-                        className="flex w-full items-center justify-between gap-2 rounded-lg bg-gray-50 p-4 sm:w-auto sm:justify-normal sm:rounded-none sm:bg-transparent sm:p-0 dark:bg-gray-900 dark:sm:bg-transparent">
+
+                    {/* CENTER — PAGE INDICATOR */}
+                    <div className="flex-1 flex justify-center">
+    <span className="text-sm font-medium text-gray-700 dark:text-gray-400">
+      Page {page + 1} of {totalPages}
+    </span>
+                    </div>
+
+                    {/* RIGHT — PAGINATION BUTTONS */}
+                    <div className="flex items-center gap-2">
+
+                        {/* FIRST PAGE */}
+                        <button
+                            onClick={() => goToPage(0)}
+                            disabled={page === 0}
+                            className="shadow-sm flex items-center justify-center rounded-lg border border-gray-300 bg-white
+                 h-10 px-4 text-gray-700 font-bold hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50
+                 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400
+                 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                        >
+                            «
+                        </button>
+
+                        {/* PREV PAGE */}
                         <button
                             onClick={prevPage}
                             disabled={page === 0}
-                            className="shadow-sm flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2 text-gray-700 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2.5 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                            className="shadow-sm flex items-center justify-center rounded-lg border border-gray-300 bg-white
+                 h-10 px-4 text-gray-700 font-bold hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50
+                 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400
+                 dark:hover:bg-white/5 dark:hover:text-gray-200"
                         >
-            <span>
-              <svg
-                  className="fill-current"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M2.58203 9.99868C2.58174 10.1909 2.6549 10.3833 2.80152 10.53L7.79818 15.5301C8.09097 15.8231 8.56584 15.8233 8.85883 15.5305C9.15183 15.2377 9.152 14.7629 8.85921 14.4699L5.13911 10.7472L16.6665 10.7472C17.0807 10.7472 17.4165 10.4114 17.4165 9.99715C17.4165 9.58294 17.0807 9.24715 16.6665 9.24715L5.14456 9.24715L8.85919 5.53016C9.15199 5.23717 9.15184 4.7623 8.85885 4.4695C8.56587 4.1767 8.09099 4.17685 7.79819 4.46984L2.84069 9.43049C2.68224 9.568 2.58203 9.77087 2.58203 9.99715C2.58203 9.99766 2.58203 9.99817 2.58203 9.99868Z"
-                />
-              </svg>
-            </span>
+                            ‹
                         </button>
-                        <span className="block text-sm font-medium text-gray-700 sm:hidden dark:text-gray-400">
-            Page <span>{page + 1}</span> of <span>{totalPages}</span>
-          </span>
-                        <ul className="hidden items-center gap-0.5 sm:flex">
-                            {/* START PAGE BUTTONS */}
-                            {Array.from(
-                                {length: Math.min(3, totalPages)}, // show first few pages
-                                (_, i) => i
-                            ).map((n) => (
-                                <li key={`start-${n}`}>
-                                    <a
-                                        href="#"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            goToPage(n);
-                                        }}
-                                        className={`flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium ${
-                                            page === n
-                                                ? "bg-brand-500 text-white"
-                                                : "text-gray-700 dark:text-gray-400 hover:bg-brand-500 hover:text-white dark:hover:text-white"
-                                        }`}
-                                    >
-                                        <span>{n + 1}</span>
-                                    </a>
-                                </li>
-                            ))}
 
-                            {/* PAGE INPUT */}
-                            <li>
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        const num = Number(inputValue);
-                                        if (!Number.isFinite(num)) return;
-                                        const target = Math.min(Math.max(num - 1, 0), totalPages - 1);
-                                        goToPage(target);
-                                    }}
-                                    className="flex items-center gap-2"
-                                >
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={totalPages}
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value as any)}
-                                        className="h-10 w-16 rounded-lg border border-gray-300 mx-3 px-1 pl-3 text-center dark:bg-gray-800 dark:text-white"
-                                    />
-                                </form>
-                            </li>
+                        {/* NUMBERED BUTTONS */}
+                        <ul className="flex items-center gap-1">
+                            {(() => {
+                                const buttons: JSX.Element[] = [];
 
-                            {/* END PAGE BUTTONS */}
-                            {Array.from(
-                                {length: Math.min(3, totalPages)}, // show last few pages
-                                (_, i) => totalPages - Math.min(3, totalPages) + i
-                            )
-                                .filter((n) => n >= 0 && n >= 3) // avoid duplicates when small page count
-                                .map((n) => (
-                                    <li key={`end-${n}`}>
-                                        <a
-                                            href="#"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                goToPage(n);
-                                            }}
-                                            className={`flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium ${
-                                                page === n
-                                                    ? "bg-brand-500 text-white"
-                                                    : "text-gray-700 dark:text-gray-400 hover:bg-brand-500 hover:text-white dark:hover:text-white"
-                                            }`}
-                                        >
-                                            <span>{n + 1}</span>
-                                        </a>
-                                    </li>
-                                ))}
+                                let start = Math.max(0, page - 2);
+                                let end = start + 5;
 
-                            {/*{Array.from({length: totalPages}, (_, i) => i).map((n) => (*/}
-                            {/*    <li key={n}>*/}
-                            {/*        <a*/}
-                            {/*            href="#"*/}
-                            {/*            onClick={(e) => {*/}
-                            {/*                e.preventDefault();*/}
-                            {/*                goToPage(n);*/}
-                            {/*            }}*/}
-                            {/*            className={`flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium ${*/}
-                            {/*                page === n*/}
-                            {/*                    ? "bg-brand-500 text-white"*/}
-                            {/*                    : "text-gray-700 dark:text-gray-400 hover:bg-brand-500 hover:text-white dark:hover:text-white"*/}
-                            {/*            }`}*/}
-                            {/*        >*/}
-                            {/*            <span>{n + 1}</span>*/}
-                            {/*        </a>*/}
-                            {/*    </li>*/}
-                            {/*))}*/}
+                                if (end > totalPages) {
+                                    end = totalPages;
+                                    start = Math.max(0, end - 5);
+                                }
+
+                                for (let i = start; i < end; i++) {
+                                    buttons.push(
+                                        <li key={i}>
+                                            <button
+                                                onClick={() => goToPage(i)}
+                                                className={`flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium ${
+                                                    page === i
+                                                        ? "bg-brand-500 text-white"
+                                                        : "text-gray-700 dark:text-gray-400 hover:bg-brand-500 hover:text-white dark:hover:text-white"
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        </li>
+                                    );
+                                }
+
+                                return buttons;
+                            })()}
                         </ul>
+
+                        {/* NEXT PAGE */}
                         <button
                             onClick={nextPage}
                             disabled={page === totalPages - 1}
-                            className="shadow-sm flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2 text-gray-700 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2.5 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                            className="shadow-sm flex items-center justify-center rounded-lg border border-gray-300 bg-white
+                 h-10 px-4 text-gray-700 font-bold hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50
+                 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400
+                 dark:hover:bg-white/5 dark:hover:text-gray-200"
                         >
-            <span>
-              <svg
-                  className="fill-current"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M17.4165 9.9986C17.4168 10.1909 17.3437 10.3832 17.197 10.53L12.2004 15.5301C11.9076 15.8231 11.4327 15.8233 11.1397 15.5305C10.8467 15.2377 10.8465 14.7629 11.1393 14.4699L14.8594 10.7472L3.33203 10.7472C2.91782 10.7472 2.58203 10.4114 2.58203 9.99715C2.58203 9.58294 2.91782 9.24715 3.33203 9.24715L14.854 9.24715L11.1393 5.53016C10.8465 5.23717 10.8467 4.7623 11.1397 4.4695C11.4327 4.1767 11.9075 4.17685 12.2003 4.46984L17.1578 9.43049C17.3163 9.568 17.4165 9.77087 17.4165 9.99715C17.4165 9.99763 17.4165 9.99812 17.4165 9.9986Z"
-                />
-              </svg>
-            </span>
+                            ›
                         </button>
+
+                        {/* LAST PAGE */}
+                        <button
+                            onClick={() => goToPage(totalPages - 1)}
+                            disabled={page === totalPages - 1}
+                            className="shadow-sm flex items-center justify-center rounded-lg border border-gray-300 bg-white
+                 h-10 px-4 text-gray-700 font-bold hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50
+                 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400
+                 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                        >
+                            »
+                        </button>
+
                     </div>
+
                 </div>
             </div>
 

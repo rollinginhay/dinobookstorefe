@@ -19,7 +19,7 @@ export const api: AxiosInstance = axios.create({
  * Small helpers to perform JSON:API (de)serialization using kitsu-core.
  */
 export const jsonApi = {
-    serialise: (type: string, data: Record<string, never>) => serialise(type, data),
+    serialise: (type: string, data: any) => serialise(type, data),
     deserialise: (raw: unknown) => deserialise(raw),
 };
 

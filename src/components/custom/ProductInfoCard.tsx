@@ -7,7 +7,7 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Image from "next/image";
 import {Book} from "@/types/appContextTypes";
-import {formatdateForInput, normalizeLocalDateTime} from "@/lib/dateTimeFormatter";
+import {formatDateForInput, formatLocalDateTime} from "@/lib/formatters";
 
 export default function ProductInfoCard({book}) {
     const {isOpen, openModal, closeModal} = useModal();
@@ -81,7 +81,7 @@ export default function ProductInfoCard({book}) {
                                     Published
                                 </p>
                                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                    {normalizeLocalDateTime(book.published)}
+                                    {formatLocalDateTime(book.published)}
                                 </p>
                             </div>
                             <div>
@@ -175,7 +175,7 @@ export default function ProductInfoCard({book}) {
                                 </div>
                                 <div>
                                     <Label>Published</Label>
-                                    <Input type="date" defaultValue={formatdateForInput(book.published)}/>
+                                    <Input type="date" defaultValue={formatDateForInput(book.published)}/>
                                 </div>
                             </div>
                         </div>

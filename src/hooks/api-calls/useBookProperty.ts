@@ -37,8 +37,8 @@ export function useBookProperty(
             }
             return jsonApi.deserialise(res.data);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
         },
     });
 
@@ -55,8 +55,8 @@ export function useBookProperty(
             return jsonApi.deserialise(res.data);
 
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
         },
 
     });
@@ -73,8 +73,8 @@ export function useBookProperty(
             return jsonApi.deserialise(res.data);
 
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
         },
     })
 

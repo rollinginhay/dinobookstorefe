@@ -1,6 +1,7 @@
 import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES_TREE} from "@/lib/routes";
+import {serializeBook} from "@/lib/requestSerializer";
 
 export function useBook(
     page = 0,
@@ -30,15 +31,15 @@ export function useBook(
             await api.delete(routeMap.delete({id: id}));
             return id;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["book"]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["book"]});
         },
     });
 
     const bookCreate
         = useMutation({
         mutationFn: async (newProp: any) => {
-            const res = await api.post(routeMap.create, jsonApi.serialise("book", newProp));
+            const res = await api.post(routeMap.create, serializeBook("book", newProp));
 
             if (res.status !== 201) {
                 throw jsonApi.deserialise(res.data);
@@ -47,8 +48,8 @@ export function useBook(
             return jsonApi.deserialise(res.data);
 
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["book"]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["book"]});
         },
 
     });
@@ -64,8 +65,8 @@ export function useBook(
             return jsonApi.deserialise(res.data);
 
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ["book"]});
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({queryKey: ["book"]});
         },
     })
 

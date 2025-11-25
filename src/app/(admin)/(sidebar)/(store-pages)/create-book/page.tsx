@@ -10,10 +10,10 @@ export const metadata: Metadata = {
         "This is Next.js E-commerce  Add Product  TailAdmin Dashboard Template",
 };
 
-export default function AddProductPage() {
+export default function CreateBookPage() {
     return (
         <div>
-            <PageBreadcrumb pageTitle="Add Products"/>
+            <PageBreadcrumb pageTitle="Add Book"/>
             <BookForm/>
         </div>
     );

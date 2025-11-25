@@ -76,7 +76,7 @@ const navItems: NavItem[] = [
         new: true,
         subItems: [
             {name: "Product properties", path: "/book-property-list"},
-            {name: "Books", path: "/book-list"},
+            {name: "Books", path: "/books"},
             // {name: "Products", path: "/products-list"},
             {name: "Add Product", path: "/add-product"},
             // {name: "Billing", path: "/billing"},

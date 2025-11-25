@@ -7,13 +7,19 @@ interface TableActionButtonsProps {
     viewLink: string;
     onDelete: () => Promise<void> | void;
     onEdit: () => Promise<void> | void;
+    enableButtons: {
+        view: boolean;
+        edit: boolean;
+        delete: boolean;
+    }
 }
 
 
-export default function TableActionButtons({viewLink, onDelete, onEdit}: TableActionButtonsProps) {
+export default function TableActionButtons({viewLink, onDelete, onEdit, enableButtons}: TableActionButtonsProps) {
     const router = useRouter();
     const [showConfirm, setShowConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [enabledButtons, setEnabledButtons] = useState(enableButtons);
 
     const handleDelete = async () => {
         if (!onDelete) return;
@@ -30,6 +36,7 @@ export default function TableActionButtons({viewLink, onDelete, onEdit}: TableAc
         <div className="flex items-center space-x-2">
             {/* View */}
             <button
+                hidden={!enabledButtons.view}
                 type="button"
                 className="rounded bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600 transition"
                 onClick={() => router.push(viewLink)}
@@ -37,8 +44,9 @@ export default function TableActionButtons({viewLink, onDelete, onEdit}: TableAc
                 View
             </button>
 
-            {/* Create */}
+            {/* Edit */}
             <button
+                hidden={!enabledButtons.edit}
                 type="button"
                 className="rounded bg-emerald-500 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-600 transition"
                 onClick={onEdit}
@@ -48,6 +56,7 @@ export default function TableActionButtons({viewLink, onDelete, onEdit}: TableAc
 
             {/* Delete */}
             <button
+                hidden={!enabledButtons.delete}
                 type="button"
                 className="rounded bg-red-500 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 transition"
                 onClick={() => setShowConfirm(true)}
