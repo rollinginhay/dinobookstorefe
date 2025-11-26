@@ -1,12 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import {
-  AlertIcon,
-  CheckCircleIcon,
-  CloseIcon,
-  ErrorIcon,
-  InfoIcon,
-} from "../../../icons";
+import React, {useState} from "react";
+import {AlertIcon, CheckCircleIcon, CloseIcon, ErrorIcon, InfoIcon,} from "../../../icons";
 
 interface NotificationProps {
   variant: "success" | "info" | "warning" | "error"; // Notification type

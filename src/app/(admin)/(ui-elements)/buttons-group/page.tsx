@@ -6,7 +6,7 @@ import PrimaryButtonGroup from "@/components/ui/buttons-group/PrimaryButtonGroup
 import SecondaryButtonGroup from "@/components/ui/buttons-group/SecondaryButtonGroup";
 import SecondaryButtonGroupWithLeftIcon from "@/components/ui/buttons-group/SecondaryButtonGroupWithLeftIcon";
 import SecondaryButtonGroupWithRightIcon from "@/components/ui/buttons-group/SecondaryButtonGroupWithRightIcon";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

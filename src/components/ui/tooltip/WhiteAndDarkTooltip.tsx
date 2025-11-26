@@ -1,5 +1,5 @@
 import React from "react";
-import { Tooltip } from "./Tooltip";
+import {Tooltip} from "./Tooltip";
 import Button from "../button/Button";
 
 export default function WhiteAndDarkTooltip() {

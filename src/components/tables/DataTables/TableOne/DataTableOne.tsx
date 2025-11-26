@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../../ui/table";
-import { AngleDownIcon, AngleUpIcon } from "@/icons";
+import {useMemo, useState} from "react";
+import {Table, TableBody, TableCell, TableHeader, TableRow,} from "../../../ui/table";
+import {AngleDownIcon, AngleUpIcon} from "@/icons";
 import Image from "next/image";
 import PaginationWithIcon from "./PaginationWithIcon";
 

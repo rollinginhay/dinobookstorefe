@@ -3,7 +3,7 @@ import CustomerDetails from "@/components/transactions/CustomerDetails";
 import OrderDetailsTable from "@/components/transactions/OrderDetailsTable";
 import OrderHistory from "@/components/transactions/OrderHistory";
 import TransactionHeader from "@/components/transactions/TransactionHeader";
-import { Metadata } from "next";
+import {Metadata} from "next";
 
 export const metadata: Metadata = {
   title:

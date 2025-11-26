@@ -1,41 +1,45 @@
 // utils/formatLocalDateTime.ts
 import {format} from "date-fns";
 
-export function formatLocalDateTime(input: string): string {
+export function getDisplayDate(input: string): string {
     const date = new Date(input);
 
-    if (isNaN(date.getTime())) {
+    if (isNaN(date.getDate())) {
         throw new Error("Invalid LocalDateTime format: " + input);
     }
 
     return format(date, "dd/MM/yyyy");
 }
 
-export function formatDateForInput(input: string): string {
+export function getDateForInput(input: string): string {
     const date = new Date(input);
 
-    if (isNaN(date.getTime())) {
+    if (isNaN(date.getDate())) {
         throw new Error("Invalid LocalDateTime format: " + input);
     }
 
     return format(date, "yyyy-MM-dd");
 }
 
-export function formatYear(input: string): string {
+export function getYear(input: string): string {
     const date = new Date(input);
 
-    if (isNaN(date.getTime())) {
+    if (isNaN(date.getDate())) {
         throw new Error("Invalid LocalDateTime format: " + input);
     }
 
     return format(date, "yyyy");
 }
 
-export function formatVND(amount: number): string {
+export function getVND(amount: number): string {
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
         currency: "VND",
         maximumFractionDigits: 0,
     }).format(amount);
+}
+
+export function todayDateString() {
+    return new Date().toISOString().split("T")[0];
 }
 

@@ -1,11 +1,4 @@
-import {
-  AudioIcon,
-  DownloadIcon,
-  FileIcon,
-  FolderIcon,
-  GridIcon,
-  VideoIcon,
-} from "../../icons";
+import {AudioIcon, DownloadIcon, FileIcon, FolderIcon, GridIcon, VideoIcon,} from "../../icons";
 import FileCard from "./FileCard";
 
 const fileData = [

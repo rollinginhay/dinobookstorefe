@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import ComponentCard from "../../common/ComponentCard";
 import Form from "../Form";
 import Label from "../Label";
@@ -7,7 +7,7 @@ import Input from "../input/InputField";
 import Select from "../Select";
 import TextArea from "../input/TextArea";
 import Button from "../../ui/button/Button";
-import { PaperPlaneIcon } from "../../../icons";
+import {PaperPlaneIcon} from "../../../icons";
 
 export default function ExampleFormOne() {
   const [message, setMessage] = useState<string>("");

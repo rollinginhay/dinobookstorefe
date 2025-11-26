@@ -3,7 +3,7 @@ import BillingInfo from "@/components/ecommerce/billing/BillingInfo";
 import BillingPlan from "@/components/ecommerce/billing/BillingPlan";
 import InvoiceTable from "@/components/ecommerce/billing/InvoiceTable";
 import PaymentMethod from "@/components/ecommerce/billing/PaymentMethod";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

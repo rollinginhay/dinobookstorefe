@@ -3,7 +3,7 @@ import BasicForm from "@/components/form/example-form/BasicForm";
 import ExampleFormOne from "@/components/form/example-form/ExampleFormOne";
 import ExampleFormTwo from "@/components/form/example-form/ExampleFormTwo";
 import ExampleFormWithIcon from "@/components/form/example-form/ExampleFormWithIcon";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

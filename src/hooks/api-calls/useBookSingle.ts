@@ -6,7 +6,7 @@ export function useBookSingle(id?: string | number) {
     const routeMap = API_ROUTES_TREE.book;
 
     return useQuery({
-        queryKey: ["bookById", id],
+        queryKey: ["book", id],
         queryFn: async ({queryKey}) => {
             const [, bookId] = queryKey as [string, string | number];
 

@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import { CheckLineIcon } from "../../icons";
+import React, {useState} from "react";
+import {CheckLineIcon} from "../../icons";
 
 const starterPack = [
   "5 website",

@@ -4,7 +4,7 @@ import TabWithBadge from "@/components/ui/tabs/TabWithBadge";
 import TabWithUnderline from "@/components/ui/tabs/TabWithUnderline";
 import TabWithUnderlineAndIcon from "@/components/ui/tabs/TabWithUnderlineAndIcon";
 import VerticalTabs from "@/components/ui/tabs/VerticalTabs";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

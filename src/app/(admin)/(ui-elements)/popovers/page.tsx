@@ -3,7 +3,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import DefaultPopover from "@/components/ui/popover/DefaultPopover";
 import PopoverButton from "@/components/ui/popover/PopoverButton";
 import PopoverWithLink from "@/components/ui/popover/PopoverWithLink";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

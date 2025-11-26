@@ -1,16 +1,10 @@
 "use client";
-import React, { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
+import React, {useState} from "react";
+import {Table, TableBody, TableCell, TableHeader, TableRow,} from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "@/icons";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
 import Image from "next/image";
 
 interface Campaign {

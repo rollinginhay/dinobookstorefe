@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "@/icons";
+import React, {useState} from "react";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
 import Image from "next/image";
 
 interface ChatListProps {

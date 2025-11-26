@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import React, { useRef, useState } from "react";
+import React, {useRef, useState} from "react";
 import Label from "@/components/form/Label";
 
 export default function OtpForm() {

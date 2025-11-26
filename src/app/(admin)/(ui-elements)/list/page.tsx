@@ -7,7 +7,7 @@ import ListWithIcon from "@/components/ui/list/ListWithIcon";
 import ListWithRadio from "@/components/ui/list/ListWithRadio";
 import OrderedList from "@/components/ui/list/OrderedList";
 import UnOrderedList from "@/components/ui/list/UnorderedList";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

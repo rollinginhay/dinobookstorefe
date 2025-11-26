@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CardDescription, CardTitle } from "../../ui/card";
+import {CardDescription, CardTitle} from "../../ui/card";
 import Image from "next/image";
 
 export default function CardFour() {

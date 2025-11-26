@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckLineIcon } from "../../icons";
+import {CheckLineIcon} from "../../icons";
 
 const personalPack = [
   "Unlimited Projects",

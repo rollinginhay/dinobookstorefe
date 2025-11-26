@@ -1,19 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../../ui/table";
-import {
-  AngleDownIcon,
-  AngleUpIcon,
-  PencilIcon,
-  TrashBinIcon,
-} from "../../../../icons";
+import {useMemo, useState} from "react";
+import {Table, TableBody, TableCell, TableHeader, TableRow,} from "../../../ui/table";
+import {AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon,} from "../../../../icons";
 import PaginationWithButton from "./PaginationWithButton";
 
 const tableRowData = [

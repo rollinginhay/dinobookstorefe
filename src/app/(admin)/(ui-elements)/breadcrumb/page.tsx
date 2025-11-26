@@ -3,7 +3,7 @@ import AngleDividerBreadCrumb from "@/components/ui/breadcrumb/AngleDividerBread
 import BreadCrumbWithIcon from "@/components/ui/breadcrumb/BreadCrumbWithIcon";
 import DefaultBreadCrumbExample from "@/components/ui/breadcrumb/DefaultBreadCrumbExample";
 import DottedDividerBreadcrumb from "@/components/ui/breadcrumb/DottedDividerBreadcrumb";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

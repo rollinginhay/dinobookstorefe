@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import {useEffect, useRef, useState} from "react";
 import Prism from "prismjs";
 
 // Import Prism CSS
-
 // Import additional languages
 import "prismjs/components/prism-jsx";
 import "prismjs/components/prism-tsx";

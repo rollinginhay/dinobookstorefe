@@ -1,10 +1,10 @@
 "use client";
 import Image from "next/image";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "@/icons";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
 import CountryMap from "./CountryMap";
-import { useState } from "react";
+import {useState} from "react";
 
 export default function DemographicCard() {
   const [isOpen, setIsOpen] = useState(false);

@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
-import { createPopper, type Instance } from "@popperjs/core";
+import {useEffect, useRef, useState} from "react";
+import {createPopper, type Instance} from "@popperjs/core";
 
 interface DropdownProps {
   dropdownButton: React.ReactNode;

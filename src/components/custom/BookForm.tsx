@@ -2,9 +2,8 @@
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import {toast} from "sonner";
 import dynamic from "next/dynamic";
-import React, {useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {useBookProperty} from "@/hooks/api-calls/useBookProperty";
 import {BaseProperty} from "@/components/custom/MultiSelectCreatable";
 import Form from "@/components/form/Form";
@@ -13,6 +12,10 @@ import ImagePicker from "@/components/custom/ImagePicker";
 import {uploadToCloudinary} from "@/lib/cloudinaryUpload";
 import {useBook} from "@/hooks/api-calls/useBook";
 import SelectCreatable from "@/components/custom/SelectCreatable";
+import {useParams, useRouter} from "next/navigation";
+import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
+import {getDateForInput, todayDateString} from "@/lib/formatters";
+import {deserializeBook} from "@/lib/serializers";
 
 //explicitly client impprt to prevent hydration errors
 const MultiSelectCreatable = dynamic(
@@ -22,12 +25,19 @@ const MultiSelectCreatable = dynamic(
 
 
 export default function BookForm() {
+    const router = useRouter();
+    const params = useParams();
+    const bookId = params.id?.toString();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const bookFetch = bookId ? useBookSingle(bookId) : null;
+
+
     const {propertyQuery: genreQuery, propertyCreate: genreCreate} = useBookProperty("genre", 0, 100, true);
     const {propertyQuery: creatorQuery, propertyCreate: creatorCreate} = useBookProperty("creator", 0, 100, true);
     const {propertyQuery: publisherQuery, propertyCreate: publisherCreate} = useBookProperty("publisher", 0, 100, true);
     const {propertyQuery: seriesQuery, propertyCreate: seriesCreate} = useBookProperty("series", 0, 100, true);
-    const {bookCreate} = useBook();
 
+    const {bookCreate} = useBook();
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [formData, setFormData] = useState({
         attributes: {
@@ -46,9 +56,19 @@ export default function BookForm() {
             series: null as BaseProperty | null
         }
     });
+    const hasInit = useRef(false);
+    const imageChanged = useRef(false);
 
-    if (genreQuery.isLoading || creatorQuery.isLoading || publisherQuery.isLoading || seriesQuery.isLoading) return <p
-        className="p-6">Loading...</p>;
+    useEffect(() => {
+        if (!bookId) return;
+        if (!bookFetch?.isSuccess) return;
+
+        if (!hasInit.current && bookFetch.data) {
+            const book = bookFetch.data.data;
+            setFormData(deserializeBook(book));
+            hasInit.current = true;
+        }
+    }, [bookId, bookFetch?.isSuccess, bookFetch?.data]);
 
     // function updateFormData<T extends keyof typeof formData>(
     //     key: T,
@@ -60,6 +80,16 @@ export default function BookForm() {
     //     }));
     // }
     //new ver supports deep nesting
+
+    if ((bookId && bookFetch?.isLoading) ||
+        genreQuery.isLoading ||
+        creatorQuery.isLoading ||
+        publisherQuery.isLoading ||
+        seriesQuery.isLoading) {
+        return <p className="p-6">Loading...</p>;
+    }
+
+
     function updateFormData(path: string, value: any) {
         setFormData(prev => {
             const copy = structuredClone(prev); // deep clone
@@ -80,12 +110,24 @@ export default function BookForm() {
 
     async function handleSubmit(e) {
         e.preventDefault();
-        if (imageFile) {
+        let updated = formData;
+        if (imageFile && imageChanged.current) {
             const imageUrl = await uploadToCloudinary(imageFile);
-            updateFormData("imageUrl", imageUrl);
+            updateFormData("attributes.imageUrl", imageUrl);
+            updated = {
+                ...formData,
+                attributes: {
+                    ...formData.attributes,
+                    imageUrl: imageUrl
+                }
+            };
+            console.log(updated);
         }
-        bookCreate.mutate(formData);
-        toast.success("created");
+        const res = await bookCreate.mutateAsync(updated);
+        console.log(res);
+        const id = res.data.id;
+        router.push(`/book/${id}`);
+
     }
 
     const handleCreateOption = (property: string, name: string) => {
@@ -103,9 +145,7 @@ export default function BookForm() {
                 seriesCreate.mutate({name: name});
                 break;
         }
-        toast.success("Created");
     };
-
 
     return (
         <div className="space-y-6">
@@ -140,7 +180,8 @@ export default function BookForm() {
                             <div>
                                 <Label>Publication date</Label>
                                 <Input type="date" placeholder="published"
-                                       value={formData.attributes.published}
+                                       defaultValue={getDateForInput(todayDateString())}
+                                       value={hasInit.current ? getDateForInput(formData.attributes.published) : getDateForInput(todayDateString())}
                                        onChange={(e) => updateFormData("attributes.published", e.target.value)}/>
                             </div>
                             <div>
@@ -195,8 +236,11 @@ export default function BookForm() {
                             <div>
                                 <Label>Product Image</Label>
                                 <ImagePicker
-                                    onFileChange={(file) => setImageFile(file)}
-                                    existingImageUrl={undefined}
+                                    onFileChange={(file) => {
+                                        setImageFile(file);
+                                        imageChanged.current = true;
+                                    }}
+                                    existingImageUrl={formData.attributes.imageUrl ? formData.attributes.imageUrl : undefined}
                                     rows={6}>
                                 </ImagePicker>
                             </div>

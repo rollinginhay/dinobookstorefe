@@ -5,7 +5,7 @@ export interface Book {
     updatedAt: string;
     enabled: boolean;
     note?: string;
-    id: string;
+    id: string | number;
     blurb?: string;
     title: string;
     language?: string;

@@ -4,7 +4,7 @@ import DataTableTwo from "@/components/tables/DataTables/TableTwo/DataTableTwo";
 import DataTableOne from "@/components/tables/DataTables/TableOne/DataTableOne";
 import DataTableThree from "@/components/tables/DataTables/TableThree/DataTableThree";
 
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

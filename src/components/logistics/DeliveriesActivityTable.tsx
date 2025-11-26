@@ -1,12 +1,6 @@
 "use client";
-import { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
+import {useState} from "react";
+import {Table, TableBody, TableCell, TableHeader, TableRow,} from "../ui/table";
 
 interface Row {
   id: string;

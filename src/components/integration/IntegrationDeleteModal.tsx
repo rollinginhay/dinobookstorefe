@@ -1,4 +1,4 @@
-import { Modal } from "../ui/modal";
+import {Modal} from "../ui/modal";
 
 interface IntegrationDeleteModalProps {
   isOpen: boolean;

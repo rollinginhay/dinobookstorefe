@@ -1,7 +1,7 @@
 "use client";
-import { Dropdown } from "@/components/ui/dropdown/Dropdown";
-import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
-import React, { useState } from "react";
+import {Dropdown} from "@/components/ui/dropdown/Dropdown";
+import {DropdownItem} from "@/components/ui/dropdown/DropdownItem";
+import React, {useState} from "react";
 
 export default function DropdownWithIconAndDivider() {
   const [isOpen, setIsOpen] = useState(false);

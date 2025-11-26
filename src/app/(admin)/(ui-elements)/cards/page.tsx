@@ -4,7 +4,7 @@ import CardWithImage from "@/components/cards/card-with-image/CardWithImage";
 import CardWithLinkExample from "@/components/cards/card-with-link/CardWithLinkExample";
 import HorizontalCardWithImage from "@/components/cards/horizontal-card/HorizontalCardWithImage";
 import React from "react";
-import { Metadata } from "next";
+import {Metadata} from "next";
 
 export const metadata: Metadata = {
   title: "Next.js Cards | TailAdmin - Next.js Dashboard Template",

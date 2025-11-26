@@ -1,5 +1,5 @@
 import InvoiceMain from "@/components/invoice/InvoiceMain";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

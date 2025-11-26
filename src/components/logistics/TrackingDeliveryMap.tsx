@@ -1,8 +1,8 @@
 "use client";
-import { MoreDotIcon } from "@/icons";
-import { useState } from "react";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
+import {useState} from "react";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
 
 export default function TrackingDeliveryMap() {
   const [isOpen, setIsOpen] = useState(false);

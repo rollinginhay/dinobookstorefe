@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { ChevronDownIcon } from "@/icons";
+import React, {useState} from "react";
+import {ChevronDownIcon} from "@/icons";
 
 interface Option {
     id: string | number;

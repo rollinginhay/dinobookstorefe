@@ -1,14 +1,9 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import ComponentCard from "../../common/ComponentCard";
 import Form from "../Form";
 import Input from "../input/InputField";
-import {
-  ArrowRightIcon,
-  EnvelopeIcon,
-  LockIcon,
-  UserIcon,
-} from "../../../icons";
+import {ArrowRightIcon, EnvelopeIcon, LockIcon, UserIcon,} from "../../../icons";
 import Checkbox from "../input/Checkbox";
 import Label from "../Label";
 import Button from "../../ui/button/Button";

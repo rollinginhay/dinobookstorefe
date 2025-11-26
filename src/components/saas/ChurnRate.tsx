@@ -1,15 +1,15 @@
 "use client";
 import dynamic from "next/dynamic";
+import {ApexOptions} from "apexcharts";
+import {useState} from "react";
+import {MoreDotIcon} from "@/icons";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
-import { ApexOptions } from "apexcharts";
-import { useState } from "react";
-import { MoreDotIcon } from "@/icons";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
 
 export default function ChurnRateChart() {
   const churnSeries = [

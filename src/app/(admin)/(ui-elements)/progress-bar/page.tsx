@@ -4,7 +4,7 @@ import DefaultProgressbarExample from "@/components/progress-bar/DefaultProgress
 import ProgressBarInMultipleSizes from "@/components/progress-bar/ProgressBarInMultipleSizes";
 import ProgressBarWithInsideLabel from "@/components/progress-bar/ProgressBarWithInsideLabel";
 import ProgressBarWithOutsideLabel from "@/components/progress-bar/ProgressBarWithOutsideLabel";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

@@ -3,7 +3,7 @@ import ImpressionChart from "@/components/marketing/ImpressionChart";
 import MarketingMetricsCards from "@/components/marketing/MarketingMetricsCards";
 import TrafficSource from "@/components/marketing/TrafficSource";
 import TrafficStats from "@/components/marketing/TrafficStats";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

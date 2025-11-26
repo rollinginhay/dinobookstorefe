@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import {useState} from "react";
 
 const CopyInput: React.FC = () => {
   const [website, setWebsite] = useState("www.tailadmin.com");

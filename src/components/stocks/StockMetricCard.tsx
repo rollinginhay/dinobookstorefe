@@ -1,5 +1,5 @@
 import Badge from "../ui/badge/Badge";
-import { ArrowDownIcon, ArrowUpIcon } from "../../icons";
+import {ArrowDownIcon, ArrowUpIcon} from "../../icons";
 import Image from "next/image";
 
 type StockCardProps = {

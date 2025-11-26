@@ -1,5 +1,4 @@
-import type React from "react";
-import type { ReactNode } from "react";
+import type React, {ReactNode} from "react";
 
 type TooltipPosition = "top" | "right" | "bottom" | "left";
 type TooltipTheme = "light" | "dark";

@@ -1,5 +1,5 @@
 import React from "react";
-import { DollarLineIcon, GroupIcon, ShootingStarIcon } from "../../icons";
+import {DollarLineIcon, GroupIcon, ShootingStarIcon} from "../../icons";
 
 export default function MarketingMetricsCards() {
   return (

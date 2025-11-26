@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
-import { Navigation } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/react";
+import {Navigation} from "swiper/modules";
+import {Swiper, SwiperSlide} from "swiper/react";
 
 export default function TrendingStocks() {
   const swiperOptions = {

@@ -1,6 +1,6 @@
 // src/lib/api.ts
 import axios, {AxiosInstance} from "axios";
-import {serialise, deserialise} from "kitsu-core";
+import {deserialise, serialise} from "kitsu-core";
 import {toast} from "sonner";
 
 /**

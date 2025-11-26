@@ -3,7 +3,7 @@ import ColoredLinkWithUnderline from "@/components/ui/links/ColoredLinkWithUnder
 import DefaultLinkExample from "@/components/ui/links/DefaultLinkExample";
 import LinkOpacityExample from "@/components/ui/links/LinkOpacityExample";
 import LinkOpacityHover from "@/components/ui/links/LinkOpacityHover";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

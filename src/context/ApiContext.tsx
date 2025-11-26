@@ -1,9 +1,9 @@
 // src/context/ApiContext.tsx
 "use client";
 
-import React, { createContext, useContext, ReactNode } from "react";
-import type { AxiosInstance } from "axios";
-import { api } from "@/lib/api";
+import React, {createContext, ReactNode, useContext} from "react";
+import type {AxiosInstance} from "axios";
+import {api} from "@/lib/api";
 
 /**
  * ApiContext provides the Axios instance throughout the app.

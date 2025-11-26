@@ -1,5 +1,5 @@
 import React from "react";
-import { CardDescription, CardTitle } from "../../ui/card";
+import {CardDescription, CardTitle} from "../../ui/card";
 import Link from "next/link";
 import Image from "next/image";
 

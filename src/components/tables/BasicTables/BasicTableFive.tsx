@@ -1,11 +1,5 @@
 import Image from "next/image";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../ui/table";
+import {Table, TableBody, TableCell, TableHeader, TableRow,} from "../../ui/table";
 
 // Define the TypeScript interface for the table rows
 interface Product {

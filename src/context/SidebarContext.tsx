@@ -1,6 +1,6 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import React, {createContext, useContext, useEffect, useState} from "react";
+import {usePathname} from "next/navigation";
 
 type SidebarContextType = {
   isExpanded: boolean;

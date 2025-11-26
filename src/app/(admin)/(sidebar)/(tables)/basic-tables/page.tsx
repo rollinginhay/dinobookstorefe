@@ -6,7 +6,7 @@ import BasicTableOne from "@/components/tables/BasicTables/BasicTableOne";
 import BasicTableThree from "@/components/tables/BasicTables/BasicTableThree";
 import BasicTableTwo from "@/components/tables/BasicTables/BasicTableTwo";
 
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

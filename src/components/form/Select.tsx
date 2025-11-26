@@ -1,5 +1,5 @@
-import { ChevronDownIcon } from "@/icons";
-import React, { useState } from "react";
+import {ChevronDownIcon} from "@/icons";
+import React, {useState} from "react";
 
 interface Option {
   value: string;

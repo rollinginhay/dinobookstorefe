@@ -4,7 +4,7 @@ import AccountMenuDropdown from "@/components/example/DropdownExample/AccountMen
 import DropdownWithDivider from "@/components/example/DropdownExample/DropdownWithDivider";
 import DropdownWithIcon from "@/components/example/DropdownExample/DropdownWithIcon";
 import DropdownWithIconAndDivider from "@/components/example/DropdownExample/DropdownWithIconAndDivider";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

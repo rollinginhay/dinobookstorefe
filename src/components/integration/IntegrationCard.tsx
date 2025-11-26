@@ -1,10 +1,10 @@
 "use client";
-import { ReactNode, useState } from "react";
-import { HorizontaLDots } from "../../icons";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import {ReactNode, useState} from "react";
+import {HorizontaLDots} from "../../icons";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
 import IntegrationDetailsModal from "./IntegrationDetailsModal";
-import { useModal } from "../../hooks/useModal";
+import {useModal} from "../../hooks/useModal";
 import IntegrationDeleteModal from "./IntegrationDeleteModal";
 import Switch from "../form/switch/Switch";
 import IntegrationSettingsModal from "./IntegrationSettingsModal";

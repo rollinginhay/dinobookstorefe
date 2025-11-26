@@ -1,6 +1,6 @@
 import React from "react";
 
-import { ArrowRightIcon } from "../../icons";
+import {ArrowRightIcon} from "../../icons";
 import Link from "next/link";
 import Image from "next/image";
 

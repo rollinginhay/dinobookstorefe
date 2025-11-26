@@ -1,5 +1,5 @@
 "use client";
-import React, { ReactNode, useState } from "react";
+import React, {ReactNode, useState} from "react";
 import AiSidebarHistory from "./AiSidebarHistory";
 
 export default function AiLayout({ children }: { children: ReactNode }) {

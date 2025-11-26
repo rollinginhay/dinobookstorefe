@@ -7,7 +7,7 @@ import SessionChart from "@/components/analytics/SessionChart";
 import TopChannel from "@/components/analytics/TopChannel";
 import TopPages from "@/components/analytics/TopPages";
 import DemographicCard from "@/components/ecommerce/DemographicCard";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

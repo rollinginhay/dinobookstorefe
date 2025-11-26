@@ -6,19 +6,19 @@ import {useBookProperty} from "@/hooks/api-calls/useBookProperty";
 import {API_ROUTES_TREE} from "@/lib/routes";
 import Button from "@/components/ui/button/Button";
 import ProductPropertyForm from "@/components/custom/ProductPropertyForm";
-import * as sea from "node:sea";
-import {formatLocalDateTime} from "@/lib/formatters";
+import {getDisplayDate} from "@/lib/formatters";
 
 
-const ProductPropertyListTable: React.FC = () => {
+const ProductPropertyListTable = ({property}) => {
     const properties = Object.keys(API_ROUTES_TREE.property).map(k => ({
         value: k,
         label: k.charAt(0).toUpperCase() + k.slice(1)
     }));
     const [limit, setLimit] = useState(8);
     const [limitInput, setLimitInput] = useState(limit.toString());
-
-    const [selectedProperty, setSelectedProperty] = useState(properties[0]);
+    console.log(properties);
+    // console.log(properties.filter(e => e.value === property));
+    const [selectedProperty, setSelectedProperty] = useState(property ? properties.filter(e => e.value === property)[0] : properties[0]);
     const [page, setPage] = useState(0);
     const [inputValue, setInputValue] = useState(page + 1); //page smart input state
     const [searchInput, setSearchInput] = useState("");
@@ -140,7 +140,7 @@ const ProductPropertyListTable: React.FC = () => {
 
                 <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
                     <div className="flex gap-3 sm:justify-between">
-                        <div className="relative flex-1 sm:flex-auto">
+                        <div className="relative flex-1 sm:flex-auto" hidden={!!property}>
                             <PropertyFilterDropdown
                                 selectedCategory={selectedProperty.value}
                                 categories={properties}
@@ -170,7 +170,7 @@ const ProductPropertyListTable: React.FC = () => {
                                         strokeLinejoin="round"
                                     />
                                 </svg>
-                                Add {selectedProperty.label}
+                                Add
                             </Button>
                         </div>
                     </div>
@@ -443,7 +443,7 @@ const ProductPropertyListTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {formatLocalDateTime(e.createdAt)}
+                                        {getDisplayDate(e.createdAt)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
@@ -467,11 +467,11 @@ const ProductPropertyListTable: React.FC = () => {
                                         onDelete={() => {
                                             propertyDelete.mutate(e.id);
                                         }}
-                                    enableButtons={{
-                                        view: true,
-                                        edit: true,
-                                        delete: true,
-                                    }}
+                                        enableButtons={{
+                                            view: false,
+                                            edit: true,
+                                            delete: true,
+                                        }}
                                     ></TableActionButtons>
                                 </td>
                             </tr>

@@ -1,5 +1,5 @@
 import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
-import { Metadata } from "next";
+import {Metadata} from "next";
 
 import React from "react";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Task } from "./types/Task";
+import {Task} from "./types/Task";
 import Image from "next/image";
 
 interface TaskItemProps extends Task {

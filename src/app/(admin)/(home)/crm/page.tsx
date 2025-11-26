@@ -4,7 +4,7 @@ import CrmStatisticsChart from "@/components/crm/CrmStatisticsChart";
 import EstimatedRevenue from "@/components/crm/EstimatedRevenue";
 import SalePieChart from "@/components/crm/SalePieChart";
 import UpcomingSchedule from "@/components/crm/UpcomingSchedule";
-import { Metadata } from "next";
+import {Metadata} from "next";
 
 export const metadata: Metadata = {
   title: "Next.js CRM Dashboard | TailAdmin - Next.js Admin Dashboard Template",

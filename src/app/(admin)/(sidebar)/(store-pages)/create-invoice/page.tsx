@@ -4,7 +4,7 @@ import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import CreateInvoiceTable from "@/components/invoice/CreateInvoiceTable";
 import Button from "@/components/ui/button/Button";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

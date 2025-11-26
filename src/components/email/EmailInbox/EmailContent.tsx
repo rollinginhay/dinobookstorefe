@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import EmailHeader from "./EmailHeader";
 import EmailPagination from "./EmailPagination";
 import Checkbox from "../../form/input/Checkbox";

@@ -1,5 +1,5 @@
-import React, { FC, ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+import React, {FC, ReactNode} from "react";
+import {twMerge} from "tailwind-merge";
 
 interface LabelProps {
   htmlFor?: string;

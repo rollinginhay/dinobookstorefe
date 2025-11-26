@@ -3,8 +3,7 @@ import React, {JSX, useEffect, useRef, useState} from "react";
 import TableActionButtons from "@/components/custom/TableActionButtons";
 import Button from "@/components/ui/button/Button";
 import {useBook} from "@/hooks/api-calls/useBook";
-import Image from "next/image";
-import {formatLocalDateTime, formatVND, formatYear} from "@/lib/formatters";
+import {getVND, getYear} from "@/lib/formatters";
 import Link from "@/components/ui/links/Link";
 
 
@@ -344,7 +343,7 @@ const ProductListTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {formatYear(e.published)}
+                                        {getYear(e.published)}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
@@ -372,7 +371,7 @@ const ProductListTable: React.FC = () => {
                                                 );
                                             }
 
-                                            return (formatVND(min) + " - " + formatVND(max));
+                                            return (getVND(min) + " - " + getVND(max));
                                         })()}
                                     </p>
                                 </td>

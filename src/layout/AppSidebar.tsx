@@ -1,13 +1,11 @@
 "use client";
-import React, {useEffect, useRef, useCallback, useState} from "react";
+import React, {useCallback, useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {usePathname} from "next/navigation";
 import {useSidebar} from "../context/SidebarContext";
 import {
-    AiIcon,
     BoxCubeIcon,
-    CalenderIcon,
     CallIcon,
     CartIcon,
     ChatIcon,
@@ -16,14 +14,9 @@ import {
     HorizontaLDots,
     ListIcon,
     MailIcon,
-    PageIcon,
-    PieChartIcon,
     PlugInIcon,
-    TableIcon,
-    TaskIcon,
     UserCircleIcon,
 } from "../icons/index";
-import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
     name: string;
@@ -34,19 +27,19 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-    {
-        icon: <GridIcon/>,
-        name: "Dashboard",
-        subItems: [
-            {name: "Ecommerce", path: "/"},
-            // { name: "Analytics", path: "/analytics" },
-            // { name: "Marketing", path: "/marketing" },
-            // { name: "CRM", path: "/crm" },
-            // { name: "Stocks", path: "/stocks" },
-            // { name: "SaaS", path: "/saas", new: true },
-            // { name: "Logistics", path: "/logistics", new: true },
-        ],
-    },
+    // {
+    //     icon: <GridIcon/>,
+    //     name: "Dashboard",
+    //     subItems: [
+    //         {name: "Ecommerce", path: "/"},
+    //         // { name: "Analytics", path: "/analytics" },
+    //         // { name: "Marketing", path: "/marketing" },
+    //         // { name: "CRM", path: "/crm" },
+    //         // { name: "Stocks", path: "/stocks" },
+    //         // { name: "SaaS", path: "/saas", new: true },
+    //         // { name: "Logistics", path: "/logistics", new: true },
+    //     ],
+    // },
     // {
     //   name: "AI Assistant",
     //   icon: <AiIcon />,
@@ -75,10 +68,15 @@ const navItems: NavItem[] = [
         icon: <CartIcon/>,
         new: true,
         subItems: [
-            {name: "Product properties", path: "/book-property-list"},
+            {name: "Overview", path: "/"},
+            // {name: "Product properties", path: "/book-property-list"},
             {name: "Books", path: "/books"},
+            {name: "Publishers", path: "/publishers"},
+            {name: "Genres", path: "/genres"},
+            {name: "Creators", path: "/creators"},
+            {name: "Series", path: "/series"},
             // {name: "Products", path: "/products-list"},
-            {name: "Add Product", path: "/add-product"},
+            // {name: "Add Product", path: "/add-product"},
             // {name: "Billing", path: "/billing"},
             // {name: "Invoices", path: "/invoices"},
             // {name: "Single Invoice", path: "/single-invoice"},

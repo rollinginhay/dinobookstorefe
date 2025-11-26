@@ -3,7 +3,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import DefaultTooltip from "@/components/ui/tooltip/DefaultTooltip";
 import TooltipPlacement from "@/components/ui/tooltip/TooltipPlacement";
 import WhiteAndDarkTooltip from "@/components/ui/tooltip/WhiteAndDarkTooltip";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

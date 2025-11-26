@@ -1,5 +1,5 @@
 "use client";
-import { BoltIcon } from "../../../icons";
+import {BoltIcon} from "../../../icons";
 
 interface UpdateNotificationProps {
   title: string; // Title of the notification

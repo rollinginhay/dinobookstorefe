@@ -1,7 +1,7 @@
 "use client";
-import { cn } from "@/utils";
+import {cn} from "@/utils";
 import type React from "react";
-import { useEffect, useRef } from "react";
+import {useEffect, useRef} from "react";
 
 interface DropdownProps {
   isOpen: boolean;

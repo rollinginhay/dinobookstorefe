@@ -1,8 +1,9 @@
 "use client";
 import React from "react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Pagination, Autoplay } from "swiper/modules";
+import {Swiper, SwiperSlide} from "swiper/react";
+import {Autoplay, Pagination} from "swiper/modules";
 import Image from "next/image";
+
 const carouselData = [
   {
     thumbnail: "/images/carousel/carousel-01.png",

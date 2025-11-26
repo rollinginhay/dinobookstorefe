@@ -1,5 +1,4 @@
-import type React from "react";
-import type { FC } from "react";
+import type React, {FC} from "react";
 
 interface InputProps {
     type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
@@ -83,7 +82,6 @@ const Input: FC<InputProps> = ({
                 name={name}
                 placeholder={placeholder}
 
-                // 🔥 CHANGE #1: prefer controlled value when provided
                 value={value}
                 defaultValue={value === undefined ? defaultValue : undefined}
 

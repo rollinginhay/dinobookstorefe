@@ -1,7 +1,7 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import InvoiceListTable from "@/components/invoice/InvoiceList";
 import InvoiceMetrics from "@/components/invoice/InvoiceMetrics";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

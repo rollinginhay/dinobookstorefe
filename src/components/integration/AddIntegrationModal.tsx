@@ -1,7 +1,7 @@
 "use client";
-import { useModal } from "../../hooks/useModal";
+import {useModal} from "../../hooks/useModal";
 import Button from "../ui/button/Button";
-import { Modal } from "../ui/modal";
+import {Modal} from "../ui/modal";
 
 export default function AddIntegrationModal() {
   const addIntegrationModal = useModal();

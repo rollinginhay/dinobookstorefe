@@ -1,4 +1,4 @@
-import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES_TREE} from "@/lib/routes";
 
@@ -38,7 +38,7 @@ export function useBookProperty(
             return jsonApi.deserialise(res.data);
         },
         onSuccess: async () => {
-            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType], exact: false});
         },
     });
 
@@ -56,7 +56,7 @@ export function useBookProperty(
 
         },
         onSuccess: async () => {
-            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType], exact: false});
         },
 
     });
@@ -74,7 +74,7 @@ export function useBookProperty(
 
         },
         onSuccess: async () => {
-            await queryClient.invalidateQueries({queryKey: ["property", propertyType]});
+            await queryClient.invalidateQueries({queryKey: ["property", propertyType], exact: false});
         },
     })
 

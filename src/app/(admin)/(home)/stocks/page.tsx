@@ -4,7 +4,7 @@ import PortfolioPerformance from "@/components/stocks/PortfolioPerformance";
 import StockMetricsList from "@/components/stocks/StockMetricsList";
 import TrendingStocks from "@/components/stocks/TrendingStocks";
 import WatchList from "@/components/stocks/WatchList";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

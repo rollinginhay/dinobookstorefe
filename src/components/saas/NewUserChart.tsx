@@ -1,13 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import {ApexOptions} from "apexcharts";
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
-
-import { ApexOptions } from "apexcharts";
 
 export default function NewUserChart() {
   const options: ApexOptions = {

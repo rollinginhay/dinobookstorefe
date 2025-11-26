@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import TaskItem from "./TaskItem";
-import { Task } from "./types/Task";
-import { Dropdown } from "../../ui/dropdown/Dropdown";
-import { DropdownItem } from "../../ui/dropdown/DropdownItem";
-import { HorizontaLDots } from "@/icons";
+import {Task} from "./types/Task";
+import {Dropdown} from "../../ui/dropdown/Dropdown";
+import {DropdownItem} from "../../ui/dropdown/DropdownItem";
+import {HorizontaLDots} from "@/icons";
 
 interface TaskLaneProps {
   lane: string;

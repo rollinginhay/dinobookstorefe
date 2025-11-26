@@ -6,7 +6,7 @@ import LogisticsMetrics from "@/components/logistics/LogisticsMetrics";
 import RevenueEarnedChart from "@/components/logistics/RevenueEarnedChart";
 import TrackingDeliveryMap from "@/components/logistics/TrackingDeliveryMap";
 import TrackingProgress from "@/components/logistics/TrackingProgress";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

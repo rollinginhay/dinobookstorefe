@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import FaqOne from "./FaqOne";
 
 const accordionData = [

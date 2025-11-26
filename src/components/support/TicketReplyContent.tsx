@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState } from "react";
+import {useState} from "react";
 
 export default function TicketReplyContent() {
   const [selected, setSelected] = useState("in-progress");

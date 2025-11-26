@@ -1,5 +1,5 @@
 import React from "react";
-import { CardDescription, CardTitle } from "../../ui/card";
+import {CardDescription, CardTitle} from "../../ui/card";
 
 export default function CardIconOne() {
   return (

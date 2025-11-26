@@ -3,7 +3,7 @@ import LineChartThree from "@/components/charts/line/LineChartThree";
 import LineChartTwo from "@/components/charts/line/LineChartTwo";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

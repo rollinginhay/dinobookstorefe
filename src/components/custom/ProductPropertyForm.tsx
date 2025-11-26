@@ -4,9 +4,9 @@ import ComponentCard from "../common/ComponentCard";
 import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import TextArea from "@/components/form/input/TextArea";
 import {useBookProperty} from "@/hooks/api-calls/useBookProperty";
-import {isStrictAlphanumeric, isLetterWords, isParagraphNullable} from "@/lib/validation";
+import {isLetterWords, isParagraphNullable} from "@/lib/validation";
+import Label from "@/components/form/Label";
 
 interface PropertyFormProps {
     property: string,
@@ -63,29 +63,34 @@ export default function ProductPropertyForm({property, editData, onClose}: Prope
     };
 
     return (
-        <ComponentCard title="Create form">
+        <ComponentCard title="Add">
             <Form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 ">
                     <div>
+                        <Label>Name</Label>
                         <Input type="text" placeholder="Name" name="name" defaultValue={formData.name}
                                onChange={handleChange}/>
                         <p className="text-red-400">{errors.filter((e) => e.detail === "name")?.[0]?.title}</p>
 
                     </div>
                     <div>
+                        <Label>Note</Label>
                         <Input type="text" placeholder="Note" name="note" onChange={handleChange}
                                defaultValue={formData.note}/>
                         <p className="text-red-400">{errors.filter((e) => e.detail === "note")?.[0]?.title}</p>
                     </div>
-                    <select
-                        name="enabled"
-                        value={formData.enabled}
-                        onChange={(e) => setFormData({...formData, enabled: e.target.value === "true"})}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
-                    >
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
-                    </select>
+                    <div>
+                        <Label>Status</Label>
+                        <select
+                            name="enabled"
+                            value={formData.enabled}
+                            onChange={(e) => setFormData({...formData, enabled: e.target.value === "true"})}
+                            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+                        >
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
                     <div className="col-span-full">
                         <Button className="w-full" size="sm">
                             Submit

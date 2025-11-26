@@ -1,7 +1,7 @@
 "use client";
 import Button from "@/components/ui/button/Button";
-import { Modal } from "@/components/ui/modal";
-import { useModal } from "@/hooks/useModal";
+import {Modal} from "@/components/ui/modal";
+import {useModal} from "@/hooks/useModal";
 import React from "react";
 
 export default function BillingInfo() {

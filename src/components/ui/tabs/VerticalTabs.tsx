@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import {useState} from "react";
 
 const VerticalTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");

@@ -4,7 +4,7 @@ import SlideOnly from "@/components/ui/carousel/SlideOnly";
 import WithControl from "@/components/ui/carousel/WithControl";
 import WithControlAndIndicators from "@/components/ui/carousel/WithControlAndIndicators";
 import WithIndicators from "@/components/ui/carousel/WithIndicators";
-import { Metadata } from "next";
+import {Metadata} from "next";
 import React from "react";
 
 export const metadata: Metadata = {

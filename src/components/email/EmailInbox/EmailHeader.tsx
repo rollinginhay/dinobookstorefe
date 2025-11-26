@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import Checkbox from "../../form/input/Checkbox";
-import { Dropdown } from "../../ui/dropdown/Dropdown";
-import { DropdownItem } from "../../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "@/icons";
+import {Dropdown} from "../../ui/dropdown/Dropdown";
+import {DropdownItem} from "../../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
 
 interface EmailHeaderProps {
   isChecked: boolean;

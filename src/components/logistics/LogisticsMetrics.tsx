@@ -1,4 +1,4 @@
-import { BoxMoving, BoxTapped, TruckDelivery } from "../../icons";
+import {BoxMoving, BoxTapped, TruckDelivery} from "../../icons";
 
 export default function LogisticsMetrics() {
   return (

@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, {useState} from "react";
 import ChartTab from "../common/ChartTab";
-import { ApexOptions } from "apexcharts";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "@/icons";
+import {ApexOptions} from "apexcharts";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
+import {MoreDotIcon} from "@/icons";
 import dynamic from "next/dynamic";
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {

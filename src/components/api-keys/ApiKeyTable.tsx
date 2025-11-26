@@ -1,7 +1,7 @@
 "use client";
 import Switch from "../form/switch/Switch";
 import AddApiKeyModal from "./AddApiKeyModal";
-import { useState } from "react";
+import {useState} from "react";
 
 interface ApiKey {
   id: string;

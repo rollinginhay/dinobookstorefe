@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import {useState} from "react";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import { ChevronDownIcon } from "@/icons";
+import {ChevronDownIcon} from "@/icons";
 
 interface Product {
   name: string;

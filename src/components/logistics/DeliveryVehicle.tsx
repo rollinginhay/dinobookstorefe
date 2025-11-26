@@ -1,9 +1,9 @@
 "use client";
-import { MoreDotIcon } from "@/icons";
+import {MoreDotIcon} from "@/icons";
 import Image from "next/image";
-import React, { useState } from "react";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import React, {useState} from "react";
+import {Dropdown} from "../ui/dropdown/Dropdown";
+import {DropdownItem} from "../ui/dropdown/DropdownItem";
 
 export default function DeliveryVehicle() {
   const [isOpen, setIsOpen] = useState(false);

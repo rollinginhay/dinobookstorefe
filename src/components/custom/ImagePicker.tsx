@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useRef } from "react";
+import React, {useRef, useState} from "react";
 
 interface ImageDropZoneProps {
     existingImageUrl?: string;
