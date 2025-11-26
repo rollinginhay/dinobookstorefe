@@ -10,7 +10,6 @@ import {
     CartIcon,
     ChatIcon,
     ChevronDownIcon,
-    GridIcon,
     HorizontaLDots,
     ListIcon,
     MailIcon,
