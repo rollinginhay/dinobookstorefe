@@ -49,7 +49,7 @@ const ProductDetailTable: React.FC = () => {
         dimensions: "",
         printLength: "",
         stock: "",
-        price: "",
+        salesPrice: "",
     };
 
     const isEditing = useRef(false);
@@ -208,7 +208,7 @@ const ProductDetailTable: React.FC = () => {
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {getVND(e.price)}</p>
+                                        {getVND(e.salesPrice)}</p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -302,7 +302,7 @@ const ProductDetailTable: React.FC = () => {
                         <div>
                             <Label>Price</Label>
                             <Input placeholder="title"
-                                   value={editingItem.price}
+                                   value={editingItem.salesPrice}
                                    onChange={(e) =>
                                        setEditingItem(prev => ({...prev, price: e.target.value}))
                                    }/>
