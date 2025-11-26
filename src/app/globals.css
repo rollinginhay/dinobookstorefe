@@ -945,3 +945,222 @@ pre[class*="language-"] {
 pre[class*="language-"].line-numbers {
     padding-left: 2.8em !important;
 }
+
+/* ===========================================
+   FINAL LIGHTBEE SIDEBAR STYLE (CLEAN VERSION)
+   =========================================== */
+
+:root {
+  --sidebar-primary: #1890ff;
+  --sidebar-primary-soft: #e6f4ff;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #f0f0f0;
+  --sidebar-text: #344054;
+  --sidebar-text-muted: #667085;
+}
+
+/* Sidebar container */
+.sidebar-fahasa {
+  background-color: var(--sidebar-bg) !important;
+  color: var(--sidebar-text) !important;
+  min-height: 100vh !important;
+  border-right: 1px solid var(--sidebar-border);
+}
+
+/* MAIN MENU ITEM */
+
+/* Trạng thái inactive */
+.menu-item-inactive {
+  background-color: transparent !important;
+  color: var(--sidebar-text-muted) !important;
+}
+
+.menu-item-icon-inactive {
+  color: #98a2b3 !important;
+}
+
+/* Hover item lớn */
+.menu-item-inactive:hover {
+  background-color: #f5f5f5 !important;
+  color: var(--sidebar-text) !important;
+}
+
+.menu-item-inactive:hover .menu-item-icon-inactive {
+  color: var(--sidebar-text) !important;
+}
+
+.menu-item-inactive:hover .menu-item-arrow-inactive {
+  color: var(--sidebar-primary) !important;
+}
+
+/* Active item lớn */
+.menu-item-active {
+  background-color: var(--sidebar-primary-soft) !important;
+  color: var(--sidebar-primary) !important;
+  border-radius: 8px;
+}
+
+.menu-item-icon-active {
+  color: var(--sidebar-primary) !important;
+}
+
+/* SUBMENU */
+
+/* submenu inactive */
+.menu-dropdown-item-inactive {
+  background-color: transparent !important;
+  color: var(--sidebar-text-muted) !important;
+}
+
+/* Hover submenu */
+.menu-dropdown-item-inactive:hover {
+  background-color: #f5f5f5 !important;
+  color: var(--sidebar-primary) !important;
+}
+
+/* Submenu active */
+.menu-dropdown-item-active {
+  background-color: var(--sidebar-primary-soft) !important;
+  color: var(--sidebar-primary) !important;
+  border-left: 3px solid var(--sidebar-primary);
+  border-radius: 6px;
+}
+
+/* Arrow */
+.menu-item-arrow-active {
+  color: var(--sidebar-primary) !important;
+}
+
+.menu-item-arrow-inactive {
+  color: #98a2b3 !important;
+}
+html, body {
+  font-family: "Inter", sans-serif;
+}
+/* =========================================================
+   COMPONENT STYLES - LIGHTBEE
+   ========================================================= */
+
+/* ================= BUTTON ================= */
+.btn {
+  @apply inline-flex items-center justify-center px-4 py-2 rounded-md 
+         font-medium text-sm transition-all duration-200 select-none;
+}
+
+.btn-primary {
+  @apply bg-[var(--sidebar-primary)] text-white 
+         hover:bg-[#1677e0] active:bg-[#146acc];
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 
+         hover:bg-gray-200 active:bg-gray-300;
+}
+
+.btn-danger {
+  @apply bg-red-500 text-white 
+         hover:bg-red-600 active:bg-red-700;
+}
+
+.btn-outline {
+  @apply border border-gray-300 text-gray-700 
+         hover:bg-gray-100;
+}
+
+/* ================= INPUT / SELECT / TEXTAREA ================= */
+.input,
+.select,
+.textarea {
+  @apply w-full rounded-md border border-gray-300 bg-white 
+         px-3 py-2 text-sm text-gray-800
+         focus:outline-none focus:ring-2 focus:ring-[var(--sidebar-primary)]
+         transition;
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  @apply bg-gray-100 cursor-not-allowed opacity-70;
+}
+
+/* ================= CARD ================= */
+.card {
+  @apply bg-white rounded-lg p-5 shadow-sm border border-gray-200;
+}
+
+.card-title {
+  @apply text-lg font-semibold text-gray-800 mb-3;
+}
+
+/* ================= SECTION HEADING ================= */
+.section-title {
+  @apply text-xl font-semibold text-gray-900 mb-4;
+}
+
+/* ================= TABLE ================= */
+.table {
+  @apply w-full border-collapse text-sm;
+}
+
+.table thead {
+  @apply bg-gray-50 text-gray-700;
+}
+
+.table th {
+  @apply px-4 py-3 text-left font-medium border-b border-gray-200;
+}
+
+.table td {
+  @apply px-4 py-3 border-b border-gray-100 text-gray-800;
+}
+
+.table tbody tr:hover {
+  @apply bg-gray-50;
+}
+
+/* ================= BADGE ================= */
+.badge {
+  @apply inline-block px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-blue {
+  @apply bg-[var(--sidebar-primary-soft)] text-[var(--sidebar-primary)];
+}
+
+.badge-gray {
+  @apply bg-gray-100 text-gray-700;
+}
+
+/* ================= CHIP ================= */
+.chip {
+  @apply inline-flex items-center gap-1 px-3 py-1 rounded-full 
+         bg-gray-100 text-gray-700 text-sm;
+}
+
+/* ================= CHECKBOX ================= */
+.checkbox {
+  @apply h-4 w-4 accent-[var(--sidebar-primary)];
+}
+
+/* ================= PANEL ================= */
+.panel {
+  @apply bg-white border border-gray-200 rounded-lg p-6 shadow-sm;
+}
+
+/* ================= DIVIDER ================= */
+.divider {
+  @apply h-px bg-gray-200 w-full my-4;
+}
+/* ===========================================
+   LIGHTBEE FORM STYLE — LABEL + SECTION TITLE
+   =========================================== */
+
+/* Label chuẩn LightBee */
+.form-label {
+  @apply block mb-1 text-sm font-medium text-gray-700;
+}
+
+/* Tiêu đề nhóm field (vd: Thông tin khách hàng) */
+.form-section-title {
+  @apply text-lg font-semibold text-gray-800 mb-4;
+}

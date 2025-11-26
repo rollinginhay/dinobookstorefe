@@ -1,31 +1,42 @@
 "use client";
 
-import {useRouter} from "next/navigation";
-import {useState} from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface TableActionButtonsProps {
     viewLink: string;
-    onDelete: () => Promise<void> | void;
-    onEdit: () => Promise<void> | void;
-    enableButtons: {
-        view: boolean;
-        edit: boolean;
-        delete: boolean;
-    }
+    onDelete?: () => Promise<void> | void;   // OPTIONAL
+    onEdit?: () => Promise<void> | void;     // OPTIONAL
+    enableButtons?: {
+        view?: boolean;
+        edit?: boolean;
+        delete?: boolean;
+    };
 }
 
+export default function TableActionButtons({
+    viewLink,
+    onDelete,
+    onEdit,
+    enableButtons = { view: true, edit: true, delete: true }, // DEFAULT
+}: TableActionButtonsProps) {
 
-export default function TableActionButtons({viewLink, onDelete, onEdit, enableButtons}: TableActionButtonsProps) {
     const router = useRouter();
     const [showConfirm, setShowConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [enabledButtons, setEnabledButtons] = useState(enableButtons);
+
+    // merge default + custom
+    const enabledButtons = {
+        view: enableButtons.view ?? true,
+        edit: enableButtons.edit ?? true,
+        delete: enableButtons.delete ?? true
+    };
 
     const handleDelete = async () => {
-        if (!onDelete) return;
+        if (!onDelete) return; // prevent error
         setIsDeleting(true);
         try {
-            onDelete();
+            await onDelete();
         } finally {
             setIsDeleting(false);
             setShowConfirm(false);
@@ -34,36 +45,41 @@ export default function TableActionButtons({viewLink, onDelete, onEdit, enableBu
 
     return (
         <div className="flex items-center space-x-2">
+
             {/* View */}
-            <button
-                hidden={!enabledButtons.view}
-                type="button"
-                className="rounded bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600 transition"
-                onClick={() => router.push(viewLink)}
-            >
-                View
-            </button>
+            {enabledButtons.view && (
+                <button
+                    type="button"
+                    className="rounded bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600 transition"
+                    onClick={() => router.push(viewLink)}
+                >
+                    View
+                </button>
+            )}
 
             {/* Edit */}
-            <button
-                hidden={!enabledButtons.edit}
-                type="button"
-                className="rounded bg-emerald-500 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-600 transition"
-                onClick={onEdit}
-            >
-                Edit
-            </button>
+            {enabledButtons.edit && (
+                <button
+                    type="button"
+                    className="rounded bg-emerald-500 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-600 transition"
+                    onClick={onEdit}
+                >
+                    Edit
+                </button>
+            )}
 
             {/* Delete */}
-            <button
-                hidden={!enabledButtons.delete}
-                type="button"
-                className="rounded bg-red-500 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 transition"
-                onClick={() => setShowConfirm(true)}
-            >
-                Delete
-            </button>
+            {enabledButtons.delete && (
+                <button
+                    type="button"
+                    className="rounded bg-red-500 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 transition"
+                    onClick={() => setShowConfirm(true)}
+                >
+                    Delete
+                </button>
+            )}
 
+            {/* Confirm Modal */}
             {showConfirm && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-lg p-6 w-80">

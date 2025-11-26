@@ -5,17 +5,25 @@ import Image from "next/image";
 import {usePathname} from "next/navigation";
 import {useSidebar} from "../context/SidebarContext";
 import {
+    AiIcon,
     BoxCubeIcon,
+    CalenderIcon,
     CallIcon,
     CartIcon,
     ChatIcon,
     ChevronDownIcon,
+    GridIcon,
     HorizontaLDots,
     ListIcon,
     MailIcon,
+    PageIcon,
+    PieChartIcon,
     PlugInIcon,
+    TableIcon,
+    TaskIcon,
     UserCircleIcon,
 } from "../icons/index";
+import TagIcon from "@/icons/TagIcon";
 
 type NavItem = {
     name: string;
@@ -26,128 +34,35 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-    // {
-    //     icon: <GridIcon/>,
-    //     name: "Dashboard",
-    //     subItems: [
-    //         {name: "Ecommerce", path: "/"},
-    //         // { name: "Analytics", path: "/analytics" },
-    //         // { name: "Marketing", path: "/marketing" },
-    //         // { name: "CRM", path: "/crm" },
-    //         // { name: "Stocks", path: "/stocks" },
-    //         // { name: "SaaS", path: "/saas", new: true },
-    //         // { name: "Logistics", path: "/logistics", new: true },
-    //     ],
-    // },
-    // {
-    //   name: "AI Assistant",
-    //   icon: <AiIcon />,
-    //   new: true,
-    //   subItems: [
-    //     {
-    //       name: "Text Generator",
-    //       path: "/text-generator",
-    //     },
-    //     {
-    //       name: "Image Generator",
-    //       path: "/image-generator",
-    //     },
-    //     {
-    //       name: "Code Generator",
-    //       path: "/code-generator",
-    //     },
-    //     {
-    //       name: "Video Generator",
-    //       path: "/video-generator",
-    //     },
-    //   ],
-    // },
-    {
-        name: "E-commerce",
-        icon: <CartIcon/>,
-        new: true,
-        subItems: [
-            {name: "Overview", path: "/"},
-            // {name: "Product properties", path: "/book-property-list"},
-            {name: "Books", path: "/books"},
-            {name: "Publishers", path: "/publishers"},
-            {name: "Genres", path: "/genres"},
-            {name: "Creators", path: "/creators"},
-            {name: "Series", path: "/series"},
-            // {name: "Products", path: "/products-list"},
-            // {name: "Add Product", path: "/add-product"},
-            // {name: "Billing", path: "/billing"},
-            // {name: "Invoices", path: "/invoices"},
-            // {name: "Single Invoice", path: "/single-invoice"},
-            // {name: "Create Invoice", path: "/create-invoice"},
-            // {name: "Transactions", path: "/transactions"},
-            // {name: "Single Transaction", path: "/single-transaction"},
+    { name: "Thống kê", icon: <PieChartIcon />, path: "/" },
+  { name: "Bán hàng tại quầy", icon: <CartIcon />, path: "/pos" },
+  { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
+  { name: "Phiếu giảm giá", icon: <TagIcon className="w-5 h-5" />, path: "/voucher" },
+  {
+    name: "Thương mại điện tử",
+    icon: <CartIcon />,
+    new: true,
+    subItems: [
+            {name: "Sách", path: "/books"},
+            {name: "Nhà xuất bản", path: "/publishers"},
+            {name: "Thể loại", path: "/genres"},
+            {name: "Tác giả", path: "/creators"},
+            {name: "Bộ sách", path: "/series"},
         ],
-    },
-    // {
-    //   icon: <CalenderIcon />,
-    //   name: "Calendar",
-    //   path: "/calendar",
-    // },
-    {
-        icon: <UserCircleIcon/>,
-        name: "User Profile",
-        path: "/profile",
-    },
-    // {
-    //   name: "Task",
-    //   icon: <TaskIcon />,
-    //   subItems: [
-    //     { name: "List", path: "/task-list", pro: false },
-    //     { name: "Kanban", path: "/task-kanban", pro: false },
-    //   ],
-    // },
-    {
-        name: "Forms",
-        icon: <ListIcon/>,
-        subItems: [
-            {name: "Form Elements", path: "/form-elements", pro: false},
-            {name: "Form Layout", path: "/form-layout", pro: false},
-        ],
-    },
-    // {
-    //   name: "Tables",
-    //   icon: <TableIcon />,
-    //   subItems: [
-    //     { name: "Basic Tables", path: "/basic-tables", pro: false },
-    //     { name: "Data Tables", path: "/data-tables", pro: false },
-    //   ],
-    // },
-    // {
-    //     name: "Pages",
-    //     icon: <PageIcon/>,
-    //     subItems: [
-    //         {name: "File Manager", path: "/file-manager"},
-    //         {name: "Pricing Tables", path: "/pricing-tables"},
-    //         {name: "FAQ", path: "/faq"},
-    //         {name: "API Keys", path: "/api-keys", new: true},
-    //         {name: "Integrations", path: "/integrations", new: true},
-    //         {name: "Blank Page", path: "/blank"},
-    //         {name: "404 Error", path: "/error-404"},
-    //         {name: "500 Error", path: "/error-500"},
-    //         {name: "503 Error", path: "/error-503"},
-    //         {name: "Coming Soon", path: "/coming-soon"},
-    //         {name: "Maintenance", path: "/maintenance"},
-    //         {name: "Success", path: "/success"},
-    //     ],
-    // },
+  },
+  { name: "Người dùng", icon: <UserCircleIcon />, path: "/profile" },
+  {
+    name: "Biểu mẫu",
+    icon: <ListIcon />,
+    subItems: [
+      { name: "Form cơ bản", path: "/form-elements" },
+      { name: "Bố cục form", path: "/form-layout" },
+    ],
+  },
 ];
 
 const othersItems: NavItem[] = [
-    // {
-    //     icon: <PieChartIcon/>,
-    //     name: "Charts",
-    //     subItems: [
-    //         {name: "Line Chart", path: "/line-chart", pro: false},
-    //         {name: "Bar Chart", path: "/bar-chart", pro: false},
-    //         {name: "Pie Chart", path: "/pie-chart", pro: false},
-    //     ],
-    // },
+    
     {
         icon: <BoxCubeIcon/>,
         name: "UI Elements",
@@ -430,6 +345,8 @@ const AppSidebar: React.FC = () => {
             return {type: menuType, index};
         });
     };
+
+    
 
     return (
         <aside
