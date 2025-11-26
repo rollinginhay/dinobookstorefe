@@ -25,6 +25,9 @@ interface Book {
   isTrending?: boolean;
   badge?: string;
   genres?: string[];
+  bookDetailId: number; // ⭐ BẮT BUỘC — id của BookDetail
+  bookFormat: string; // ⭐ BẮT BUỘC — để BE gửi vào email
+  copyId?: number;
 }
 
 interface BookCardProps {

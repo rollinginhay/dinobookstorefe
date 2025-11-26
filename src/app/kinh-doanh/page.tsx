@@ -142,8 +142,11 @@ export default function KinhDoanh() {
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 
-            const detail =
-              includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
+            const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
+            const detail = detailObj?.attributes || {};
+
+            // const detail =
+            //   includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
 
             // Publisher
             const publisherId = item.relationships?.publisher?.data?.id;
@@ -154,7 +157,7 @@ export default function KinhDoanh() {
               "Không rõ";
 
             return {
-              id: item.id,
+              id: Number(item.id),
               title: item.attributes?.title,
               author: authors,
               genres,
@@ -163,10 +166,12 @@ export default function KinhDoanh() {
               discount: detail.discount || 0,
               rating: item.attributes?.rating || 0,
               sold: item.attributes?.sold || 0,
-              year: item.attributes?.publishedYear || 0,
               description: item.attributes?.description || "",
-              image: detail?.image || "/images/default-book.jpg",
+              image: item.attributes?.imageUrl,
               publisher: publisherName,
+              copyId: Number(copyIds[0]),
+              bookDetailId: Number(copyIds[0]),
+              bookFormat: detail.bookFormat || "Khác",
             } as Book;
           }) || [];
 

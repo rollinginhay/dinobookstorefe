@@ -1,10 +1,12 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Book } from '@/components/BookCard';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Book } from "@/components/BookCard";
 
-interface CartItem extends Book {
+export interface CartItem extends Book {
   quantity: number;
+  bookDetailId: number;
+  copyId: number;
 }
 
 interface CartContextType {
@@ -22,37 +24,65 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Load cart from localStorage on mount
+  // Load cart từ localStorage
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
+    try {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        const parsed: CartItem[] = JSON.parse(savedCart);
+
+        // đảm bảo có bookDetailId & copyId
+        const normalized = parsed.map((item) => {
+          const safeId =
+            item.bookDetailId ?? (item as any).copyId ?? (item as any).id; // fallback cuối cùng
+
+          return {
+            ...item,
+            bookDetailId: Number(safeId),
+            copyId: Number(safeId),
+          };
+        });
+
+        setCartItems(normalized);
+      }
+    } catch (e) {
+      console.error("Error loading cart", e);
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
+    localStorage.setItem("cart", JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addToCart = (book: Book, quantity: number = 1) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === book.id);
-      
-      if (existingItem) {
-        return prevItems.map(item =>
-          item.id === book.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
+    setCartItems((prev) => {
+      // 🔹 Tính id an toàn cho BookDetail
+      const safeId =
+        (book as any).bookDetailId ?? (book as any).copyId ?? book.id; // fallback cuối cùng
+
+      const existing = prev.find((i) => i.id === book.id);
+
+      if (existing) {
+        return prev.map((i) =>
+          i.id === book.id ? { ...i, quantity: i.quantity + quantity } : i
         );
       }
-      
-      return [...prevItems, { ...book, quantity }];
+      const safeDetailId = book.id;
+      const item: CartItem = {
+        ...book,
+        quantity,
+        bookDetailId: safeDetailId,
+        copyId: safeDetailId,
+      };
+
+      console.log("🛒 Add to cart item:", item); // để bạn tự check
+      return [...prev, item];
     });
   };
 
   const removeFromCart = (bookId: number) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== bookId));
+    setCartItems((prev) => prev.filter((i) => i.id !== bookId));
   };
 
   const updateQuantity = (bookId: number, quantity: number) => {
@@ -60,20 +90,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeFromCart(bookId);
       return;
     }
-    
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === bookId ? { ...item, quantity } : item
-      )
+    setCartItems((prev) =>
+      prev.map((i) => (i.id === bookId ? { ...i, quantity } : i))
     );
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-  };
+  const clearCart = () => setCartItems([]);
 
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const totalPrice = cartItems.reduce(
+    (sum, i) => sum + i.price * i.quantity,
+    0
+  );
 
   return (
     <CartContext.Provider
@@ -93,11 +121,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useCart() {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
+  const ctx = useContext(CartContext);
+  if (!ctx) {
+    throw new Error("useCart must be used within a CartProvider");
   }
-  return context;
+  return ctx;
 }
-
-
