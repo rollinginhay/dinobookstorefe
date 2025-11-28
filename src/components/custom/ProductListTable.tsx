@@ -354,7 +354,7 @@ const ProductListTable: React.FC = () => {
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400 pl-4">
                                         {(() => {
-                                            const prices = e.bookCopies.data.map(e => e.price);
+                                            const prices = e.bookCopies.data.map(e => e.salesPrice);
                                             if (prices.length === 0) {
                                                 return "Khong co gia";
                                             }
@@ -370,7 +370,9 @@ const ProductListTable: React.FC = () => {
                                                 min = Math.min(...prices
                                                 );
                                             }
-
+                                            if (isNaN(max) || isNaN(min)) {
+                                                return "Khong co gia";
+                                            }
                                             return (getVND(min) + " - " + getVND(max));
                                         })()}
                                     </p>
