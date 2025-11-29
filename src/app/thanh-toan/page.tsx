@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useVoucher } from "@/contexts/VoucherContext";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -10,8 +10,20 @@ export default function ThanhToan() {
   const router = useRouter();
   const { cartItems, clearCart, totalPrice } = useCart();
   const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
+
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
+
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [wards, setWards] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("https://provinces.open-api.vn/api/p/")
+      .then((res) => res.json())
+      .then((data) => setProvinces(data));
+  }, []);
+
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -31,6 +43,68 @@ export default function ThanhToan() {
     : 0;
   const finalTotal = subtotal - voucherDiscount;
 
+  // ===============================
+  // 🔥 FIX: Các handler phải nằm bên ngoài handleSubmit
+  // ===============================
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    const selected = provinces.find((p) => p.code == code);
+
+    setFormData((prev) => ({
+      ...prev,
+      city: selected?.name || "",
+      district: "",
+      ward: "",
+    }));
+
+    fetch(`https://provinces.open-api.vn/api/p/${code}?depth=2`)
+      .then((res) => res.json())
+      .then((data) => {
+        setDistricts(data.districts || []);
+        setWards([]);
+      });
+  };
+
+  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    const selected = districts.find((d) => d.code == code);
+
+    setFormData((prev) => ({
+      ...prev,
+      district: selected?.name || "",
+      ward: "",
+    }));
+
+    fetch(`https://provinces.open-api.vn/api/d/${code}?depth=2`)
+      .then((res) => res.json())
+      .then((data) => {
+        setWards(data.wards || []);
+      });
+  };
+
+  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = wards.find((w) => w.code == e.target.value);
+
+    setFormData((prev) => ({
+      ...prev,
+      ward: selected?.name || "",
+    }));
+  };
+
+  // ===============================
+  // 🔥 HANDLE SUBMIT
+  // ===============================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -73,20 +147,62 @@ export default function ThanhToan() {
     } catch (err) {
       console.error("❌ ERROR:", err);
       alert("Không thể kết nối server!");
+
+      const confirmOrder = window.confirm(
+        "Bạn có chắc chắn muốn đặt hàng không?"
+      );
+      if (!confirmOrder) return;
+
+      const orderData = {
+        info: formData,
+        items: cartItems,
+        shipping,
+        voucherDiscount,
+        finalTotal,
+        voucherId: selectedVoucherId,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (formData.paymentMethod === "cod") {
+        localStorage.setItem("latestOrder", JSON.stringify(orderData));
+        clearCart();
+        alert("Đặt hàng thành công!");
+        router.push("/hoa-don");
+      } else if (formData.paymentMethod === "banking") {
+        try {
+          const res = await fetch(
+            "http://localhost:8080/api/vnpay/create-payment",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                amount: finalTotal,
+                orderInfo: "Đơn hàng #" + new Date().getTime(),
+                returnUrl: "http://localhost:3000/vnpay-return",
+              }),
+            }
+          );
+
+          const data = await res.json();
+
+          if (data.paymentUrl) {
+            window.location.href = data.paymentUrl;
+          } else {
+            alert("Không tạo được URL thanh toán VNPay!");
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Lỗi kết nối VNPay");
+        }
+      } else if (formData.paymentMethod === "momo") {
+        alert("Chức năng thanh toán Momo đang phát triển");
+      }
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
+  // ===================================================
+  // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
+  // ===================================================
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -176,63 +292,75 @@ export default function ThanhToan() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Địa chỉ <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Số nhà, tên đường"
-                  />
-                </div>
-
                 <div className="grid grid-cols-3 gap-4">
+                  {/* Tỉnh / Thành phố */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tỉnh/Thành phố <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleChange}
+                    <select
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="TP. Hồ Chí Minh"
-                    />
+                      value={
+                        provinces.find((p) => p.name === formData.city)?.code ||
+                        ""
+                      }
+                      onChange={handleProvinceChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Chọn tỉnh/thành</option>
+                      {provinces.map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* Quận / Huyện */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Quận/Huyện <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="district"
-                      value={formData.district}
-                      onChange={handleChange}
+                    <select
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Quận 1"
-                    />
+                      disabled={!districts.length}
+                      value={
+                        districts.find((d) => d.name === formData.district)
+                          ?.code || ""
+                      }
+                      onChange={handleDistrictChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
+                    >
+                      <option value="">Chọn quận/huyện</option>
+                      {districts.map((d) => (
+                        <option key={d.code} value={d.code}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* Phường / Xã */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phường/Xã <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="ward"
-                      value={formData.ward}
-                      onChange={handleChange}
+                    <select
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Phường ABC"
-                    />
+                      disabled={!wards.length}
+                      value={
+                        wards.find((w) => w.name === formData.ward)?.code || ""
+                      }
+                      onChange={handleWardChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
+                    >
+                      <option value="">Chọn phường/xã</option>
+                      {wards.map((w) => (
+                        <option key={w.code} value={w.code}>
+                          {w.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -304,40 +432,6 @@ export default function ThanhToan() {
                   />
                   <div className="flex items-center gap-3">
                     <svg
-                      className="w-8 h-8 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                      />
-                    </svg>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        Chuyển khoản ngân hàng
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Chuyển khoản qua ngân hàng
-                      </div>
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="momo"
-                    checked={formData.paymentMethod === "momo"}
-                    onChange={handleChange}
-                    className="mr-3 text-blue-600"
-                  />
-                  <div className="flex items-center gap-3">
-                    <svg
                       className="w-8 h-8 text-pink-600"
                       fill="none"
                       stroke="currentColor"
@@ -351,9 +445,11 @@ export default function ThanhToan() {
                       />
                     </svg>
                     <div>
-                      <div className="font-medium text-gray-900">Ví Momo</div>
+                      <div className="font-medium text-gray-900">
+                        Ví Điện tử VNPay
+                      </div>
                       <div className="text-sm text-gray-600">
-                        Thanh toán qua ví điện tử Momo
+                        Thanh toán qua ví điện tử VNPay
                       </div>
                     </div>
                   </div>
