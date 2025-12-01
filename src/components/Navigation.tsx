@@ -64,24 +64,30 @@ export default function Navigation() {
               )}
               {status !== "loading" && session && (
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 max-w-[180px]">
+                  <Link
+                    href="/tai-khoan"
+                    className="flex items-center gap-2 max-w-[200px] group"
+                  >
                     {session.user?.image && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={session.user.image}
                         alt={session.user.name ?? "User"}
-                        className="w-8 h-8 rounded-full border border-gray-200"
+                        className="w-8 h-8 rounded-full border border-gray-200 group-hover:border-red-300 transition-colors"
                       />
                     )}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col text-left">
                       <span className="text-xs text-gray-400">
                         Xin chào,
                       </span>
-                      <span className="text-sm font-semibold text-gray-700 truncate">
+                      <span className="text-sm font-semibold text-gray-700 truncate group-hover:text-red-600">
                         {session.user?.name ?? "Người dùng"}
                       </span>
+                      <span className="text-[10px] text-red-500 uppercase tracking-wide">
+                        Trang cá nhân
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: "/" })}
                     className="text-xs font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2"
