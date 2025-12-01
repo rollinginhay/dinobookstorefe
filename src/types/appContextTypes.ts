@@ -27,13 +27,13 @@ export interface BookDetail {
     enabled: boolean;
     note?: string;
     id: string;
-    isbn11: string;
-    isbn13: string;
+    isbn: string;
     bookFormat: string;
     dimensions: string;
     printLength: number;
     stock: number;
-    price: number;
+    supplyPrice: number;
+    salePrice: number;
     bookCondition: string;
 }
 

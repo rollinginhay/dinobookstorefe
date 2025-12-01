@@ -13,7 +13,7 @@ export default function PaymentMethodPopup({
   onClose,
   onConfirm,
 }: Props) {
-  const [method, setMethod] = useState<"cash" | "bank">("cash");
+  const [method, setMethod] = useState<"CASH" | "TRANSFER">("CASH");
 
   // ==========================
   //  FORMAT TIỀN + KHÔNG CHO NHẬP CHỮ
@@ -78,7 +78,7 @@ export default function PaymentMethodPopup({
         />
 
         {/* Mã giao dịch (khi chuyển khoản) */}
-        {method === "bank" && (
+        {method === "TRANSFER" && (
           <div className="mb-3">
             <label className="font-medium">Mã giao dịch:</label>
             <input
@@ -103,22 +103,22 @@ export default function PaymentMethodPopup({
         <div className="flex gap-3 mb-4">
           <button
             className={`flex-1 py-2 rounded font-medium ${
-              method === "cash"
+              method === "CASH"
                 ? "bg-green-500 text-white"
                 : "bg-gray-200"
             }`}
-            onClick={() => setMethod("cash")}
+            onClick={() => setMethod("CASH")}
           >
             Tiền mặt
           </button>
 
           <button
             className={`flex-1 py-2 rounded font-medium ${
-              method === "bank"
+              method === "TRANSFER"
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200"
             }`}
-            onClick={() => setMethod("bank")}
+            onClick={() => setMethod("TRANSFER")}
           >
             Chuyển khoản
           </button>

@@ -27,6 +27,19 @@ export function useBook(
         },
     });
 
+    const bookQueryAsBookDetails = useQuery({
+        queryKey: ["bookDetails", {page, limit, enabled, keyword: keyword ?? ""}],
+        queryFn: async () => {
+            const res = await api.get(routeMap.getMultiple, {params: {q: keyword, e: enabled, page, limit}});
+            try {
+                return jsonApi.deserialise(res.data);
+            } catch {
+                // If server returns plain array/object, return as-is
+                return (res.data as unknown);
+            }
+        },
+    });
+
     const bookDelete = useMutation({
         mutationFn: async (id: string | number) => {
             await api.delete(routeMap.delete({id: id}));
@@ -34,6 +47,8 @@ export function useBook(
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["books"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false});
+            toast.success("Success");
         },
     });
 
@@ -51,6 +66,7 @@ export function useBook(
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["books"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false})
             toast.success("Success");
         },
 
@@ -61,7 +77,7 @@ export function useBook(
         mutationFn: async (newProp: any) => {
             const res = await api.put(routeMap.create, serializeBook("books", newProp));
 
-            if (res.status !== 201) {
+            if (res.status !== 200) {
                 throw jsonApi.deserialise(res.data);
             }
 
@@ -70,6 +86,7 @@ export function useBook(
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["books"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false})
             toast.success("Success");
         },
     });

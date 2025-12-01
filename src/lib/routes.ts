@@ -68,6 +68,7 @@ export const API_ROUTES = {
         id: string | number;
         dependent: string | number
     }) => `/v1/receipt/${id}/relationships/${dependent}`,
+    GET_CAMPAIGNS: "/v1/campaigns"
 } as const;
 
 
@@ -116,4 +117,13 @@ export const API_ROUTES_TREE = {
         update: API_ROUTES.PUT_BOOK_DETAIL_UPDATE,
         delete: API_ROUTES.DELETE_BOOK_DETAIL_DELETE
     },
+    campaign: {
+        getMultiple: API_ROUTES.GET_CAMPAIGNS
+    },
+    receipt: {
+        getMultiple: API_ROUTES.GET_RECEIPTS,
+        create: API_ROUTES.POST_RECEIPT_CREATE,
+        update: API_ROUTES.PUT_RECEIPT_UPDATE,
+        delete: API_ROUTES.DELETE_RECEIPT_DELETE
+    }
 } as const;

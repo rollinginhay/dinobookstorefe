@@ -10,10 +10,10 @@ import UrlPrefixInput from "./UrlPrefixInput";
 
 export default function InputGroup() {
   const countries = [
-    { code: "US", label: "+1" },
-    { code: "GB", label: "+44" },
-    { code: "CA", label: "+1" },
-    { code: "AU", label: "+61" },
+    { id: "US", label: "+1" },
+    { id: "GB", label: "+44" },
+    { id: "CA", label: "+1" },
+    { id: "AU", label: "+61" },
   ];
   const handlePhoneNumberChange = (phoneNumber: string) => {
     console.log("Updated phone number:", phoneNumber);
