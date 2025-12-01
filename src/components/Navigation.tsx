@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { signOut, useSession } from "next-auth/react";
 import { useCart } from '@/contexts/CartContext';
 
 export default function Navigation() {
   const { totalItems } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: session, status } = useSession();
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
@@ -43,8 +45,52 @@ export default function Navigation() {
             </div>
           </div>
 
-          {/* Right Icons */}
+          {/* Right Icons + Auth */}
           <div className="flex items-center gap-4">
+            {/* Auth Button */}
+            <div className="flex items-center gap-2">
+              {status === "loading" && (
+                <span className="text-sm text-gray-500">
+                  Đang kiểm tra đăng nhập...
+                </span>
+              )}
+              {status !== "loading" && !session && (
+                <Link
+                  href="/dang-nhap"
+                  className="px-4 py-2 rounded-full text-sm font-semibold border border-red-500 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Đăng nhập / Đăng ký
+                </Link>
+              )}
+              {status !== "loading" && session && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 max-w-[180px]">
+                    {session.user?.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={session.user.image}
+                        alt={session.user.name ?? "User"}
+                        className="w-8 h-8 rounded-full border border-gray-200"
+                      />
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-400">
+                        Xin chào,
+                      </span>
+                      <span className="text-sm font-semibold text-gray-700 truncate">
+                        {session.user?.name ?? "Người dùng"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="text-xs font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
             <Link 
               href="/yeu-thich" 
               className="relative p-3 text-gray-700 hover:text-red-600 rounded-xl transition-all hover:bg-red-50 group"

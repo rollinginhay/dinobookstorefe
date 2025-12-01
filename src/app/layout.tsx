@@ -7,6 +7,7 @@ import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { VoucherProvider } from "@/contexts/VoucherContext";
 import FloatingWidgets from "@/components/FloatingWidgets";
 import Footer from "@/components/Footer";
+import AuthSessionProvider from "@/components/AuthSessionProvider";
 // import AIChatbox from "@/components/AIChatbox";
 
 const geistSans = Geist({
@@ -34,17 +35,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <CartProvider>
-          <FavoriteProvider>
-            <VoucherProvider>
-              <Navigation />
-              {children}
-              <FloatingWidgets />
-              {/* <AIChatbox /> */}
-              <Footer />
-            </VoucherProvider>
-          </FavoriteProvider>
-        </CartProvider>
+        <AuthSessionProvider>
+          <CartProvider>
+            <FavoriteProvider>
+              <VoucherProvider>
+                <Navigation />
+                {children}
+                <FloatingWidgets />
+                {/* <AIChatbox /> */}
+                <Footer />
+              </VoucherProvider>
+            </FavoriteProvider>
+          </CartProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
