@@ -224,14 +224,6 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <PromotionBanner />
-      <Breadcrumb
-        items={[
-          { label: "Trang chủ", href: "/" },
-          { label: "Sách", href: "/sach" },
-          { label: book.genreName, href: `/the-loai/${book.genreName}` },
-          { label: book.title },
-        ]}
-      />
 
       {/* ===== UI NGUYÊN BẢN CỦA M – T GIỮ NGUYÊN KHÔNG ĐỤNG ===== */}
       {/* ===== (để ngắn gọn t không paste phần UI xuống dưới nữa) ===== */}

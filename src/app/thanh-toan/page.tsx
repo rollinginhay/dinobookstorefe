@@ -279,13 +279,14 @@ export default function ThanhToan() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
+                      Email <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="email@example.com"
                     />
@@ -362,6 +363,21 @@ export default function ThanhToan() {
                       ))}
                     </select>
                   </div>
+                </div>
+                {/* Địa chỉ chi tiết */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Địa chỉ chi tiết <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Số nhà, tên đường..."
+                  />
                 </div>
 
                 <div>
@@ -469,7 +485,11 @@ export default function ThanhToan() {
                     key={item.id}
                     className="flex items-center gap-3 text-sm"
                   >
-                    <div className="w-12 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded flex-shrink-0"></div>
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-12 h-16 object-cover rounded flex-shrink-0"
+                    />
                     <div className="flex-1">
                       <div className="font-medium text-gray-900 line-clamp-1">
                         {item.title}

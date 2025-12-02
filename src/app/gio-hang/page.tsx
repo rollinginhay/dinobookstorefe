@@ -101,17 +101,15 @@ export default function GioHang() {
                   <div className="flex gap-4">
                     {/* Image */}
                     <Link href={`/san-pham/${item.id}`}>
-                      <div className="aspect-[3/4] w-24 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg overflow-hidden relative cursor-pointer flex-shrink-0">
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                          <svg
-                            className="w-10 h-10"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                      <Link href={`/san-pham/${item.id}`}>
+                        <div className="aspect-[3/4] w-24 rounded-lg overflow-hidden relative cursor-pointer flex-shrink-0">
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
                         </div>
-                      </div>
+                      </Link>
                     </Link>
 
                     {/* Info */}
