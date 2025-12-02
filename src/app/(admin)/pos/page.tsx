@@ -1,15 +1,13 @@
 "use client";
 
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import ProductSelector from "./ProductSelector";
 import CustomerSelector from "./CustomerSelector";
 import PaymentMethodPopup from "./PaymentMethodPopup";
 import {useRouter} from "next/navigation";
-import {useEffect} from "react";
-import {PaymentDetail, ReceiptDetail} from "@/types/appContextTypes";
-import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
+import {ReceiptDetail} from "@/types/appContextTypes";
 import {useBook} from "@/hooks/api-calls/useBook";
-import {deserializeBook, deserializeUsers, serializeReceipt, serializeUser} from "@/lib/serializers";
+import {deserializeUsers, serializeReceipt, serializeUser} from "@/lib/serializers";
 import {useCampaign} from "@/hooks/api-calls/useCampaign";
 import {useReceipt} from "@/hooks/api-calls/useReceipt";
 import {useUser} from "@/hooks/api-calls/useUser";

@@ -1,8 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import {useParams, useRouter} from "next/navigation";
+import {useEffect, useState} from "react";
 
 export default function BillDetail() {
   const { id } = useParams(); // lấy id hóa đơn

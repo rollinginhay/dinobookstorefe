@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import {useState} from "react";
 import PaymentMethodPopup from "./PaymentMethodPopup";
 
 export default function Payment({ cartItems }: { cartItems: any[] }) {

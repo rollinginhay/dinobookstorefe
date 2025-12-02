@@ -1,8 +1,6 @@
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES_TREE} from "@/lib/routes";
-import {serializeBook} from "@/lib/serializers";
-import {toast} from "sonner";
 
 export function useCampaign(
     page = 0,

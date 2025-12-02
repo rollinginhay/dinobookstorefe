@@ -1,4 +1,4 @@
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES_TREE} from "@/lib/routes";
 import {serializeBook, serializeReceipt} from "@/lib/serializers";

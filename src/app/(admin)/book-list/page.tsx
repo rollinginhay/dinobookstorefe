@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {useEffect, useMemo, useState} from "react";
 import Link from "next/link";
 
 type BookStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";

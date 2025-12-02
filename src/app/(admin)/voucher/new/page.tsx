@@ -2,7 +2,7 @@ NEW:
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 
 type Voucher = {
   id: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import {useParams, useRouter} from "next/navigation";
+import {useEffect, useState} from "react";
 
 type Voucher = {
   id: string;
