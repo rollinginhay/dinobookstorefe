@@ -45,7 +45,7 @@ export default function BookForm() {
             title: "",
             edition: "",
             language: "",
-            published: "",
+            published: todayDateString(),
             imageUrl: "",
             blurb: "",
         },
@@ -179,9 +179,8 @@ export default function BookForm() {
                             </div>
                             <div>
                                 <Label>Publication date</Label>
-                                <Input type="date" placeholder="published"
-                                       defaultValue={getDateForInput(todayDateString())}
-                                       value={hasInit.current ? getDateForInput(formData.attributes.published) : getDateForInput(todayDateString())}
+                                <Input type="date"
+                                       value={getDateForInput(formData.attributes.published)}
                                        onChange={(e) => updateFormData("attributes.published", e.target.value)}/>
                             </div>
                             <div>
