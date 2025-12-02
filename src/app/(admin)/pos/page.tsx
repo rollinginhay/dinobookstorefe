@@ -9,9 +9,10 @@ import {useEffect} from "react";
 import {PaymentDetail, ReceiptDetail} from "@/types/appContextTypes";
 import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
 import {useBook} from "@/hooks/api-calls/useBook";
-import {deserializeBook, serializeReceipt} from "@/lib/serializers";
+import {deserializeBook, deserializeUsers, serializeReceipt, serializeUser} from "@/lib/serializers";
 import {useCampaign} from "@/hooks/api-calls/useCampaign";
 import {useReceipt} from "@/hooks/api-calls/useReceipt";
+import {useUser} from "@/hooks/api-calls/useUser";
 
 // ===============================
 // DEMO VOUCHER LIST (POS PANEL)
@@ -106,9 +107,9 @@ function convertCampaigns(campaigns: any[]) {
 const createEmptyOrder = () => ({
     id: Date.now(),
     attributes: {
-        customerName: null, ///if null on commit, is autofilled
-        customerPhone: null,
-        customerAddress: null,
+        customerName: "", ///if null on commit, is autofilled
+        customerPhone: "",
+        customerAddress: "",
         employee: null, //use current authenticated user
         hasShipping: false,
         shippingService: null,
@@ -142,6 +143,7 @@ export default function POS() {
     const {bookQuery} = useBook(0, 500, true);
     const {campaignQuery} = useCampaign(0, 50, true);
     const {receiptCreate} = useReceipt();
+    const {userQuery, userCreate} = useUser();
 
     // if (bookQuery.isLoading) return <p>Loading...</p>;
     // if (bookQuery.isError) return <p>Error loading books</p>;
@@ -178,13 +180,6 @@ export default function POS() {
     const [shippingMethod, setShippingMethod] = useState<"STORE" | "DELIVERY">(
         "STORE"
     );
-    // ➤ Thông tin giao hàng (delivery)
-    const [shippingInfo, setShippingInfo] = useState({
-        customerName: "",
-        customerPhone: "",
-        customerAddress: "",
-    });
-
     // Ô nhập mã voucher
     const [voucherInput, setVoucherInput] = useState("");
     // Search sản phẩm (gợi ý bên dưới ô tìm kiếm)
@@ -202,6 +197,12 @@ export default function POS() {
         const campaigns = convertCampaigns(campaignQuery.data.data);
         return campaigns;
     }, [campaignQuery.dataUpdatedAt]);
+
+    const USERS = useMemo(() => {
+        if (!userQuery.isSuccess) return [];
+        const users = deserializeUsers(userQuery.data.data);
+        return users;
+    }, [userQuery.dataUpdatedAt]);
 
 
     // const SEARCH_PRODUCTS = [
@@ -237,33 +238,6 @@ export default function POS() {
         setVouchersFromLocalStorage(raw.map((v: any) => normalizeVoucher(v)));
     }, []);
 
-    // Lấy đơn hàng hiện tại
-    const activeOrder = orders.find((o) => o.id === activeOrderId);
-    // ➤ Khi đổi khách hàng → tự điền tên + sđt vào form giao hàng
-    useEffect(() => {
-        if (activeOrder?.customer) {
-            setShippingInfo({
-                customerName: activeOrder.relationships.customer.personName || "",
-                customerPhone: activeOrder.relationships.customer.phoneNumber || "",
-                customerAddress: activeOrder.relationships.customer.address || "",
-            })
-        } else {
-            setShippingInfo({
-                customerName: "",
-                customerPhone: "",
-                customerAddress: "",
-            });
-        }
-    }, [activeOrder?.customer]);
-
-    // Nếu vì lý do gì đó không tìm thấy activeOrder
-    if (!activeOrder) {
-        return <div className="card">Không tìm thấy đơn hàng.</div>;
-    }
-
-    // ===============================
-    // ORDER OPERATIONS
-    // ===============================
     const updateOrder = (newData: any) => {
         setOrders((prev) =>
             prev.map((o) => {
@@ -291,25 +265,35 @@ export default function POS() {
         );
     };
 
-    // const updateOrder = (newData: any) => {
-    //     setOrders((prev) =>
-    //         prev.map((o) => {
-    //             if (o.id !== activeOrderId) return o;
-    //
-    //             return {
-    //                 ...o,
-    //                 attributes: {
-    //                     ...o.attributes,
-    //                     ...(newData.attributes ?? {}),
-    //                 },
-    //                 relationships: {
-    //                     ...o.relationships,
-    //                     ...(newData.relationships ?? {}),
-    //                 },
-    //             };
-    //         })
-    //     );
-    // };
+
+    // Lấy đơn hàng hiện tại
+    const activeOrder = orders.find((o) => o.id === activeOrderId);
+    // ➤ Khi đổi khách hàng → tự điền tên + sđt vào form giao hàng
+    useEffect(() => {
+        if (activeOrder?.customer) {
+            updateOrder({
+                attributes: {
+                    customerName: activeOrder.relationships.customer.personName || "",
+                    customerPhone: activeOrder.relationships.customer.phoneNumber || "",
+                    customerAddress: activeOrder.relationships.customer.address || "",
+                }
+            })
+        } else {
+            updateOrder({
+                attributes: {
+                    customerName: "",
+                    customerPhone: "",
+                    customerAddress: "",
+                }
+            });
+        }
+    }, [activeOrder?.customer]);
+
+    // Nếu vì lý do gì đó không tìm thấy activeOrder
+    if (!activeOrder) {
+        return <div className="card">Không tìm thấy đơn hàng.</div>;
+    }
+
     const addNewOrder = () => {
         // Giới hạn 5 đơn hàng
         if (orders.length >= 5) {
@@ -430,6 +414,7 @@ export default function POS() {
 
 
     const applyVoucherByCode = (id: string) => {
+        if (VOUCHERS.length === 0) return;
         const allVouchers = [
             ...VOUCHERS.map((v) => normalizeVoucher(v)),
             ...vouchersFromLocalStorage.map((v) => normalizeVoucher(v)),
@@ -462,7 +447,6 @@ export default function POS() {
                     p.title.toLowerCase().includes(keyword)
                 );
             });
-
     // ===============================
     // RENDER
     // ===============================
@@ -675,10 +659,13 @@ export default function POS() {
                                                 <input
                                                     type="text"
                                                     className="input w-full mt-1"
-                                                    value={shippingInfo.customerName}
+                                                    value={activeOrder.attributes.customerName}
                                                     onChange={(e) =>
-                                                        setShippingInfo({...shippingInfo, customerName: e.target.value})
+                                                        updateOrder({
+                                                            attributes: {customerName: e.target.value},
+                                                        })
                                                     }
+
                                                     placeholder="Nhập tên người nhận"
                                                 />
                                             </div>
@@ -689,11 +676,10 @@ export default function POS() {
                                                 <input
                                                     type="text"
                                                     className="input w-full mt-1"
-                                                    value={shippingInfo.customerPhone}
+                                                    value={activeOrder.attributes.customerPhone}
                                                     onChange={(e) =>
-                                                        setShippingInfo({
-                                                            ...shippingInfo,
-                                                            customerPhone: e.target.value
+                                                        updateOrder({
+                                                            attributes: {customerPhone: e.target.value},
                                                         })
                                                     }
                                                     placeholder="Nhập số điện thoại"
@@ -705,11 +691,10 @@ export default function POS() {
                                                 <label className="text-sm font-medium">Địa chỉ nhận hàng</label>
                                                 <textarea
                                                     className="input w-full mt-1 h-20"
-                                                    value={shippingInfo.customerAddress}
+                                                    value={activeOrder.attributes.customerAddress}
                                                     onChange={(e) =>
-                                                        setShippingInfo({
-                                                            ...shippingInfo,
-                                                            customerAddress: e.target.value
+                                                        updateOrder({
+                                                            attributes: {customerAddress: e.target.value},
                                                         })
                                                     }
                                                     placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
@@ -742,29 +727,29 @@ export default function POS() {
                             </button>
                         </div>
 
-                        {!activeOrder.customer && (
+                        {!activeOrder.relationships.customer && (
                             <div className="text-sm text-gray-700">Khách hàng lẻ</div>
                         )}
 
-                        {activeOrder.customer && (
+                        {activeOrder.relationships.customer && (
                             <div className="grid grid-cols-1 gap-3 text-sm">
                                 <div>
                                     <div className="text-gray-500">Tên khách hàng</div>
                                     <div className="font-medium">
-                                        {activeOrder.customer.personName}
+                                        {activeOrder.relationships.customer.personName}
                                     </div>
                                 </div>
                                 <div>
                                     <div className="text-gray-500">Email</div>
-                                    <div>{activeOrder.customer.email}</div>
+                                    <div>{activeOrder.relationships.customer.email}</div>
                                 </div>
                                 <div>
                                     <div className="text-gray-500">SĐT</div>
-                                    <div>{activeOrder.customer.phoneNumber}</div>
+                                    <div>{activeOrder.relationships.customer.phoneNumber}</div>
                                 </div>
                                 <div>
                                     <div className="text-gray-500">Địa chỉ</div>
-                                    <div>{activeOrder.customer.address}</div>
+                                    <div>{activeOrder.relationships.customer.address}</div>
                                 </div>
 
 
@@ -895,16 +880,44 @@ export default function POS() {
                         <button
                             type="button"
                             className="btn btn-primary w-full"
-                            onClick={() => {
-                                const order = activeOrder;
+                            onClick={async () => {
+                                const order = structuredClone(activeOrder);
+                                if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) return;
                                 order.attributes.hasShipping = shippingMethod === "DELIVERY";
                                 order.id = 0;
                                 order.attributes.discount = order.discount;
                                 order.attributes.discountAmount = order.discountAmount;
-                                console.log("order", order)
-                                console.log("serialized order", serializeReceipt(order));
 
-                                receiptCreate.mutate(order);
+                                console.log(order);
+                                console.log(serializeReceipt(order));
+                                const saved = await receiptCreate.mutateAsync(order);
+                                console.log(saved.data.id);
+
+                                setOrders((prev) => {
+                                    // remove the completed order from the current in-memory list
+                                    const updated = prev.filter((o) => o.id !== activeOrderId);
+
+                                    if (updated.length === 0) {
+                                        // if nothing left, create a fresh order (prevents activeOrder === null)
+                                        const fresh = createEmptyOrder();
+                                        // persist the single fresh order
+                                        localStorage.setItem("posOrders", JSON.stringify([fresh]));
+                                        // update active tab to the new order
+                                        setActiveOrderId(fresh.id);
+                                        return [fresh];
+                                    }
+
+                                    // persist updated list
+                                    localStorage.setItem("posOrders", JSON.stringify(updated));
+
+                                    // if the deleted order was the active one, switch to the first remaining
+                                    if (!updated.find((o) => o.id === activeOrderId)) {
+                                        setActiveOrderId(updated[0].id);
+                                    }
+
+                                    return updated;
+                                });
+
                             }}
                         >
                             Xác nhận đơn hàng
@@ -935,8 +948,27 @@ export default function POS() {
                     <CustomerSelector
                         onClose={() => setShowCustomerPopup(false)}
                         onSelect={(c) => {
-                            updateOrder({customer: c});
+                            updateOrder({
+                                relationships: {
+                                    customer: c
+                                }
+                            });
+                            updateOrder({
+                                attributes: {
+                                    customerName: c.personName,
+                                    customerPhone: c.phoneNumber,
+                                    customerAddress: c.address
+                                }
+                            });
                             setShowCustomerPopup(false);
+                        }}
+                        customers={USERS.filter(u =>
+                            u.roles.some(r => r.name === "ROLE_USER")
+                        )}
+                        onSave={(data) => {
+                            console.log(data);
+                            console.log(serializeUser(data));
+                            userCreate.mutate(data);
                         }}
                     />
                 )

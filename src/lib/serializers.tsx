@@ -203,30 +203,84 @@ export function serializeReceipt(receipt: any) {
     // ===============================
     const included: any[] = [];
 
-    const pushIncluded = (obj: any, type: string) => {
-        if (!obj) return;
-        const id = idOrZero(obj);
-        const attrs = {...obj};
-        delete attrs.id;
-        delete attrs.type;
-        included.push({type, id, attributes: attrs});
-    };
 
-    // customer + employee
-    if (rels.customer) pushIncluded(rels.customer, "user");
-    if (rels.employee) pushIncluded(rels.employee, "user");
+    // ============================================
+    // 1) USER SERIALIZATION WITH PROPER RELATIONSHIPS
+    // ============================================
+    function pushUser(user: any) {
+        if (!user) return;
 
-    // paymentDetail
-    if (rels.paymentDetail) pushIncluded(rels.paymentDetail, "paymentDetail");
+        const userId = idOrZero(user);
+
+        // Extract roles
+        const roles = Array.isArray(user.roles) ? user.roles : [];
+
+        // Attributes for user (remove roles and id)
+        const uAttrs = {...user};
+        delete uAttrs.roles;
+        delete uAttrs.id;
+        delete uAttrs.type;
+
+        included.push({
+            type: "user",
+            id: userId,
+            attributes: uAttrs,
+            relationships: {
+                roles: {
+                    data: roles.map((r: any) => ({
+                        type: "role",
+                        id: idOrZero(r)
+                    }))
+                }
+            }
+        });
+
+        // Push each role as included
+        for (const role of roles) {
+            const rId = idOrZero(role);
+
+            const rAttrs = {...role};
+            delete rAttrs.id;
+            delete rAttrs.type;
+
+            included.push({
+                type: "role",
+                id: rId,
+                attributes: rAttrs
+            });
+        }
+    }
+
+    // Customer & employee users
+    pushUser(rels.customer);
+    pushUser(rels.employee);
+
 
     // ===============================
-    // RECEIPT DETAILS + nested bookDetail
+    // 2) PAYMENT DETAIL
+    // ===============================
+    if (rels.paymentDetail) {
+        const pd = rels.paymentDetail;
+
+        const attrs = {...pd};
+        delete attrs.id;
+        delete attrs.type;
+
+        included.push({
+            type: "paymentDetail",
+            id: idOrZero(pd),
+            attributes: attrs
+        });
+    }
+
+
+    // ===============================
+    // 3) RECEIPT DETAILS + NESTED BOOK DETAILS
     // ===============================
     for (const rd of rels.receiptDetails ?? []) {
         const rdId = idOrZero(rd);
         const bc = rd.bookCopy;
 
-        // ------- receiptDetail included -------
         const rdAttrs = {...rd};
         delete rdAttrs.bookCopy;
         delete rdAttrs.id;
@@ -237,13 +291,12 @@ export function serializeReceipt(receipt: any) {
             id: rdId,
             attributes: rdAttrs,
             relationships: {
-                bookDetail: {
-                    data: bc ? {id: idOrZero(bc), type: "bookDetail"} : null
-                }
+                bookDetail: bc
+                    ? {data: {id: idOrZero(bc), type: "bookDetail"}}
+                    : {data: null}
             }
         });
 
-        // ------- bookDetail included -------
         if (bc) {
             const bcAttrs = {...bc};
             delete bcAttrs.id;
@@ -260,155 +313,52 @@ export function serializeReceipt(receipt: any) {
     return {data, included};
 }
 
-// export function serializeReceipt(receipt: any) {
-//     const attrs = receipt.attributes ?? {};
-//     const rels = receipt.relationships ?? {};
-//
-//     // Normalize any "id"
-//     const normalizeId = (val: any): string | null => {
-//         if (!val) return null;
-//         if (typeof val === "string" || typeof val === "number") return String(val);
-//         if (typeof val === "object" && val.id != null) return String(val.id);
-//         return null;
-//     };
-//
-//     // If an object exists but has no ID, we will use "0" for JSON:API included-create semantics.
-//     const idOrZero = (val: any): string | null => {
-//         if (!val) return null;
-//         return normalizeId(val) ?? "0";
-//     };
-//
-//     const toOne = (item: any, type: string) => {
-//         if (!item) return {data: null};
-//         const id = idOrZero(item);
-//         return {data: {id: String(id), type}};
-//     };
-//
-//     const toMany = (arr: any[], type: string) => ({
-//         data: (Array.isArray(arr) ? arr : []).map((item) => {
-//             const id = idOrZero(item) ?? "0";
-//             return {id: String(id), type};
-//         })
-//     });
-//
-//     // ===============================
-//     // MAIN DATA BLOCK
-//     // ===============================
-//     const data = {
-//         type: "receipt",
-//         id: normalizeId(receipt.id) ?? "0",
-//
-//         attributes: {
-//             customerName: attrs.customerName ?? null,
-//             customerPhone: attrs.customerPhone ?? null,
-//             customerAddress: attrs.customerAddress ?? null,
-//             hasShipping: attrs.hasShipping ?? false,
-//             shippingService: attrs.shippingService ?? null,
-//             shippingId: attrs.shippingId ?? null,
-//
-//             voucherCode: attrs.voucherCode ?? "",
-//             discountAmount: attrs.discountAmount ?? 0,
-//             discount: attrs.discount ?? 0,
-//
-//             orderStatus: attrs.orderStatus ?? "PENDING",
-//             enabled: attrs.enabled ?? true,
-//         },
-//
-//         relationships: {
-//             customer: toOne(rels.customer, "user"),
-//             employee: toOne(rels.employee, "user"),
-//             paymentDetail: toOne(rels.paymentDetail, "paymentDetail"),
-//             receiptDetails: toMany(rels.receiptDetails ?? [], "receiptDetail"),
-//         }
-//     };
-//
-//     // ===============================
-//     // INCLUDED BLOCK (with nested relationships)
-//     // ===============================
-//     const included: any[] = [];
-//
-//     const pushIncludedRaw = (item: any, typeHint: string, idHint?: string) => {
-//         if (!item) return;
-//         const id = idHint ?? normalizeId(item) ?? "0";
-//         const attributes = {...item};
-//         delete attributes.id;
-//         delete attributes.type;
-//         included.push({
-//             type: typeHint,
-//             id: String(id),
-//             attributes
-//         });
-//     };
-//
-//     // include customer, employee if provided (use raw shape)
-//     if (rels.customer) pushIncludedRaw(rels.customer, "user", normalizeId(rels.customer) ?? undefined);
-//     if (rels.employee) pushIncludedRaw(rels.employee, "user", normalizeId(rels.employee) ?? undefined);
-//
-//     // paymentDetail: include as its own resource (if present)
-//     if (rels.paymentDetail) {
-//         // allow creation if object has no id (id -> "0")
-//         const pdId = idOrZero(rels.paymentDetail) ?? "0";
-//         const pdAttrs = {...rels.paymentDetail};
-//         delete pdAttrs.id;
-//         delete pdAttrs.type;
-//         included.push({
-//             type: "paymentDetail",
-//             id: String(pdId),
-//             attributes: pdAttrs
-//         });
-//     }
-//
-//     // receiptDetails: for each detail, include a receiptDetail resource that contains:
-//     // - attributes: everything except id/type/bookCopy
-//     // - relationships: bookCopy -> { data: { type: "bookDetail", id: "..." } }
-//     // and also include the bookDetail resource itself.
-//     if (Array.isArray(rels.receiptDetails)) {
-//         rels.receiptDetails.forEach((rd: any) => {
-//             if (!rd) return;
-//
-//             // receiptDetail id (or "0" for new)
-//             const rdId = idOrZero(rd) ?? "0";
-//
-//             // build receiptDetail attributes (exclude nested bookCopy)
-//             const rdAttributes: any = {...rd};
-//             const rdBookCopy = rdAttributes.bookCopy ?? null;
-//             delete rdAttributes.id;
-//             delete rdAttributes.type;
-//             delete rdAttributes.bookCopy;
-//
-//             // receiptDetail relationships: bookCopy
-//             const rdRelationships: any = {
-//                 bookCopy: {data: rdBookCopy ? {id: String(idOrZero(rdBookCopy)), type: "bookDetail"} : null}
-//             };
-//
-//             included.push({
-//                 type: "receiptDetail",
-//                 id: String(rdId),
-//                 attributes: rdAttributes,
-//                 relationships: rdRelationships
-//             });
-//
-//             // include the bookDetail itself (if present)
-//             if (rdBookCopy) {
-//                 const bcId = idOrZero(rdBookCopy) ?? "0";
-//                 const bcAttributes = {...rdBookCopy};
-//                 delete bcAttributes.id;
-//                 delete bcAttributes.type;
-//
-//                 included.push({
-//                     type: "bookDetail",
-//                     id: String(bcId),
-//                     attributes: bcAttributes
-//                 });
-//             }
-//         });
-//     }
-//
-//     return {
-//         data,
-//         ...(included.length > 0 ? {included} : {})
-//     };
-// }
+export function deserializeUsers(rawUsers: any[]) {
+    return rawUsers.map(u => ({
+        id: u.id,
+        personName: u.personName,
+        username: u.username,
+        email: u.email,
+        phoneNumber: u.phoneNumber,
+        address: u.address,
+        enabled: u.enabled,
+        isOauth2User: u.isOauth2User,
+
+        roles: (u.roles?.data ?? []).map((r: any) => ({
+            id: r.id,
+            createdAt: r.createdAt,
+            enabled: r.enabled,
+            name: r.name,
+            updatedAt: r.updatedAt
+        })),
+
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt
+    }));
+}
+
+export function serializeUser(user: any) {
+    const normalizeId = (val: any): string | null => {
+        if (!val) return null;
+        if (typeof val === "string" || typeof val === "number") return String(val);
+        if (typeof val === "object" && val.id != null) return String(val.id);
+        return null;
+    };
+
+    const idOrZero = (val: any): string => normalizeId(val) ?? "0";
+
+    const attrs = { ...user };
+    delete attrs.id;    // remove id from attributes
+    delete attrs.type;  // safety, if passed accidentally
+
+    return {
+        data: {
+            type: "user",
+            id: idOrZero(user),
+            attributes: attrs
+        }
+    };
+}
 
 
 

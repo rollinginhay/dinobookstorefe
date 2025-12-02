@@ -68,6 +68,14 @@ export const API_ROUTES = {
         id: string | number;
         dependent: string | number
     }) => `/v1/receipt/${id}/relationships/${dependent}`,
+    // ===================== USER =====================
+    GET_USERS: "/v1/users",
+    GET_USER_BY_ID: ({id}: { id: string | number }) =>
+        `/v1/user/${id}`,
+    POST_USER_CREATE: "/v1/user/create",
+    PUT_USER_UPDATE: "/v1/user/update",
+    DELETE_USER_DELETE: ({id}: { id: string | number }) =>
+        `/v1/user/${id}`,
     GET_CAMPAIGNS: "/v1/campaigns"
 } as const;
 
@@ -125,5 +133,11 @@ export const API_ROUTES_TREE = {
         create: API_ROUTES.POST_RECEIPT_CREATE,
         update: API_ROUTES.PUT_RECEIPT_UPDATE,
         delete: API_ROUTES.DELETE_RECEIPT_DELETE
+    },
+    user: {
+        getMultiple: API_ROUTES.GET_USERS,
+        create: API_ROUTES.POST_USER_CREATE,
+        update: API_ROUTES.PUT_USER_UPDATE,
+        delete: API_ROUTES.DELETE_USER_DELETE
     }
 } as const;
