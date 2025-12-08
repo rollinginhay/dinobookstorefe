@@ -58,7 +58,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const accessToken = window.localStorage.getItem('accessToken');
     const guestIdKey = 'guestId';
 
-    // Tạo guest id nếu chưa có — giúp backend nhận diện giỏ hàng khách
+    // Tạo guest id nếu chưa có — giúp backend nhận diện giỏ hàng khách......
     let guestId = window.localStorage.getItem(guestIdKey);
     if (!guestId) {
       guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -67,7 +67,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     if (!API_BASE_URL) return;
 
-    // Gửi request nền, không chặn UI. Gửi header Authorization chỉ khi có token.
+    // Gửi request nền, không chặn UI. Gửi header Authorization chỉ khi có token.....
     (async () => {
       try {
         const headers: Record<string, string> = {
