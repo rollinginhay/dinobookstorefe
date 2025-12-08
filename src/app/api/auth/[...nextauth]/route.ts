@@ -31,6 +31,3 @@ const authHandler = NextAuth({
 });
 
 export { authHandler as GET, authHandler as POST };
-
-
-

@@ -4,8 +4,6 @@ import { FormEvent, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
 export default function DangNhapPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -35,33 +33,6 @@ export default function DangNhapPage() {
     return regex.test(value);
   };
 
-  const callAuthApi = async (
-    path: "/v1/auth/login" | "/v1/auth/register",
-    payload: Record<string, unknown>
-  ) => {
-    if (!API_BASE_URL) {
-      throw new Error("Chưa cấu hình biến môi trường NEXT_PUBLIC_API_BASE_URL.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response
-      .json()
-      .catch(() => ({ message: "Máy chủ không trả về JSON." }));
-
-    if (!response.ok) {
-      throw new Error(data?.message ?? "Yêu cầu thất bại.");
-    }
-
-    return data;
-  };
-
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoginMessage(null);
@@ -72,16 +43,17 @@ export default function DangNhapPage() {
         throw new Error(passwordHint);
       }
 
-      const data = await callAuthApi("/v1/auth/login", {
+      // FIX CỨNG: bỏ qua gọi backend, lưu user giả lập vào localStorage
+      const fakeUser = {
+        name:
+          loginForm.email.split("@")[0] ||
+          registerForm.fullName ||
+          "Người dùng",
         email: loginForm.email,
-        password: loginForm.password,
-      });
+      };
+      localStorage.setItem("localUser", JSON.stringify(fakeUser));
 
-      if (data?.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
-      }
-
-      setLoginMessage("Đăng nhập thành công! Bạn có thể quay lại trang chủ.");
+      setLoginMessage("Đăng nhập thành công! Đang chuyển về trang chủ...");
       setTimeout(() => router.push("/"), 1000);
     } catch (error) {
       setLoginMessage(
@@ -105,20 +77,20 @@ export default function DangNhapPage() {
         throw new Error(passwordHint);
       }
 
-      const data = await callAuthApi("/v1/auth/register", {
-        fullName: registerForm.fullName,
+      // FIX CỨNG: giả lập đăng ký thành công, lưu user và chuyển sang tab đăng nhập
+      const fakeUser = {
+        name: registerForm.fullName || "Người dùng",
         email: registerForm.email,
-        phoneNumber: registerForm.phoneNumber,
-        password: registerForm.password,
-      });
+      };
+      localStorage.setItem("localUser", JSON.stringify(fakeUser));
 
       setRegisterMessage(
-        data?.message ?? "Đăng ký thành công! Giờ bạn có thể đăng nhập."
+        "Đăng ký thành công (demo)! Bạn đã được đăng nhập và sẽ được chuyển về trang chủ."
       );
-      setActiveTab("login");
+      setTimeout(() => router.push("/"), 1000);
     } catch (error) {
       setRegisterMessage(
-        error instanceof Error ? error.message : "Không thể đăng ký."
+error instanceof Error ? error.message : "Không thể đăng ký."
       );
     } finally {
       setRegisterLoading(false);
@@ -201,7 +173,7 @@ export default function DangNhapPage() {
           </label>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
-            Số điện thoại
+Số điện thoại
           </label>
           <input
             type="tel"
@@ -282,7 +254,7 @@ export default function DangNhapPage() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={() => router.push("/")}
-            className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Về trang chủ
           </button>
@@ -339,12 +311,6 @@ export default function DangNhapPage() {
             </button>
           </div>
 
-          {!API_BASE_URL && (
-            <div className="mb-4 rounded-xl bg-yellow-50 border border-yellow-200 text-sm text-yellow-800 px-4 py-3">
-              Bạn chưa cấu hình <code>NEXT_PUBLIC_API_BASE_URL</code>. Các form
-              email/mật khẩu sẽ không thể gọi API cho tới khi thêm biến môi trường này.
-            </div>
-          )}
           {renderForm()}
         </section>
 
@@ -360,7 +326,7 @@ export default function DangNhapPage() {
 
           <button
             onClick={handleGoogleSignIn}
-            className="relative flex items-center justify-center gap-3 w-full bg-white text-red-600 font-semibold py-3 rounded-2xl shadow-2xl hover:-translate-y-0.5 transition-transform"
+className="relative flex items-center justify-center gap-3 w-full bg-white text-red-600 font-semibold py-3 rounded-2xl shadow-2xl hover:-translate-y-0.5 transition-transform"
           >
             <svg className="w-5 h-5" viewBox="0 0 533.5 544.3">
               <path
@@ -402,5 +368,3 @@ export default function DangNhapPage() {
     </div>
   );
 }
-
-

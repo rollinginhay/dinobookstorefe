@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Book } from "@/components/BookCard";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Book } from '@/components/BookCard';
 
-export interface CartItem extends Book {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+interface CartItem extends Book {
   quantity: number;
-  bookDetailId: number;
-  copyId: number;
 }
 
 interface CartContextType {
@@ -24,65 +24,90 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Load cart từ localStorage
+  // Load cart from localStorage on mount
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem("cart");
-      if (savedCart) {
-        const parsed: CartItem[] = JSON.parse(savedCart);
-
-        // đảm bảo có bookDetailId & copyId
-        const normalized = parsed.map((item) => {
-          const safeId =
-            item.bookDetailId ?? (item as any).copyId ?? (item as any).id; // fallback cuối cùng
-
-          return {
-            ...item,
-            bookDetailId: Number(safeId),
-            copyId: Number(safeId),
-          };
-        });
-
-        setCartItems(normalized);
-      }
-    } catch (e) {
-      console.error("Error loading cart", e);
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      setCartItems(JSON.parse(savedCart));
     }
   }, []);
 
-  // Save cart
+  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
+    localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addToCart = (book: Book, quantity: number = 1) => {
-    setCartItems((prev) => {
-      // 🔹 Tính id an toàn cho BookDetail
-      const safeId =
-        (book as any).bookDetailId ?? (book as any).copyId ?? book.id; // fallback cuối cùng
+    // 1. Cập nhật giỏ hàng local (hoạt động cả khi chưa login)
+    setCartItems(prevItems => {
+      const existingItem = prevItems.find(item => item.id === book.id);
 
-      const existing = prev.find((i) => i.id === book.id);
-
-      if (existing) {
-        return prev.map((i) =>
-          i.id === book.id ? { ...i, quantity: i.quantity + quantity } : i
+      if (existingItem) {
+        return prevItems.map(item =>
+          item.id === book.id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
         );
       }
-      const safeDetailId = book.id;
-      const item: CartItem = {
-        ...book,
-        quantity,
-        bookDetailId: safeDetailId,
-        copyId: safeDetailId,
-      };
 
-      console.log("🛒 Add to cart item:", item); // để bạn tự check
-      return [...prev, item];
+      return [...prevItems, { ...book, quantity }];
     });
+
+    // 2. Gọi API để đồng bộ giỏ hàng (luôn gọi dù đã login hay chưa)
+    if (typeof window === 'undefined') return;
+    const accessToken = window.localStorage.getItem('accessToken');
+    const guestIdKey = 'guestId';
+
+    // Tạo guest id nếu chưa có — giúp backend nhận diện giỏ hàng khách
+    let guestId = window.localStorage.getItem(guestIdKey);
+    if (!guestId) {
+      guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      window.localStorage.setItem(guestIdKey, guestId);
+    }
+
+    if (!API_BASE_URL) return;
+
+    // Gửi request nền, không chặn UI. Gửi header Authorization chỉ khi có token.
+    (async () => {
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Guest-Id': guestId,
+        };
+
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/v1/cart/items`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ bookId: book.id, quantity }),
+        });
+
+        // Nếu backend trả về giỏ hàng đồng bộ (ví dụ { items: [...] } ),
+        // cập nhật lại local state để giữ nhất quán.
+        if (res.ok) {
+          try {
+            const data = await res.json();
+            // Hỗ trợ nhiều dạng response: items array hoặc data.data
+            const items = data?.items || data?.data || null;
+            if (Array.isArray(items)) {
+              // Nếu items có cấu trúc khác, bạn có thể map lại cho phù hợp.
+              setCartItems(items);
+            }
+          } catch (e) {
+            // Không parse được JSON — bỏ qua, không chặn UI
+          }
+        }
+      } catch (e) {
+        // Nếu API lỗi, vẫn giữ giỏ hàng local, không chặn flow người dùng.
+      }
+    })();
   };
 
   const removeFromCart = (bookId: number) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== bookId));
+    setCartItems(prevItems => prevItems.filter(item => item.id !== bookId));
   };
 
   const updateQuantity = (bookId: number, quantity: number) => {
@@ -90,18 +115,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeFromCart(bookId);
       return;
     }
-    setCartItems((prev) =>
-      prev.map((i) => (i.id === bookId ? { ...i, quantity } : i))
+    
+    setCartItems(prevItems =>
+      prevItems.map(item =>
+        item.id === bookId ? { ...item, quantity } : item
+      )
     );
   };
 
-  const clearCart = () => setCartItems([]);
-
-  const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = cartItems.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
+  const clearCart = () => {
+    setCartItems([]);
+  };
+const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
     <CartContext.Provider
@@ -121,9 +147,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) {
-    throw new Error("useCart must be used within a CartProvider");
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error('useCart must be used within a CartProvider');
   }
-  return ctx;
+  return context;
 }
