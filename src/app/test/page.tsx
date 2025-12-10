@@ -1,19 +1,25 @@
 "use client";
 import React from "react";
-import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
-import {deserializeBook, serializeBook} from "@/lib/serializers";
+
+function loginWithGoogle() {
+    const popup = window.open(
+        `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorize/google`,
+        "oauth2Login",
+        "width=600,height=700"
+    );
+
+    window.addEventListener("message", (event) => {
+        if (event.data.token) {
+            console.log("JWT received:", event.data.token);
+            localStorage.setItem("auth_token", event.data.token);
+        }
+    });
+}
+
 
 export default function FormLayout() {
 // Run this where kitsu-core is installed
-    const bookFetch = useBookSingle(1200);
-    if (bookFetch.isLoading) return <p className="p-6">Loading...</p>;
-    const book = bookFetch.data.data;
-    const formData = deserializeBook(book);
 
-    const reqBody = serializeBook("book", formData);
-
-    console.log("formData", formData);
-    console.log("reqBody", reqBody);
     return (
         <div>
         </div>

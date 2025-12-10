@@ -13,7 +13,7 @@ export default function ProductPage() {
     return (
         <div>
             <PageBreadcrumb pageTitle="Book properties"/>
-            <ProductPropertyListTable/>
+            <ProductPropertyListTable property={"genre"}/>
         </div>
     );
 }

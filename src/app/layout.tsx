@@ -6,6 +6,7 @@ import {SidebarProvider} from "@/context/SidebarContext";
 import {ThemeProvider} from "@/context/ThemeContext";
 import {AppProviders} from "@/lib/providers";
 import {Toaster} from "sonner";
+import {AuthProvider} from "@/context/auth-context";
 
 const outfit = Outfit({
     subsets: ["latin"],
@@ -21,10 +22,12 @@ export default function RootLayout({
         <body className={`${outfit.className} dark:bg-gray-900`}>
         <ThemeProvider>
             <SidebarProvider>
-                <AppProviders>
-                    {children}
-                    <Toaster richColors={true} position="top-right"/>
-                </AppProviders>
+                <AuthProvider>
+                    <AppProviders>
+                        {children}
+                        <Toaster richColors={true} position="top-right"/>
+                    </AppProviders>
+                </AuthProvider>
             </SidebarProvider>
         </ThemeProvider>
         </body>
