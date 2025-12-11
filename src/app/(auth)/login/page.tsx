@@ -44,8 +44,8 @@ export default function LoginPage() {
                                 />
                             </svg>
                         </div>
-                        <h1 className="text-3xl font-bold text-gray-900">Bookstore</h1>
-                        <p className="text-gray-600 mt-2">Sign in to your account</p>
+                        <h1 className="text-3xl font-bold text-gray-900">DinoBooks</h1>
+                        <p className="text-gray-600 mt-2">Đăng nhập</p>
                     </div>
 
                     {/* Google Sign In Button */}
@@ -75,36 +75,19 @@ export default function LoginPage() {
                     </button>
 
                     {/* Divider */}
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">
-                Secure authentication
-              </span>
-                        </div>
-                    </div>
+                    {/*<div className="relative my-6">*/}
+                    {/*    <div className="absolute inset-0 flex items-center">*/}
+                    {/*        <div className="w-full border-t border-gray-300"></div>*/}
+                    {/*    </div>*/}
+                    {/*    <div className="relative flex justify-center text-sm"></div>*/}
+                    {/*</div>*/}
 
-                    {/* Info */}
-                    <div className="text-center text-sm text-gray-600">
-                        <p>
-                            By signing in, you agree to our{' '}
-                            <a href="#" className="text-blue-600 hover:underline">
-                                Terms of Service
-                            </a>{' '}
-                            and{' '}
-                            <a href="#" className="text-blue-600 hover:underline">
-                                Privacy Policy
-                            </a>
-                        </p>
-                    </div>
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-sm text-gray-600 mt-8">
-                    Don&#39;t have an account? Sign in with Google to create one automatically.
-                </p>
+                {/*<p className="text-center text-sm text-gray-600 mt-8">*/}
+                {/*    Don&#39;t have an account? Sign in with Google to create one automatically.*/}
+                {/*</p>*/}
             </div>
         </div>
     );

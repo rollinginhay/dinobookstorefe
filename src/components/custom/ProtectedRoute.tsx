@@ -15,11 +15,18 @@ export function ProtectedRoute({
                                    requiredRole,
                                    fallback
                                }: ProtectedRouteProps) {
-    const {isAuthenticated, isLoading, hasRole} = useAuth();
+    const {isAuthenticated, isLoading, hasRole, logout} = useAuth();
     const router = useRouter();
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+        const hasRequiredRole = hasRole('ROLE_ADMIN') || hasRole('ROLE_EMPLOYEE');
+
+        if (!hasRequiredRole) {
+            logout();
             router.push('/login');
             return;
         }
