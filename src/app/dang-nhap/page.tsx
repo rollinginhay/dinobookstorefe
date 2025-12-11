@@ -3,11 +3,10 @@
 import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
 export default function DangNhapPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   useEffect(() => {
     const token = localStorage.getItem("jwtToken");
@@ -115,17 +114,17 @@ export default function DangNhapPage() {
         throw new Error(passwordHint);
       }
 
-      const data = await callAuthApi("/v1/auth/register", {
-        fullName: registerForm.fullName,
+      // FIX CỨNG: giả lập đăng ký thành công, lưu user và chuyển sang tab đăng nhập
+      const fakeUser = {
+        name: registerForm.fullName || "Người dùng",
         email: registerForm.email,
-        phoneNumber: registerForm.phoneNumber,
-        password: registerForm.password,
-      });
+      };
+      localStorage.setItem("localUser", JSON.stringify(fakeUser));
 
       setRegisterMessage(
-        data?.message ?? "Đăng ký thành công! Giờ bạn có thể đăng nhập."
+        "Đăng ký thành công (demo)! Bạn đã được đăng nhập và sẽ được chuyển về trang chủ."
       );
-      setActiveTab("login");
+      setTimeout(() => router.push("/"), 1000);
     } catch (error) {
       setRegisterMessage(
         error instanceof Error ? error.message : "Không thể đăng ký."

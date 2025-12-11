@@ -3,6 +3,8 @@
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
 import Breadcrumb from "@/components/Breadcrumb";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -30,6 +32,10 @@ type OrderHistoryItem = {
 };
 
 export default function TrangTaiKhoan() {
+  const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const isMock = searchParams?.get("mock") === "1";
+
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -51,6 +57,61 @@ export default function TrangTaiKhoan() {
   const [cities, setCities] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
+  useEffect(() => {
+    if (isMock) {
+      // setBackendUser(MOCK_USER);
+      // setOrders(MOCK_ORDERS);
+      // setLoadingProfile(false);
+      // setLoadingOrders(false);
+      return;
+    }
+
+    if (!session) return;
+
+    if (!API_BASE_URL) {
+      setLoadingProfile(false);
+      setLoadingOrders(false);
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        setLoadingProfile(true);
+        const res = await fetch(`${API_BASE_URL}/v1/users/me`, {
+          credentials: "include",
+        });
+
+        if (!res.ok) throw new Error("Không lấy được thông tin tài khoản.");
+
+        const data = await res.json();
+
+        setBackendUser({
+          id: data.id ?? data.data?.id ?? "",
+          fullName:
+            data.fullName ??
+            data.data?.attributes?.fullName ??
+            (session.user?.name || "Người dùng"),
+          email:
+            data.email ??
+            data.data?.attributes?.email ??
+            (session.user?.email || ""),
+          phoneNumber:
+            data.phoneNumber ?? data.data?.attributes?.phoneNumber ?? "",
+          defaultAddress:
+            data.defaultAddress ??
+            data.data?.attributes?.defaultAddress ??
+            null,
+        } as BackendUser);
+      } catch (err: any) {
+        console.error("Lỗi fetch profile:", err);
+        setError(err.message || "Không lấy được thông tin tài khoản.");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
   useEffect(() => {
     const fetchCities = async () => {
       try {
@@ -133,8 +194,11 @@ export default function TrangTaiKhoan() {
         const res = await fetch(`${API_BASE_URL}/v1/orders/my`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         if (!res.ok) throw new Error("Không lấy được lịch sử đơn hàng.");
+
         const data = await res.json();
+
         const items: OrderHistoryItem[] =
           data.data?.map((item: any) => ({
             id: item.id?.toString(),
@@ -143,6 +207,7 @@ export default function TrangTaiKhoan() {
             status: item.attributes?.status || "PENDING",
             totalAmount: item.attributes?.totalAmount || 0,
           })) ?? [];
+
         setOrders(items);
       } catch (err: any) {
         console.error("Lỗi fetch orders:", err);
@@ -189,6 +254,7 @@ export default function TrangTaiKhoan() {
 
   const displayName =
     backendUser?.fullName || backendUser?.email || "Người dùng";
+
   const displayEmail = backendUser?.email || "";
 
   const activeColor =
@@ -276,19 +342,21 @@ export default function TrangTaiKhoan() {
                 <h2 className="text-xl font-bold text-gray-900 mt-1">
                   {displayName}
                 </h2>
+
                 {displayEmail && (
                   <p className="text-xs text-gray-500 mt-1 break-all">
                     {displayEmail}
                   </p>
                 )}
               </div>
+
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
                 <span>Đang hoạt động</span>
               </div>
             </div>
 
-            <nav className="space-y-1 text-sm">
+            <nav className="space-y-1 text-sm mt-4">
               <button
                 type="button"
                 onClick={() => scrollToSection("section-profile")}
@@ -310,6 +378,7 @@ export default function TrangTaiKhoan() {
                 <span>📦</span>
                 <span>Lịch sử đơn hàng</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => scrollToSection("section-address")}
@@ -317,6 +386,15 @@ export default function TrangTaiKhoan() {
               >
                 <span>📍</span>
                 <span>Địa chỉ giao hàng</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection("section-favorites")}
+                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <span>❤️</span>
+                <span>Sách yêu thích</span>
               </button>
             </nav>
 
@@ -328,8 +406,8 @@ export default function TrangTaiKhoan() {
             </button>
           </aside>
 
-          {/* Main */}
-          <main className="space-y-6">
+          {/* ⭐ FIX: add z-0 relative để tránh bị đè ⭐ */}
+          <main className="space-y-6 relative z-0">
             {error && (
               <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3">
                 {error}
@@ -337,6 +415,7 @@ export default function TrangTaiKhoan() {
             )}
 
             {/* Profile + Address */}
+            {/* SECTION: PROFILE */}
             <section
               id="section-profile"
               className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 space-y-6 scroll-mt-32"
@@ -350,6 +429,7 @@ export default function TrangTaiKhoan() {
                     Đồng bộ từ localStorage.
                   </p>
                 </div>
+
                 {loadingProfile && (
                   <span className="text-xs text-gray-400">
                     Đang đồng bộ dữ liệu...
@@ -366,12 +446,14 @@ export default function TrangTaiKhoan() {
                     </p>
                     <p className="mt-1 font-medium">{displayName}</p>
                   </div>
+
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase">
                       Email
                     </p>
                     <p className="mt-1 break-all">{displayEmail || "—"}</p>
                   </div>
+
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase">
                       Số điện thoại
@@ -387,6 +469,25 @@ export default function TrangTaiKhoan() {
                   <h4 className="text-sm font-semibold text-gray-900">
                     Địa chỉ giao hàng mặc định
                   </h4>
+                </div>
+                {/* <div>
+                  {user.provider && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase">Hình thức đăng nhập</p>
+                      <p className="mt-1 uppercase">{user.provider}</p>
+                    </div>
+                  )}
+                </div> */}
+
+                <div id="section-address" className="space-y-3 scroll-mt-32">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      Địa chỉ giao hàng mặc định
+                    </h4>
+                    <span className="text-[11px] text-gray-400 italic">
+                      (Lấy từ backend nếu có)
+                    </span>
+                  </div>
 
                   {backendUser?.defaultAddress ? (
                     <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-1 text-sm">
@@ -395,11 +496,13 @@ export default function TrangTaiKhoan() {
                           {backendUser.defaultAddress.receiverName}
                         </p>
                       )}
+
                       {backendUser.defaultAddress.phone && (
                         <p className="text-gray-600">
                           ĐT: {backendUser.defaultAddress.phone}
                         </p>
                       )}
+
                       <p className="text-gray-700">
                         {backendUser.defaultAddress.addressLine},{" "}
                         {backendUser.defaultAddress.ward},{" "}
@@ -528,7 +631,7 @@ export default function TrangTaiKhoan() {
               </div>
             </section>
 
-            {/* Lịch sử đơn hàng */}
+            {/* SECTION: ORDERS */}
             <section
               id="section-orders"
               className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 space-y-4 scroll-mt-32"
@@ -542,6 +645,7 @@ export default function TrangTaiKhoan() {
                     Những đơn hàng bạn đã đặt.
                   </p>
                 </div>
+
                 {loadingOrders && (
                   <span className="text-xs text-gray-400">
                     Đang tải lịch sử...
@@ -551,7 +655,8 @@ export default function TrangTaiKhoan() {
 
               {orders.length === 0 && !loadingOrders ? (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
-                  Chưa tìm thấy đơn hàng nào.
+                  Chưa tìm thấy đơn hàng nào. Hãy thử đặt sách để xem lịch sử
+                  tại đây nhé!
                 </div>
               ) : (
                 <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -572,6 +677,7 @@ export default function TrangTaiKhoan() {
                         </th>
                       </tr>
                     </thead>
+
                     <tbody className="divide-y divide-gray-100">
                       {orders.map((order) => (
                         <tr key={order.id} className="hover:bg-gray-50">
@@ -581,11 +687,13 @@ export default function TrangTaiKhoan() {
                           <td className="px-4 py-2 text-gray-600">
                             {new Date(order.createdAt).toLocaleString("vi-VN")}
                           </td>
+
                           <td className="px-4 py-2">
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
                               {order.status}
                             </span>
                           </td>
+
                           <td className="px-4 py-2 text-right font-semibold text-red-600">
                             {order.totalAmount.toLocaleString("vi-VN")} ₫
                           </td>
@@ -595,6 +703,48 @@ export default function TrangTaiKhoan() {
                   </table>
                 </div>
               )}
+            </section>
+
+            {/* SECTION: FAVORITES */}
+            <section
+              id="section-favorites"
+              className="grid grid-cols-1 md:grid-cols-2 gap-6 scroll-mt-32"
+            >
+              <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Danh sách yêu thích
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Truy cập nhanh những cuốn sách bạn đã thả tim để cân nhắc mua
+                  sau.
+                </p>
+
+                <Link
+                  href="/yeu-thich"
+                  className="inline-flex items-center gap-2 mt-1 text-sm font-semibold text-red-600 hover:text-red-700"
+                >
+                  Xem sách yêu thích <span aria-hidden>❤</span>
+                </Link>
+              </div>
+
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-red-800">
+                    Gợi ý dành riêng cho {displayName || "bạn"}
+                  </h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    Khám phá thêm nhiều tựa sách mới, ưu đãi đặc biệt đang chờ
+                    bạn tại Dino Bookstore.
+                  </p>
+                </div>
+
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+                >
+                  Tiếp tục mua sắm
+                </Link>
+              </div>
             </section>
           </main>
         </div>

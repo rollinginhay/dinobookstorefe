@@ -281,7 +281,107 @@ export default function ThanhToan() {
     }));
   };
 
-  // ------------------ Empty Cart ------------------
+  // ===============================
+  // 🔥 HANDLE SUBMIT
+  // ===============================
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+
+  //   const payload = {
+  //     fullName: formData.fullName,
+  //     phone: formData.phone,
+  //     email: formData.email,
+  //     address: `${formData.address}, ${formData.ward}, ${formData.district}, ${formData.city}`,
+  //     note: formData.note,
+  //     paymentMethod: formData.paymentMethod,
+  //     items: cartItems.map((item) => ({
+  //       bookDetailId: item.copyId,
+  //       quantity: item.quantity,
+  //       pricePerUnit: item.price,
+  //     })),
+  //   };
+
+  //   console.log("📦 PAYLOAD gửi BE:", payload);
+  //   console.log("🛒 CART:", cartItems);
+
+  //   try {
+  //     const res = await fetch("http://localhost:8080/v1/orders/guest", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(payload),
+  //     });
+
+  //     if (!res.ok) {
+  //       console.error("❌ Lỗi tạo đơn hàng", res.status);
+  //       alert("Đặt hàng thất bại, vui lòng thử lại!");
+  //       return;
+  //     }
+
+  //     const data = await res.json();
+  //     console.log("✅ ORDER RESPONSE:", data);
+
+  //     alert("Đặt hàng thành công! Kiểm tra email nhé ❤️");
+  //     clearCart();
+  //     router.push("/");
+  //   } catch (err) {
+  //     console.error("❌ ERROR:", err);
+  //     alert("Không thể kết nối server!");
+
+  //     const confirmOrder = window.confirm(
+  //       "Bạn có chắc chắn muốn đặt hàng không?"
+  //     );
+  //     if (!confirmOrder) return;
+
+  //     const orderData = {
+  //       info: formData,
+  //       items: cartItems,
+  //       shipping,
+  //       voucherDiscount,
+  //       finalTotal,
+  //       voucherId: selectedVoucherId,
+  //       createdAt: new Date().toISOString(),
+  //     };
+
+  //     if (formData.paymentMethod === "cod") {
+  //       localStorage.setItem("latestOrder", JSON.stringify(orderData));
+  //       clearCart();
+  //       alert("Đặt hàng thành công!");
+  //       router.push("/hoa-don");
+  //     } else if (formData.paymentMethod === "banking") {
+  //       try {
+  //         const res = await fetch(
+  //           "http://localhost:8080/api/vnpay/create-payment",
+  //           {
+  //             method: "POST",
+  //             headers: { "Content-Type": "application/json" },
+  //             body: JSON.stringify({
+  //               amount: finalTotal,
+  //               orderInfo: "Đơn hàng #" + new Date().getTime(),
+  //               returnUrl: "http://localhost:3000/vnpay-return",
+  //             }),
+  //           }
+  //         );
+
+  //         const data = await res.json();
+
+  //         if (data.paymentUrl) {
+  //           window.location.href = data.paymentUrl;
+  //         } else {
+  //           alert("Không tạo được URL thanh toán VNPay!");
+  //         }
+  //       } catch (err) {
+  //         console.error(err);
+  //         alert("Lỗi kết nối VNPay");
+  //       }
+  //     } else if (formData.paymentMethod === "momo") {
+  //       alert("Chức năng thanh toán Momo đang phát triển");
+  //     }
+  //   }
+  // };
+
+  // ===================================================
+  // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
+  // ===================================================
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -359,13 +459,14 @@ export default function ThanhToan() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
+                      Email <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="email@example.com"
                     />
@@ -443,6 +544,21 @@ export default function ThanhToan() {
                     </select>
                   </div>
                 </div>
+                {/* Địa chỉ chi tiết */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Địa chỉ chi tiết <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Số nhà, tên đường..."
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -510,7 +626,6 @@ export default function ThanhToan() {
                     onChange={handleChange}
                     className="mr-3 text-blue-600"
                   />
-
                   <div className="flex items-center gap-3">
                     <svg
                       className="w-8 h-8 text-pink-600"
@@ -550,7 +665,11 @@ export default function ThanhToan() {
                     key={item.id}
                     className="flex items-center gap-3 text-sm"
                   >
-                    <div className="w-12 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded flex-shrink-0"></div>
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-12 h-16 object-cover rounded flex-shrink-0"
+                    />
                     <div className="flex-1">
                       <div className="font-medium text-gray-900 line-clamp-1">
                         {item.title}

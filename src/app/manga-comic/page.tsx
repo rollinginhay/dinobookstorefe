@@ -140,9 +140,11 @@ function MangaComic() {
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 
-            const detail =
-              includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
+            const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
+            const detail = detailObj?.attributes || {};
 
+            // const detail =
+            //   includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
             const publisherId = item.relationships?.publisher?.data?.id;
             const publisherName =
               (publisherId &&
@@ -151,7 +153,7 @@ function MangaComic() {
               "Không rõ";
 
             return {
-              id: item.id,
+              id: Number(item.id),
               title: item.attributes?.title,
               author: authors,
               genres,
@@ -163,6 +165,9 @@ function MangaComic() {
               description: item.attributes?.description || "",
               image: item.attributes?.imageUrl,
               publisher: publisherName,
+              copyId: Number(copyIds[0]),
+              bookDetailId: Number(copyIds[0]),
+              bookFormat: detail.bookFormat || "Khác",
             } as Book;
           }) || [];
 
