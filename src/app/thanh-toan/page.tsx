@@ -5,22 +5,25 @@ import { useCart } from "@/contexts/CartContext";
 import { useVoucher } from "@/contexts/VoucherContext";
 import Breadcrumb from "@/components/Breadcrumb";
 import { useRouter } from "next/navigation";
+import { ReceiptDetail } from "@/contexts/ReceiptContext";
+import { json } from "stream/consumers";
+
+type Province = { code: number; name: string };
+type District = { code: number; name: string };
+type Ward = { code: number; name: string };
 
 export default function ThanhToan() {
   const router = useRouter();
   const { cartItems, clearCart, totalPrice } = useCart();
   const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
+
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
-  const [provinces, setProvinces] = useState<any[]>([]);
-  const [districts, setDistricts] = useState<any[]>([]);
-  const [wards, setWards] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetch("https://provinces.open-api.vn/api/p/")
-      .then((res) => res.json())
-      .then((data) => setProvinces(data));
-  }, []);
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -29,92 +32,202 @@ export default function ThanhToan() {
     city: "",
     district: "",
     ward: "",
-    paymentMethod: "cod",
+    paymentMethod: "cod||banking",
     note: "",
   });
 
+  // Load Provinces
+  useEffect(() => {
+    fetch("https://provinces.open-api.vn/api/p/")
+      .then((res) => res.json())
+      .then((data) => setProvinces(data))
+      .catch(() => setProvinces([]));
+  }, []);
+
+  // --- Calculate totals ---
   const shipping = totalPrice >= 299000 ? 0 : 30000;
   const subtotal = totalPrice + shipping;
-  const voucherDiscount = selectedVoucherId
-    ? calculateDiscount(selectedVoucherId, subtotal)
-    : 0;
-  const finalTotal = subtotal - voucherDiscount;
 
+  const voucherDiscount =
+    selectedVoucherId &&
+    subtotal >= (getVoucherById(selectedVoucherId)?.minOrder || 0)
+      ? calculateDiscount(selectedVoucherId, subtotal)
+      : 0;
+
+  const finalTotal = Math.max(subtotal - voucherDiscount, 0);
+
+  // ----------------- Handle Submit -----------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
 
-    const confirmOrder = window.confirm(
-      "Bạn có chắc chắn muốn đặt hàng không?"
-    );
-    if (!confirmOrder) return;
+    // Confirm
+    if (!window.confirm("Bạn có chắc chắn muốn đặt hàng không?")) {
+      setLoading(false);
+      return;
+    }
 
-    const orderData = {
-      info: formData,
-      items: cartItems,
-      shipping,
-      voucherDiscount,
-      finalTotal,
-      voucherId: selectedVoucherId,
-      createdAt: new Date().toISOString(),
+    // Build full address as string
+    const fullAddress = `${formData.address}, ${formData.ward}, ${formData.district}, ${formData.city}`;
+    // Build Receipt Payload
+    const userId = localStorage.getItem("userId");
+    const receiptPayload = {
+      data: {
+        type: "receipt",
+        id: 0,
+        attributes: {
+          customerName: formData.fullName,
+          customerPhone: formData.phone,
+          customerAddress: fullAddress,
+          orderStatus: "PENDING",
+          orderType: "ONLINE",
+          note: formData.note,
+          discount: voucherDiscount,
+          subTotal: subtotal,
+          serviceCost: shipping,
+          grandTotal: finalTotal,
+        },
+        relationships: {
+          receiptDetails: {
+            data: cartItems.map((item) => ({
+              id: item.id,
+              type: "receiptDetails",
+              attributes: {
+                id: item.id,
+                quantity: item.quantity,
+                price: item.price,
+              },
+            })),
+          },
+          // paymentDetail: {
+          //   data: {
+          //     id: Date.now(),
+          //     type: "paymentDetail",
+          //     attributes: {
+          //       totalPrice: totalPrice,
+          //       paymentType:
+          //         formData.paymentMethod === "cod"
+          //           ? "CASH"
+          //           : formData.paymentMethod === "banking"
+          //           ? "VNPAY"
+          //           : "MOMO",
+          //     },
+          //   },
+          // },
+          customer: {
+            data: {
+              type: "user",
+              id: userId,
+            },
+          },
+          employee: {
+            data: null,
+          },
+        },
+      },
     };
+    // const paymentDetailPayload =  {
+    //   data: {
+    //     type: "paymentDetail",
+    //     id: 0,
+    //     attributes: {
+    //       amount: ,
+    //       paymentType: formData.paymentMethod === "COD"
+    //                 ? "CASH"
+    //                 : formData.paymentMethod === "BANKING"
+    //                 ? "VNPAY"
+    //                 : "MOMO",
+    //     }
 
-    if (formData.paymentMethod === "cod") {
-      // COD xử lý bình thường
-      localStorage.setItem("latestOrder", JSON.stringify(orderData));
-      clearCart();
-      alert("Đặt hàng thành công!");
-      router.push("/hoa-don");
-    } else if (formData.paymentMethod === "banking") {
-      // Chỉ khi chọn banking thì gọi VNPay
-      try {
+    //   }
+    // }
+    try {
+      // --------------- COD ----------------
+      if (formData.paymentMethod === "cod") {
         const res = await fetch(
-          "http://localhost:8080/api/vnpay/create-payment",
+          "http://localhost:8080/v1/receipt/createOnline",
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              amount: finalTotal, // tổng tiền VNPay
-              orderInfo: "Đơn hàng #" + new Date().getTime(),
-              returnUrl: "http://localhost:3000/vnpay-return",
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(receiptPayload),
           }
         );
 
-        const data = await res.json();
+        if (!res.ok) throw new Error("Lỗi tạo đơn hàng COD");
+
+        const receipt = await res.json();
+        clearCart();
+        localStorage.setItem("latestOrder", JSON.stringify(receipt));
+        alert("Đặt hàng thành công!");
+        router.push("/hoa-don");
+        return;
+      }
+
+      // --------------- BANKING / VNPay ----------------
+      if (formData.paymentMethod === "banking") {
+        // 1. Tạo receipt
+        const receiptRes = await fetch(
+          "http://localhost:8080/v1/receipt/createOnline",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(receiptPayload),
+          }
+        );
+
+        if (!receiptRes.ok) throw new Error("Lỗi tạo receipt!");
+
+        const receipt = await receiptRes.json();
+        const receiptId = receipt.data.id;
+
+        // 2. Tạo VNPay URL
+        const payRes = await fetch(
+          `http://localhost:8080/api/vnpay/pay-receipt/${receiptId}?returnUrl=http://localhost:3000/vnpay-return`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(receiptPayload),
+          }
+        );
+
+        if (!payRes.ok) throw new Error("Lỗi tạo URL VNPay!");
+
+        const data = await payRes.json();
 
         if (data.paymentUrl) {
-          // Redirect sang VNPay
           window.location.href = data.paymentUrl;
         } else {
           alert("Không tạo được URL thanh toán VNPay!");
         }
-      } catch (err) {
-        console.error(err);
-        alert("Lỗi kết nối VNPay");
+        return;
       }
-    } else if (formData.paymentMethod === "momo") {
-      // Nếu sau này muốn tích hợp ví Momo
-      alert("Chức năng thanh toán Momo đang phát triển");
+
+      // --------------- MOMO ----------------
+      if (formData.paymentMethod === "momo") {
+        alert("Thanh toán Momo đang phát triển");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi khi tạo đơn hàng!");
+    } finally {
+      setLoading(false);
     }
   };
+
+  // --------------------------------------------------
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const code = e.target.value;
-
-    const selected = provinces.find((p) => p.code == code);
-
+    const selected = provinces.find((p: any) => p.code == code);
     setFormData((prev) => ({
       ...prev,
       city: selected?.name || "",
@@ -122,41 +235,53 @@ export default function ThanhToan() {
       ward: "",
     }));
 
+    if (!code) {
+      setDistricts([]);
+      setWards([]);
+      return;
+    }
+
     fetch(`https://provinces.open-api.vn/api/p/${code}?depth=2`)
       .then((res) => res.json())
       .then((data) => {
         setDistricts(data.districts || []);
+        setWards([]);
+      })
+      .catch(() => {
+        setDistricts([]);
         setWards([]);
       });
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const code = e.target.value;
-
-    const selected = districts.find((d) => d.code == code);
-
+    const selected = districts.find((d: any) => d.code == code);
     setFormData((prev) => ({
       ...prev,
       district: selected?.name || "",
       ward: "",
     }));
 
+    if (!code) {
+      setWards([]);
+      return;
+    }
+
     fetch(`https://provinces.open-api.vn/api/d/${code}?depth=2`)
       .then((res) => res.json())
-      .then((data) => {
-        setWards(data.wards || []);
-      });
+      .then((data) => setWards(data.wards || []))
+      .catch(() => setWards([]));
   };
 
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = wards.find((w) => w.code == e.target.value);
-
+    const selected = wards.find((w: any) => w.code == e.target.value);
     setFormData((prev) => ({
       ...prev,
       ward: selected?.name || "",
     }));
   };
 
+  // ------------------ Empty Cart ------------------
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -175,6 +300,7 @@ export default function ThanhToan() {
     );
   }
 
+  // ------------------ MAIN UI ------------------
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
@@ -515,11 +641,11 @@ export default function ThanhToan() {
 
               <button
                 type="submit"
-                className="w-full bg-orange-500 text-white py-4 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg mt-6"
+                disabled={loading}
+                className="w-full bg-orange-500 text-white py-4 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg mt-6 disabled:opacity-50"
               >
-                Đặt hàng ngay
+                {loading ? "Đang xử lý..." : "Đặt hàng ngay"}
               </button>
-
               <div className="mt-4 text-sm text-gray-600">
                 Bằng việc đặt hàng, bạn đồng ý với{" "}
                 <a href="#" className="text-blue-600 hover:underline">

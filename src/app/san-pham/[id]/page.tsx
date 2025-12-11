@@ -84,9 +84,11 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         const copyIds =
           item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
         const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-        const price = firstCopy?.attributes?.price || 0;
+        console.log("firstCopy", firstCopy);
+        const price = firstCopy?.attributes?.supplyPrice || 0;
         const pages = firstCopy?.attributes?.pages || "Không rõ";
-
+        const stock = firstCopy.attributes.stock;
+        console.log("item.addtributes.stock", stock);
         const bookData: Book = {
           id: Number(item.id),
           title: item.attributes?.title,
@@ -96,7 +98,7 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
           rating: item.attributes?.rating || 4.5,
           description: item.attributes?.description || "",
           image: item.attributes?.imageUrl || "/default-book.jpg",
-          sold: item.attributes?.sold || 0,
+          sold: stock,
           publisher: publisherName,
           year: year,
           pages: pages,
@@ -166,6 +168,70 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
 
     fetchBookAndRelated();
   }, [bookId]);
+  // =========================
+  // API TẠO HÓA ĐƠN
+  // =========================
+  async function createReceipt() {
+    const res = await fetch("http://localhost:8080/v1/receipt/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: {
+          type: "receipt",
+          attributes: {
+            status: "PENDING",
+            total: 0,
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Backend error:", text);
+      throw new Error("Không thể tạo hóa đơn");
+    }
+
+    return (await res.json()).data.id;
+  }
+
+  // =========================
+  // API TẠO RECEIPT DETAIL
+  // =========================
+  async function createReceiptDetail(price: number, quantity: number) {
+    const res = await fetch("http://localhost:8080/v1/receiptDetail/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: {
+          type: "receiptDetail",
+          attributes: { price, quantity },
+        },
+      }),
+    });
+
+    if (!res.ok) throw new Error("Không thể tạo chi tiết hóa đơn");
+    const json = await res.json();
+    return json.data.id; // receiptDetailId
+  }
+
+  // =========================
+  // API GẮN RECEIPT DETAIL VÀO RECEIPT
+  // =========================
+  async function attachDetail(receiptId: number, detailId: number) {
+    const res = await fetch(
+      `http://localhost:8080/v1/receipt/${receiptId}/relationships/receiptDetail`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: [{ type: "receiptDetail", id: detailId }],
+        }),
+      }
+    );
+
+    if (!res.ok) throw new Error("Không thể gắn sản phẩm vào hóa đơn");
+  }
 
   if (loading)
     return (
@@ -199,10 +265,28 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
   };
 
   const handleAddToCart = () => addToCart(book, quantity);
-  const handleBuyNow = () => {
-    addToCart(book, quantity);
-    router.push("/thanh-toan");
+  const handleBuyNow = async () => {
+    try {
+      // 1) Tạo hóa đơn
+      const receiptId = await createReceipt();
+      console.log("Tạo hóa đơn thành công:", receiptId);
+
+      // 2) Tạo receipt detail (sản phẩm)
+      const detailId = await createReceiptDetail(book.price, quantity);
+      console.log("Tạo chi tiết hóa đơn:", detailId);
+
+      // 3) Gắn vào hóa đơn
+      await attachDetail(receiptId, detailId);
+      console.log("Đã gắn sản phẩm vào hóa đơn");
+
+      // 4) Điều hướng sang trang thanh toán
+      router.push(`/thanh-toan?receiptId=${receiptId}`);
+    } catch (err) {
+      console.error("Lỗi khi thanh toán:", err);
+      alert("Có lỗi xảy ra, vui lòng thử lại!");
+    }
   };
+
   const handleFavorite = () => {
     if (isFav) removeFromFavorites(book.id);
     else addToFavorites(book);
@@ -281,12 +365,6 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                   123 đánh giá
                 </span>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-600">
-                  Đã bán:{" "}
-                  <span className="font-medium text-orange-500">
-                    {book.sold?.toLocaleString("vi-VN")}
-                  </span>
-                </span>
               </div>
 
               {/* Giá */}
@@ -434,7 +512,9 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                     </svg>
                   </button>
                 </div>
-                <span className="text-gray-500 text-sm">(Còn 50 sản phẩm)</span>
+                <span className="text-gray-500 text-sm">
+                  Số lượng còn {book.sold} sản phẩm
+                </span>
               </div>
 
               {/* Các nút hành động */}

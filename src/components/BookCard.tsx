@@ -25,6 +25,7 @@ interface Book {
   isTrending?: boolean;
   badge?: string;
   genres?: string[];
+  bookDetail?: any;
 }
 
 interface BookCardProps {

@@ -119,7 +119,6 @@ function SachNuocNgoai() {
 
             const detail =
               includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
-
             const publisherId = item.relationships?.publisher?.data?.id;
             const publisherName =
               (publisherId &&
@@ -132,7 +131,7 @@ function SachNuocNgoai() {
               title: item.attributes?.title,
               author: authors,
               genres,
-              price: detail.price || 0,
+              price: detail.supplyPrice || 0,
               originalPrice: detail.originalPrice || detail.price || 0,
               discount: detail.discount || 0,
               rating: item.attributes?.rating || 0,

@@ -1,14 +1,19 @@
-'use client';
+"use client";
 
-import { FormEvent, useState } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export default function DangNhapPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwtToken");
+    if (token) setIsLoggedIn(true);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
 
   const [loginForm, setLoginForm] = useState({
@@ -30,17 +35,18 @@ export default function DangNhapPage() {
     "Ít nhất 8 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt.";
 
   const validatePassword = (value: string) => {
-    const regex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     return regex.test(value);
   };
 
   const callAuthApi = async (
-    path: "/v1/auth/login" | "/v1/auth/register",
+    path: "/v1/auth/loginOnline" | "/v1/auth/register",
     payload: Record<string, unknown>
   ) => {
     if (!API_BASE_URL) {
-      throw new Error("Chưa cấu hình biến môi trường NEXT_PUBLIC_API_BASE_URL.");
+      throw new Error(
+        "Chưa cấu hình biến môi trường NEXT_PUBLIC_API_BASE_URL."
+      );
     }
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -72,13 +78,17 @@ export default function DangNhapPage() {
         throw new Error(passwordHint);
       }
 
-      const data = await callAuthApi("/v1/auth/login", {
+      const data = await callAuthApi("/v1/auth/loginOnline", {
         email: loginForm.email,
         password: loginForm.password,
       });
-
-      if (data?.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
+      if (data?.jwtToken) {
+        localStorage.setItem("jwtToken", data.jwtToken);
+        localStorage.setItem("username", data.username ?? "Người dùng");
+        localStorage.setItem("userId", data.userId);
+        window.location.reload();
+        setIsLoggedIn(true);
+        console.log("data", data);
       }
 
       setLoginMessage("Đăng nhập thành công! Bạn có thể quay lại trang chủ.");
@@ -125,8 +135,18 @@ export default function DangNhapPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("jwtToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("username");
+    localStorage.removeItem("userAvatar");
+    setIsLoggedIn(false);
+    router.push("/");
+  };
+
+  // Google sign-in không còn dùng NextAuth
   const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl: "/" });
+    alert("Google Login không hoạt động vì bạn đã bỏ NextAuth.");
   };
 
   const renderForm = () => {
@@ -162,7 +182,7 @@ export default function DangNhapPage() {
               className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
               placeholder="••••••••"
             />
-          <p className="text-xs text-gray-500 mt-1">{passwordHint}</p>
+            <p className="text-xs text-gray-500 mt-1">{passwordHint}</p>
           </div>
           <button
             type="submit"
@@ -199,24 +219,24 @@ export default function DangNhapPage() {
           <label className="block text-sm font-medium text-gray-600 mb-1">
             Email
           </label>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
-            Số điện thoại
-          </label>
-          <input
-            type="tel"
-            required
-            value={registerForm.phoneNumber}
-            onChange={(event) =>
-              setRegisterForm({
-                ...registerForm,
-                phoneNumber: event.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="09xx xxx xxx"
-          />
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Số điện thoại
+            </label>
+            <input
+              type="tel"
+              required
+              value={registerForm.phoneNumber}
+              onChange={(event) =>
+                setRegisterForm({
+                  ...registerForm,
+                  phoneNumber: event.target.value,
+                })
+              }
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="09xx xxx xxx"
+            />
+          </div>
           <input
             type="email"
             required
@@ -252,32 +272,19 @@ export default function DangNhapPage() {
           {registerLoading ? "Đang xử lý..." : "Đăng ký"}
         </button>
         {registerMessage && (
-          <p className="text-sm text-center text-gray-600">
-            {registerMessage}
-          </p>
+          <p className="text-sm text-center text-gray-600">{registerMessage}</p>
         )}
       </form>
     );
   };
 
-  if (status === "loading") {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <p className="text-gray-500">Đang kiểm tra trạng thái đăng nhập...</p>
-      </div>
-    );
-  }
-
-  if (session) {
+  if (isLoggedIn) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Bạn đã đăng nhập
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800">Bạn đã đăng nhập</h1>
         <p className="text-gray-600">
-          Xin chào{" "}
-          <span className="font-semibold">{session.user?.name ?? "bạn"}</span>.
-          Bạn có thể quay lại trang chủ hoặc đăng xuất bên dưới.
+          Xin chào <span className="font-semibold">bạn</span>. Bạn có thể quay
+          lại trang chủ hoặc đăng xuất bên dưới.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
@@ -287,7 +294,7 @@ export default function DangNhapPage() {
             Về trang chủ
           </button>
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={handleLogout}
             className="px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
           >
             Đăng xuất
@@ -342,7 +349,8 @@ export default function DangNhapPage() {
           {!API_BASE_URL && (
             <div className="mb-4 rounded-xl bg-yellow-50 border border-yellow-200 text-sm text-yellow-800 px-4 py-3">
               Bạn chưa cấu hình <code>NEXT_PUBLIC_API_BASE_URL</code>. Các form
-              email/mật khẩu sẽ không thể gọi API cho tới khi thêm biến môi trường này.
+              email/mật khẩu sẽ không thể gọi API cho tới khi thêm biến môi
+              trường này.
             </div>
           )}
           {renderForm()}
@@ -393,8 +401,8 @@ export default function DangNhapPage() {
               <li>3. Bấm “Tiếp tục với Google” để đăng nhập</li>
             </ul>
             <p className="text-xs text-red-200">
-              Sau khi Google xác thực thành công, NextAuth sẽ tự tạo session và
-              chuyển bạn về trang chủ.
+              Sau khi Google xác thực thành công, bạn sẽ nhận token từ API của
+              bạn.
             </p>
           </div>
         </section>
@@ -402,5 +410,3 @@ export default function DangNhapPage() {
     </div>
   );
 }
-
-

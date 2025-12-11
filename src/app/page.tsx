@@ -55,119 +55,119 @@ export default function Home() {
 
   // 🟢 Fetch SÁCH NỔI BẬT (theo rating trung bình >= 4.5)
   // 🟢 Fetch SÁCH NỔI BẬT (theo rating trung bình >= 4.5)
-  async function fetchFeaturedBooks() {
-    try {
-      const res = await fetch(
-        "http://localhost:8080/v1/books?e=true&page=0&limit=30&sort=rating_desc"
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // async function fetchFeaturedBooks() {
+  //   try {
+  //     const res = await fetch(
+  //       "http://localhost:8080/v1/books?e=true&page=0&limit=30&sort=rating_desc"
+  //     );
+  //     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      const includedMap = new Map();
-      json.included?.forEach((item: any) => {
-        includedMap.set(`${item.type}-${item.id}`, item);
-      });
+  //     const includedMap = new Map();
+  //     json.included?.forEach((item: any) => {
+  //       includedMap.set(`${item.type}-${item.id}`, item);
+  //     });
 
-      const books: Book[] =
-        json.data
-          ?.map((item: any) => {
-            // 🔹 Lấy danh sách ID review
-            const reviewIds =
-              item.relationships?.reviews?.data?.map((r: any) => r.id) || [];
+  //     const books: Book[] =
+  //       json.data
+  //         ?.map((item: any) => {
+  //           // 🔹 Lấy danh sách ID review
+  //           const reviewIds =
+  //             item.relationships?.reviews?.data?.map((r: any) => r.id) || [];
 
-            // 🔹 Tính trung bình rating từ các review
-            const ratings = reviewIds
-              .map(
-                (id: string) =>
-                  includedMap.get(`review-${id}`)?.attributes?.rating
-              )
-              .filter((r: any) => typeof r === "number");
+  //           // 🔹 Tính trung bình rating từ các review
+  //           const ratings = reviewIds
+  //             .map(
+  //               (id: string) =>
+  //                 includedMap.get(`review-${id}`)?.attributes?.rating
+  //             )
+  //             .filter((r: any) => typeof r === "number");
 
-            const rating =
-              ratings.length > 0
-                ? ratings.reduce((a: number, b: number) => a + b, 0) /
-                  ratings.length
-                : 0;
+  //           const rating =
+  //             ratings.length > 0
+  //               ? ratings.reduce((a: number, b: number) => a + b, 0) /
+  //                 ratings.length
+  //               : 0;
 
-            // 🔹 Tác giả
-            const creatorIds =
-              item.relationships?.creators?.data?.map((c: any) => c.id) || [];
-            const authors =
-              creatorIds
-                .map(
-                  (id: string) =>
-                    includedMap.get(`creator-${id}`)?.attributes?.name
-                )
-                .filter(Boolean)
-                .join(", ") || "Không rõ tác giả";
+  //           // 🔹 Tác giả
+  //           const creatorIds =
+  //             item.relationships?.creators?.data?.map((c: any) => c.id) || [];
+  //           const authors =
+  //             creatorIds
+  //               .map(
+  //                 (id: string) =>
+  //                   includedMap.get(`creator-${id}`)?.attributes?.name
+  //               )
+  //               .filter(Boolean)
+  //               .join(", ") || "Không rõ tác giả";
 
-            // 🔹 Thể loại
-            const genreIds =
-              item.relationships?.genres?.data?.map((g: any) => g.id) || [];
-            const genreName =
-              genreIds
-                .map(
-                  (id: string) =>
-                    includedMap.get(`genre-${id}`)?.attributes?.name
-                )
-                .filter(Boolean)
-                .join(", ") || "Chưa phân loại";
+  //           // 🔹 Thể loại
+  //           const genreIds =
+  //             item.relationships?.genres?.data?.map((g: any) => g.id) || [];
+  //           const genreName =
+  //             genreIds
+  //               .map(
+  //                 (id: string) =>
+  //                   includedMap.get(`genre-${id}`)?.attributes?.name
+  //               )
+  //               .filter(Boolean)
+  //               .join(", ") || "Chưa phân loại";
 
-            // 🔹 Giá
-            const copyIds =
-              item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
-            const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-            const firstCopyAttributes = firstCopy?.attributes || {};
-            const price = firstCopyAttributes?.price || 0;
-            const originalPrice =
-              firstCopyAttributes?.originalPrice || price || 0;
-            const calculatedDiscount =
-              firstCopyAttributes?.discount ??
-              (originalPrice > price && originalPrice !== 0
-                ? Math.round(((originalPrice - price) / originalPrice) * 100)
-                : 0);
-            const sold =
-              firstCopyAttributes?.sold || item.attributes?.sold || 0;
-            const coverImage = item.attributes?.imageUrl || FALLBACK_IMAGE;
-            const badge =
-              rating >= 4.8
-                ? "Độc giả yêu thích"
-                : rating >= 4.6
-                ? "Biên tập chọn"
-                : undefined;
+  //           // 🔹 Giá
+  //           const copyIds =
+  //             item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
+  //           const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
+  //           const firstCopyAttributes = firstCopy?.attributes || {};
+  //           const price = firstCopyAttributes?.price || 0;
+  //           const originalPrice =
+  //             firstCopyAttributes?.originalPrice || price || 0;
+  //           const calculatedDiscount =
+  //             firstCopyAttributes?.discount ??
+  //             (originalPrice > price && originalPrice !== 0
+  //               ? Math.round(((originalPrice - price) / originalPrice) * 100)
+  //               : 0);
+  //           const sold =
+  //             firstCopyAttributes?.sold || item.attributes?.sold || 0;
+  //           const coverImage = item.attributes?.imageUrl || FALLBACK_IMAGE;
+  //           const badge =
+  //             rating >= 4.8
+  //               ? "Độc giả yêu thích"
+  //               : rating >= 4.6
+  //               ? "Biên tập chọn"
+  //               : undefined;
 
-            return {
-              id:
-                typeof item.id === "number"
-                  ? item.id
-                  : parseInt(String(item.id), 10) || 0,
-              title: item.attributes?.title || "Không có tên",
-              author: authors,
-              genreName,
-              price,
-              rating,
-              image: coverImage,
-              description: item.attributes?.description || "",
-              originalPrice,
-              discount: calculatedDiscount,
-              sold,
-              isTrending: item.attributes?.isTrending || rating >= 4.8,
-              badge,
-            };
-          })
-          // 🔹 Chỉ lấy sách có rating trung bình >= 4.5
-          .filter((b: Book) => (b.rating ?? 0) >= 4.5) || [];
+  //           return {
+  //             id:
+  //               typeof item.id === "number"
+  //                 ? item.id
+  //                 : parseInt(String(item.id), 10) || 0,
+  //             title: item.attributes?.title || "Không có tên",
+  //             author: authors,
+  //             genreName,
+  //             price,
+  //             rating,
+  //             image: coverImage,
+  //             description: item.attributes?.description || "",
+  //             originalPrice,
+  //             discount: calculatedDiscount,
+  //             sold,
+  //             isTrending: item.attributes?.isTrending || rating >= 4.8,
+  //             badge,
+  //           };
+  //         })
+  //         // 🔹 Chỉ lấy sách có rating trung bình >= 4.5
+  //         .filter((b: Book) => (b.rating ?? 0) >= 4.5) || [];
 
-      const topFeatured = books.slice(0, 15);
-      setFeaturedBooks(
-        topFeatured.length > 0 ? topFeatured : fallbackFeaturedBooks
-      );
-    } catch (err: any) {
-      console.error("❌ Lỗi fetch featured:", err);
-      setFeaturedBooks(fallbackFeaturedBooks);
-    }
-  }
+  //     const topFeatured = books.slice(0, 15);
+  //     setFeaturedBooks(
+  //       topFeatured.length > 0 ? topFeatured : fallbackFeaturedBooks
+  //     );
+  //   } catch (err: any) {
+  //     console.error("❌ Lỗi fetch featured:", err);
+  //     setFeaturedBooks(fallbackFeaturedBooks);
+  //   }
+  // }
 
   // 🟢 Fetch TOÀN BỘ SÁCH
   async function fetchAllBooks() {
@@ -209,8 +209,9 @@ export default function Home() {
 
           const copyIds =
             item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
+
           const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-          const price = firstCopy?.attributes?.price || 0;
+          const price = firstCopy?.attributes?.supplyPrice || 0;
 
           const rating = item.attributes?.rating || 0;
 
@@ -225,6 +226,8 @@ export default function Home() {
           };
         }) || [];
 
+      console.log("boooks", books);
+      localStorage.setItem("allBookData", JSON.stringify(books));
       setAllBooks(books);
     } catch (err: any) {
       console.error("❌ Lỗi fetch all:", err);
@@ -237,7 +240,8 @@ export default function Home() {
     async function loadData() {
       try {
         setLoading(true);
-        await Promise.all([fetchFeaturedBooks(), fetchAllBooks()]);
+        localStorage.removeItem("allBookData");
+        await Promise.all([fetchAllBooks()]);
       } catch (err: any) {
         setError(err.message);
       } finally {

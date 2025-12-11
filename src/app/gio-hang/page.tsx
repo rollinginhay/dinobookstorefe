@@ -1,10 +1,10 @@
 "use client";
 
-import { useCart } from "@/contexts/CartContext";
-import { useFavorite } from "@/contexts/FavoriteContext";
+import { CartItem, useCart } from "@/contexts/CartContext";
 import Breadcrumb from "@/components/Breadcrumb";
 import Link from "next/link";
-
+import { useEffect, useState } from "react";
+import { Book } from "@/components/BookCard";
 export default function GioHang() {
   const {
     cartItems,
@@ -14,16 +14,59 @@ export default function GioHang() {
     totalItems,
     totalPrice,
   } = useCart();
+  const currentBookList = localStorage.getItem("allBookData");
+  console.log("currentBookList", currentBookList);
+  // console.log("cartItems", cartItems);
+  // Sử dụng cartDetailId để update quantity
+  const handleQuantityChange = (cartDetailId: number, newQuantity: number) => {
+    if (isNaN(newQuantity)) return;
 
-  const handleQuantityChange = (bookId: number, newQuantity: number) => {
-    if (newQuantity > 0 && newQuantity <= 10) {
-      updateQuantity(bookId, newQuantity);
-    }
+    if (newQuantity < 1) newQuantity = 1;
+    if (newQuantity > 10) newQuantity = 10;
+
+    updateQuantity(cartDetailId, newQuantity);
   };
+  const [currentCartItems, setCurrentCartItems] = useState<CartItem[]>([]);
 
   const shipping = totalPrice >= 299000 ? 0 : 30000;
   const finalTotal = totalPrice + shipping;
+  const getBookDataByID = (
+    id: number
+  ): { authorName: string; title: string } => {
+    const NOT_FOUND_BOOK_ID = "Incoming soon";
+    const NOT_AUTHORIZED = "Not Authorized";
 
+    if (!currentBookList || !JSON.parse(currentBookList)?.length) {
+      return { authorName: NOT_AUTHORIZED, title: NOT_FOUND_BOOK_ID };
+    }
+    const listAllBook = JSON.parse(currentBookList);
+    const foundBookDetail = listAllBook.find(
+      (item: any) => item?.id === id.toString()
+    );
+    return {
+      title: foundBookDetail?.title || NOT_FOUND_BOOK_ID,
+      authorName: foundBookDetail.author || NOT_AUTHORIZED,
+    };
+  };
+
+  useEffect(() => {
+    const previousData: { [id: number]: any } = {};
+    cartItems.forEach((item) => {
+      if (!previousData[item.id]) {
+        previousData[item.id] = { ...item };
+        return;
+      }
+      previousData[item.id].quantity += 1;
+      previousData[item.id].amount += previousData[item.id].price;
+    });
+
+    setCurrentCartItems(
+      Object.keys(previousData).map((item) => ({
+        id: Number(item),
+        ...previousData[Number(item)],
+      }))
+    );
+  }, [cartItems]);
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
@@ -35,7 +78,7 @@ export default function GioHang() {
           Giỏ hàng của bạn
         </h1>
 
-        {cartItems.length === 0 ? (
+        {currentCartItems.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <div className="flex justify-center mb-4">
               <svg
@@ -93,9 +136,9 @@ export default function GioHang() {
               </div>
 
               {/* Cart Items List */}
-              {cartItems.map((item) => (
+              {currentCartItems.map((item) => (
                 <div
-                  key={item.id}
+                  key={item.cartDetailId}
                   className="bg-white rounded-lg shadow-sm p-6"
                 >
                   <div className="flex gap-4">
@@ -118,15 +161,17 @@ export default function GioHang() {
                     <div className="flex-1">
                       <Link href={`/san-pham/${item.id}`}>
                         <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600 mb-1">
-                          {item.title}
+                          {getBookDataByID(item.id).title}
                         </h3>
                       </Link>
-                      <p className="text-gray-600 mb-2">{item.author}</p>
+                      <p className="text-gray-600 mb-2">
+                        {getBookDataByID(item.id).authorName}
+                      </p>
 
                       <div className="flex items-center justify-between mt-4">
                         {/* Price */}
                         <span className="text-2xl font-bold text-red-600">
-                          {item.price.toLocaleString("vi-VN")} ₫
+                          {item.amount.toLocaleString("vi-VN")} ₫
                         </span>
 
                         {/* Actions */}
@@ -135,7 +180,10 @@ export default function GioHang() {
                           <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                             <button
                               onClick={() =>
-                                handleQuantityChange(item.id, item.quantity - 1)
+                                handleQuantityChange(
+                                  item.cartDetailId,
+                                  item.quantity - 1
+                                )
                               }
                               className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
                             >
@@ -155,20 +203,24 @@ export default function GioHang() {
                             </button>
                             <input
                               type="number"
-                              value={item.quantity}
+                              value={isNaN(item.quantity) ? 1 : item.quantity}
                               onChange={(e) =>
                                 handleQuantityChange(
-                                  item.id,
+                                  item.cartDetailId,
                                   parseInt(e.target.value) || 1
                                 )
                               }
                               className="w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0"
-                              min="1"
-                              max="10"
+                              min={1}
+                              max={10}
                             />
+
                             <button
                               onClick={() =>
-                                handleQuantityChange(item.id, item.quantity + 1)
+                                handleQuantityChange(
+                                  item.cartDetailId,
+                                  item.quantity + 1
+                                )
                               }
                               className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
                             >
@@ -190,7 +242,7 @@ export default function GioHang() {
 
                           {/* Remove Button */}
                           <button
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => removeFromCart(item.cartDetailId)}
                             className="text-red-600 hover:text-red-700 p-2"
                           >
                             <svg
@@ -277,52 +329,6 @@ export default function GioHang() {
                   >
                     Tiếp tục mua sắm
                   </Link>
-                </div>
-
-                {/* Benefits */}
-                <div className="mt-6 pt-6 border-t space-y-3 text-sm text-gray-600">
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="w-5 h-5 text-green-600 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Miễn phí vận chuyển cho đơn từ 299.000₫</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="w-5 h-5 text-green-600 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Đổi trả miễn phí trong 30 ngày</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="w-5 h-5 text-green-600 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Thanh toán an toàn, bảo mật</span>
-                  </div>
                 </div>
               </div>
             </div>
