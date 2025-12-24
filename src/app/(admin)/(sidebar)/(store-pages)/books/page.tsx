@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function ProductPage() {
     return (
         <div>
-            <PageBreadcrumb pageTitle="Books"/>
+            <PageBreadcrumb pageTitle="Quản lý sách"/>
             <ProductListTable/>
         </div>
     );

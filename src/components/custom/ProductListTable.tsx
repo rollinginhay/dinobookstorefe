@@ -198,7 +198,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        No.
+                                        STT
                                     </p>
                                 </div>
                             </th>
@@ -208,7 +208,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Ma
+                                        Mã sách
                                     </p>
                                 </div>
                             </th>
@@ -218,7 +218,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Title
+                                        Tên sách
                                     </p>
                                 </div>
                             </th>
@@ -228,7 +228,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Published
+                                        Năm xuất bản
                                     </p>
                                 </div>
                             </th>
@@ -237,7 +237,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Variations
+                                        Phiên bản
                                     </p>
                                 </div>
                             </th>
@@ -246,7 +246,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Price range
+                                        Khoảng giá
                                     </p>
                                 </div>
                             </th>
@@ -258,7 +258,7 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Status
+                                        Trạng thái
                                     </p>
                                     <span className="flex flex-col gap-0.5">
                     <svg
@@ -299,7 +299,7 @@ const ProductListTable: React.FC = () => {
                                 </div>
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Action
+                                Hành động
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                                 <div className="relative">
@@ -354,7 +354,7 @@ const ProductListTable: React.FC = () => {
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400 pl-4">
                                         {(() => {
-                                            const prices = e.bookCopies.data.map(e => e.salesPrice);
+                                            const prices = e.bookCopies.data.map(e => e.salePrice);
                                             if (prices.length === 0) {
                                                 return "Khong co gia";
                                             }

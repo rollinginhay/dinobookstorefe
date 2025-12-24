@@ -5,14 +5,14 @@ import { useState, useEffect } from "react";
 import { BillService } from "@/service/bill.service";
 
 type OrderStatus =
-    | "PENDING"
-    | "AUTHORIZED"
-    | "PAID"
-    | "IN_TRANSIT"
-    | "CANCELLED"
-    | "FAILED"
-    | "REFUNDED"
-    | "UNKNOWN";
+  | "PENDING"
+  | "AUTHORIZED"
+  | "PAID"
+  | "IN_TRANSIT"
+  | "CANCELLED"
+  | "FAILED"
+  | "REFUNDED"
+  | "UNKNOWN";
 
 type OrderType = "POS" | "ONLINE" | "UNKNOWN";
 
@@ -36,10 +36,10 @@ interface CustomerInfo {
 }
 
 interface ConfirmState {
-    open: boolean;
-    action: "NEXT" | "CANCEL" | "REFUND" | "FAILED" | null;
-    title?: string;
-    message?: string;
+  open: boolean;
+  action: "NEXT" | "CANCEL" | "REFUND" | "FAILED" | null;
+  title?: string;
+  message?: string;
 }
 
 interface MockProduct {
@@ -83,253 +83,253 @@ const MOCK_PRODUCTS: MockProduct[] = [
     },
 ];
 function renderStatusBadge(status: OrderStatus) {
-    switch (status) {
-        case "PENDING":
-            return (
-                <span className="badge bg-yellow-100 text-yellow-600">
+  switch (status) {
+    case "PENDING":
+      return (
+        <span className="badge bg-yellow-100 text-yellow-600">
           Chờ xác nhận
         </span>
-            );
-        case "AUTHORIZED":
-            return (
-                <span className="badge bg-orange-100 text-orange-600">
+      );
+    case "AUTHORIZED":
+      return (
+        <span className="badge bg-orange-100 text-orange-600">
           Đã xác nhận
         </span>
-            );
-        case "IN_TRANSIT":
-            return (
-                <span className="badge bg-blue-100 text-blue-600">
+      );
+    case "IN_TRANSIT":
+      return (
+        <span className="badge bg-blue-100 text-blue-600">
           Đang vận chuyển
         </span>
-            );
-        case "PAID":
-            return (
-                <span className="badge bg-green-100 text-green-600">Hoàn thành</span>
-            );
-        case "CANCELLED":
-        case "FAILED":
-            return (
-                <span className="badge bg-red-100 text-red-600">Đã hủy</span>
-            );
-        case "REFUNDED":
-            return (
-                <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>
-            );
-        default:
-            return (
-                <span className="badge bg-gray-200 text-gray-700">UNKNOWN</span>
-            );
-    }
+      );
+    case "PAID":
+      return (
+        <span className="badge bg-green-100 text-green-600">Hoàn thành</span>
+      );
+    case "CANCELLED":
+    case "FAILED":
+      return (
+        <span className="badge bg-red-100 text-red-600">Đã hủy</span>
+      );
+    case "REFUNDED":
+      return (
+        <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>
+      );
+    default:
+      return (
+        <span className="badge bg-gray-200 text-gray-700">UNKNOWN</span>
+      );
+  }
 }
 
 function getNextStatus(
-    current: OrderStatus,
-    opts: { orderType: OrderType; paymentType: PaymentType; hasShipping: boolean }
+  current: OrderStatus,
+  opts: { orderType: OrderType; paymentType: PaymentType; hasShipping: boolean }
 ): OrderStatus {
 
-    const { orderType, paymentType, hasShipping } = opts;
+  const { orderType, paymentType, hasShipping } = opts;
 
-    // POS có ship → đi full flow
-    if (orderType === "POS" && hasShipping === true) {
-        if (current === "PENDING") return "AUTHORIZED";
-        if (current === "AUTHORIZED") return "IN_TRANSIT";
-        if (current === "IN_TRANSIT") return "PAID";
-        return current;
-    }
-
-    // POS không ship → PENDING → PAID
-    if (orderType === "POS" && hasShipping === false) {
-        if (current === "PENDING") return "PAID";
-        return current;
-    }
-
-    // ONLINE (luôn ship)
+  // POS có ship → đi full flow
+  if (orderType === "POS" && hasShipping === true) {
     if (current === "PENDING") return "AUTHORIZED";
     if (current === "AUTHORIZED") return "IN_TRANSIT";
     if (current === "IN_TRANSIT") return "PAID";
-
     return current;
+  }
+
+  // POS không ship → PENDING → PAID
+  if (orderType === "POS" && hasShipping === false) {
+    if (current === "PENDING") return "PAID";
+    return current;
+  }
+
+  // ONLINE (luôn ship)
+  if (current === "PENDING") return "AUTHORIZED";
+  if (current === "AUTHORIZED") return "IN_TRANSIT";
+  if (current === "IN_TRANSIT") return "PAID";
+
+  return current;
 }
 function getNextActionLabel(
-    current: OrderStatus,
-    opts: { orderType: OrderType; paymentType: PaymentType; hasShipping: boolean }
+  current: OrderStatus,
+  opts: { orderType: OrderType; paymentType: PaymentType; hasShipping: boolean }
 ): string | null {
-    const { paymentType, hasShipping } = opts;
+  const { paymentType, hasShipping } = opts;
 
-    if (!hasShipping) {
-        if (current === "PENDING") {
-            return paymentType === "CASH"
-                ? "Xác nhận & Thanh toán"
-                : "Xác nhận đơn & Hoàn tất thanh toán";
-        }
-        return null;
-    }
-
+  if (!hasShipping) {
     if (current === "PENDING") {
-        if (paymentType === "COD") return "Xác nhận đơn COD";
-        return "Xác nhận đơn đã thanh toán";
+      return paymentType === "CASH"
+        ? "Xác nhận & Thanh toán"
+        : "Xác nhận đơn & Hoàn tất thanh toán";
     }
-
-    if (current === "AUTHORIZED") {
-        return "Giao cho vận chuyển";
-    }
-
-    if (current === "IN_TRANSIT") {
-        return "Xác nhận giao thành công";
-    }
-
     return null;
+  }
+
+  if (current === "PENDING") {
+    if (paymentType === "COD") return "Xác nhận đơn COD";
+    return "Xác nhận đơn đã thanh toán";
+  }
+
+  if (current === "AUTHORIZED") {
+    return "Giao cho vận chuyển";
+  }
+
+  if (current === "IN_TRANSIT") {
+    return "Xác nhận giao thành công";
+  }
+
+  return null;
 }
 
 
 function StatusTimeline({
-                            status,
-                            hasShipping,
-                        }: {
-    status: OrderStatus;
-    hasShipping: boolean;
+  status,
+  hasShipping,
+}: {
+  status: OrderStatus;
+  hasShipping: boolean;
 }) {
-    const LABEL: Record<OrderStatus, string> = {
-        PENDING: "Chờ xác nhận",
-        AUTHORIZED: "Đã xác nhận",
-        IN_TRANSIT: "Đang vận chuyển",
-        PAID: "Hoàn thành",
-        FAILED: "Thất bại",
-        CANCELLED: "Đã hủy",
-        REFUNDED: "Hoàn tiền",
-        UNKNOWN: "Không xác định",
-    };
+  const LABEL: Record<OrderStatus, string> = {
+    PENDING: "Chờ xác nhận",
+    AUTHORIZED: "Đã xác nhận",
+    IN_TRANSIT: "Đang vận chuyển",
+    PAID: "Hoàn thành",
+    FAILED: "Thất bại",
+    CANCELLED: "Đã hủy",
+    REFUNDED: "Hoàn tiền",
+    UNKNOWN: "Không xác định",
+  };
 
-    // ================== SUY LUẬN FLOW THEO LUỒNG M ĐÃ NÓI ==================
-    function buildTimeline(st: OrderStatus, hasShipping: boolean): OrderStatus[] {
-        // Đơn không ship: PENDING -> PAID
-        if (!hasShipping) {
-            switch (st) {
-                case "PENDING":
-                    return ["PENDING"];
-                case "PAID":
-                    return ["PENDING", "PAID"];
-                case "CANCELLED":
-                    // chỉ có thể hủy khi còn pending -> ["PENDING", "CANCELLED"]
-                    return ["PENDING", "CANCELLED"];
-                case "REFUNDED":
-                    // chắc chắn đã từng PAID rồi mới refund
-                    return ["PENDING", "PAID", "REFUNDED"];
-                default:
-                    return ["PENDING", st];
-            }
-        }
-
-        // Có ship: PENDING -> AUTHORIZED -> IN_TRANSIT -> PAID
-        switch (st) {
-            case "PENDING":
-                return ["PENDING"];
-
-            case "AUTHORIZED":
-                return ["PENDING", "AUTHORIZED"];
-
-            case "IN_TRANSIT":
-                return ["PENDING", "AUTHORIZED", "IN_TRANSIT"];
-
-            case "PAID":
-                return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "PAID"];
-
-            case "FAILED":
-                // chỉ nhảy từ IN_TRANSIT, không bao giờ qua PAID
-                return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "FAILED"];
-
-            case "CANCELLED":
-                // FE chỉ cho hủy khi PENDING hoặc AUTHORIZED
-                return ["PENDING", "AUTHORIZED", "CANCELLED"];
-
-            case "REFUNDED":
-                // 👉 luôn show: Đang VC -> Thất bại -> Hoàn tiền
-                return [
-                    "PENDING",
-                    "AUTHORIZED",
-                    "IN_TRANSIT",
-                    "FAILED",
-                    "REFUNDED",
-                ];
-
-            default:
-                return ["PENDING"];
-        }
+  // ================== SUY LUẬN FLOW THEO LUỒNG M ĐÃ NÓI ==================
+  function buildTimeline(st: OrderStatus, hasShipping: boolean): OrderStatus[] {
+  // Đơn không ship: PENDING -> PAID
+  if (!hasShipping) {
+    switch (st) {
+      case "PENDING":
+        return ["PENDING"];
+      case "PAID":
+        return ["PENDING", "PAID"];
+      case "CANCELLED":
+        // chỉ có thể hủy khi còn pending -> ["PENDING", "CANCELLED"]
+        return ["PENDING", "CANCELLED"];
+      case "REFUNDED":
+        // chắc chắn đã từng PAID rồi mới refund
+        return ["PENDING", "PAID", "REFUNDED"];
+      default:
+        return ["PENDING", st];
     }
+  }
+
+  // Có ship: PENDING -> AUTHORIZED -> IN_TRANSIT -> PAID
+  switch (st) {
+    case "PENDING":
+      return ["PENDING"];
+
+    case "AUTHORIZED":
+      return ["PENDING", "AUTHORIZED"];
+
+    case "IN_TRANSIT":
+      return ["PENDING", "AUTHORIZED", "IN_TRANSIT"];
+
+    case "PAID":
+      return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "PAID"];
+
+    case "FAILED":
+      // chỉ nhảy từ IN_TRANSIT, không bao giờ qua PAID
+      return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "FAILED"];
+
+    case "CANCELLED":
+      // FE chỉ cho hủy khi PENDING hoặc AUTHORIZED
+      return ["PENDING", "AUTHORIZED", "CANCELLED"];
+
+    case "REFUNDED":
+      // 👉 luôn show: Đang VC -> Thất bại -> Hoàn tiền
+      return [
+        "PENDING",
+        "AUTHORIZED",
+        "IN_TRANSIT",
+        "FAILED",
+        "REFUNDED",
+      ];
+
+    default:
+      return ["PENDING"];
+  }
+}
 
 
-    const steps = buildTimeline(status, hasShipping);
+  const steps = buildTimeline(status, hasShipping);
 
 
-    const getColor = (st: OrderStatus) => {
-        if (st === "FAILED") return "bg-red-600";
-        if (st === "CANCELLED") return "bg-red-500";
-        if (st === "REFUNDED") return "bg-gray-800";
-        return "bg-blue-600";
-    };
+  const getColor = (st: OrderStatus) => {
+    if (st === "FAILED") return "bg-red-600";
+    if (st === "CANCELLED") return "bg-red-500";
+    if (st === "REFUNDED") return "bg-gray-800";
+    return "bg-blue-600";
+  };
 
-    return (
-        <div className="flex flex-wrap items-center justify-center gap-6">
-            {steps.map((st, i) => (
-                <div key={st} className="flex items-center gap-3">
-                    <div
-                        className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${getColor(
-                            st
-                        )}`}
-                    >
-                        ✓
-                    </div>
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-6">
+      {steps.map((st, i) => (
+        <div key={st} className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${getColor(
+              st
+            )}`}
+          >
+            ✓
+          </div>
 
-                    <span className="font-medium">{LABEL[st]}</span>
+          <span className="font-medium">{LABEL[st]}</span>
 
-                    {i < steps.length - 1 && (
-                        <div className="w-10 h-px bg-gray-300"></div>
-                    )}
-                </div>
-            ))}
+          {i < steps.length - 1 && (
+            <div className="w-10 h-px bg-gray-300"></div>
+          )}
         </div>
-    );
+      ))}
+    </div>
+  );
 }
 
 function ConfirmDialog({
-                           state,
-                           onClose,
-                           onConfirm,
-                       }: {
-    state: ConfirmState;
-    onClose: () => void;
-    onConfirm: () => void;
+  state,
+  onClose,
+  onConfirm,
+}: {
+  state: ConfirmState;
+  onClose: () => void;
+  onConfirm: () => void;
 }) {
-    if (!state.open) return null;
+  if (!state.open) return null;
 
-    return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
-                <h3 className="text-lg font-semibold">
-                    {state.title ?? "Vui lòng xác nhận"}
-                </h3>
-                <p className="text-sm text-gray-600">
-                    {state.message ??
-                        "Bạn có chắc chắn muốn tiếp tục thao tác này không?"}
-                </p>
-                <div className="flex justify-end gap-3 pt-2">
-                    <button
-                        className="btn bg-gray-100 hover:bg-gray-200 text-gray-800"
-                        onClick={onClose}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={onConfirm}  // KHÔNG ĐƯỢC onClose() ở đây
-                    >
-                        Đồng ý
-                    </button>
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
+        <h3 className="text-lg font-semibold">
+          {state.title ?? "Vui lòng xác nhận"}
+        </h3>
+        <p className="text-sm text-gray-600">
+          {state.message ??
+            "Bạn có chắc chắn muốn tiếp tục thao tác này không?"}
+        </p>
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            className="btn bg-gray-100 hover:bg-gray-200 text-gray-800"
+            onClick={onClose}
+          >
+            Hủy
+          </button>
+          <button
+  className="btn btn-primary"
+  onClick={onConfirm}  // KHÔNG ĐƯỢC onClose() ở đây
+>
+  Đồng ý
+</button>
 
-                </div>
-            </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
 
 function ProductSelectorModal({
@@ -464,95 +464,95 @@ function ProductSelectorModal({
 
 export default function BillDetailPage() {
     const params = useParams<{ id: string }>();
-    const router = useRouter();
+  const router = useRouter();
 
-    const receiptId = Number(params.id);
+  const receiptId = Number(params.id);
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-    const [status, setStatus] = useState<OrderStatus>("PENDING");
-    const [orderType, setOrderType] = useState<OrderType>("UNKNOWN");
-    const [paymentType] = useState<PaymentType>("CASH"); // tạm mock, vì BE chưa có field
-    const [hasShipping, setHasShipping] = useState<boolean>(false);
-    const [showTimeline, setShowTimeline] = useState(false);
+  const [status, setStatus] = useState<OrderStatus>("PENDING");
+  const [orderType, setOrderType] = useState<OrderType>("UNKNOWN");
+  const [paymentType] = useState<PaymentType>("CASH"); // tạm mock, vì BE chưa có field
+  const [hasShipping, setHasShipping] = useState<boolean>(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
-    const [items, setItems] = useState<BillItem[]>([]);
-    const [customer, setCustomer] = useState<CustomerInfo>({
-        name: "",
-        phone: "",
-        address: "",
-        note: "",
-    });
+  const [items, setItems] = useState<BillItem[]>([]);
+  const [customer, setCustomer] = useState<CustomerInfo>({
+    name: "",
+    phone: "",
+    address: "",
+    note: "",
+  });
 
-    const [discount, setDiscount] = useState<number>(0);
-    const [shippingFee, setShippingFee] = useState<number>(0);
-    const [taxPercent, setTaxPercent] = useState<number>(8);
-    const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [discount, setDiscount] = useState<number>(0);
+  const [shippingFee, setShippingFee] = useState<number>(0);
+  const [taxPercent, setTaxPercent] = useState<number>(8);
+  const [amountPaid, setAmountPaid] = useState<number>(0);
 
-    const [confirmState, setConfirmState] = useState<ConfirmState>({
-        open: false,
-        action: null,
-    });
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
+    open: false,
+    action: null,
+  });
 
-    const [showProductModal, setShowProductModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
 
-
+    
     const { id } = useParams();
 
     // ---------- MOCK DATA TỪ HÓA ĐƠN 23 ----------
     // Tự bật timeline khi trạng thái đơn thay đổi
     useEffect(() => {
-        if (!receiptId || Number.isNaN(receiptId)) return;
+    if (!receiptId || Number.isNaN(receiptId)) return;
 
-        const fetchData = async () => {
-            try {
-                setIsLoading(true);
-                setLoadError(null);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
 
-                const res = await BillService.getById(receiptId);
+        const res = await BillService.getById(receiptId);
 
-                setStatus(res.status as OrderStatus);
-                setOrderType(
-                    res.orderType === "DIRECT"
-                        ? "POS"
-                        : res.orderType === "ONLINE"
-                            ? "ONLINE"
-                            : "UNKNOWN"
-                );
+        setStatus(res.status as OrderStatus);
+        setOrderType(
+  res.orderType === "DIRECT"
+    ? "POS"
+    : res.orderType === "ONLINE"
+    ? "ONLINE"
+    : "UNKNOWN"
+);
 
-                let detectedHasShipping = res.hasShipping;
+        let detectedHasShipping = res.hasShipping;
 
-                if (res.orderType === "DIRECT") {
-                    if (["AUTHORIZED", "IN_TRANSIT", "PAID", "FAILED", "REFUNDED"].includes(res.status)) {
-                        detectedHasShipping = true;
-                    }
-                }
-
-
-                setHasShipping(detectedHasShipping);
+if (res.orderType === "DIRECT") {
+  if (["AUTHORIZED", "IN_TRANSIT", "PAID", "FAILED", "REFUNDED"].includes(res.status)) {
+    detectedHasShipping = true;
+  }
+}
 
 
-                setItems(res.items);
-                setCustomer(res.customer);
-                setDiscount(res.discount);
-                setShippingFee(res.shippingFee);
-                setTaxPercent(res.taxPercent);
-                setAmountPaid(res.amountPaid);
+setHasShipping(detectedHasShipping);
 
-                setShowTimeline(true);
-            } catch (e) {
-                console.error(e);
-                setLoadError("Không lấy được dữ liệu hóa đơn");
-            } finally {
-                setIsLoading(false);
-            }
-        };
 
-        fetchData();
-    }, [receiptId]);
+        setItems(res.items);
+        setCustomer(res.customer);
+        setDiscount(res.discount);
+        setShippingFee(res.shippingFee);
+        setTaxPercent(res.taxPercent);
+        setAmountPaid(res.amountPaid);
+
+        setShowTimeline(true);
+      } catch (e) {
+        console.error(e);
+        setLoadError("Không lấy được dữ liệu hóa đơn");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [receiptId]);
 
     // ---------- TÍNH TIỀN ----------
     const subTotal = items.reduce(
@@ -611,96 +611,96 @@ export default function BillDetailPage() {
     };
 
     const handleOpenConfirm = (action: ConfirmState["action"]) => {
-        if (!action) return;
-        const base: ConfirmState = { open: true, action };
+    if (!action) return;
+    const base: ConfirmState = { open: true, action };
 
-        if (action === "NEXT") {
-            setConfirmState({
-                ...base,
-                title: "Chuyển trạng thái đơn hàng",
-                message: "Bạn có chắc chắn xác nhận?",
-            });
-        } else if (action === "CANCEL") {
-            setConfirmState({
-                ...base,
-                title: "Hủy đơn hàng",
-                message: "Đơn sẽ bị hủy và không thể tiếp tục xử lý. Tiếp tục?",
-            });
-        } else {
-            setConfirmState({
-                ...base,
-                title: "Hoàn tiền đơn hàng",
-                message:
-                    "Xác nhận hoàn tiền đơn hàng?",
-            });
-        }
-    };
+    if (action === "NEXT") {
+      setConfirmState({
+        ...base,
+        title: "Chuyển trạng thái đơn hàng",
+        message: "Bạn có chắc chắn xác nhận?",
+      });
+    } else if (action === "CANCEL") {
+      setConfirmState({
+        ...base,
+        title: "Hủy đơn hàng",
+        message: "Đơn sẽ bị hủy và không thể tiếp tục xử lý. Tiếp tục?",
+      });
+    } else {
+      setConfirmState({
+        ...base,
+        title: "Hoàn tiền đơn hàng",
+        message:
+          "Xác nhận hoàn tiền đơn hàng?",
+      });
+    }
+  };
 
     const handleConfirmAction = async () => {
-        if (!confirmState.action) return;
-        if (!receiptId || Number.isNaN(receiptId)) return;
+  if (!confirmState.action) return;
+  if (!receiptId || Number.isNaN(receiptId)) return;
 
-        try {
-            setIsUpdatingStatus(true);
+  try {
+    setIsUpdatingStatus(true);
 
-            if (confirmState.action === "NEXT") {
-                const next = getNextStatus(status, {
-                    orderType,
-                    paymentType,
-                    hasShipping,
-                });
+    if (confirmState.action === "NEXT") {
+      const next = getNextStatus(status, {
+        orderType,
+        paymentType,
+        hasShipping,
+      });
 
-                await BillService.updateStatus(receiptId, next);
-                setStatus(next);
-            }
+      await BillService.updateStatus(receiptId, next);
+      setStatus(next);
+    }
 
-                // =========================
-                // CANCEL — chỉ khi còn PENDING / AUTHORIZED
-            // =========================
-            else if (confirmState.action === "CANCEL") {
-                await BillService.updateStatus(receiptId, "CANCELLED");
-                setStatus("CANCELLED");
-            }
+    // =========================
+    // CANCEL — chỉ khi còn PENDING / AUTHORIZED
+    // =========================
+    else if (confirmState.action === "CANCEL") {
+      await BillService.updateStatus(receiptId, "CANCELLED");
+      setStatus("CANCELLED");
+    }
 
-                // =========================
-                // FAILED — chỉ khi đang giao
-            // =========================
-            else if (confirmState.action === "FAILED") {
-                if (status !== "IN_TRANSIT") {
-                    alert("Chỉ có thể đánh dấu thất bại khi đơn đang giao.");
-                    return;
-                }
+    // =========================
+    // FAILED — chỉ khi đang giao
+    // =========================
+    else if (confirmState.action === "FAILED") {
+      if (status !== "IN_TRANSIT") {
+        alert("Chỉ có thể đánh dấu thất bại khi đơn đang giao.");
+        return;
+      }
 
-                await BillService.updateStatus(receiptId, "FAILED");
-                setStatus("FAILED");
-            }
+      await BillService.updateStatus(receiptId, "FAILED");
+      setStatus("FAILED");
+    }
 
-                // =========================
-                // REFUND — chỉ cho prepaid (không COD) + PAID hoặc FAILED
-            // =========================
-            else if (confirmState.action === "REFUND") {
-                if (paymentType === "COD") {
-                    alert("Đơn COD không thể hoàn tiền.");
-                    return;
-                }
+    // =========================
+    // REFUND — chỉ cho prepaid (không COD) + PAID hoặc FAILED
+    // =========================
+    else if (confirmState.action === "REFUND") {
+      if (paymentType === "COD") {
+        alert("Đơn COD không thể hoàn tiền.");
+        return;
+      }
 
-                if (status !== "PAID" && status !== "FAILED") {
-                    alert("Chỉ hoàn tiền cho đơn đã thanh toán hoặc giao thất bại.");
-                    return;
-                }
+      if (status !== "PAID" && status !== "FAILED") {
+        alert("Chỉ hoàn tiền cho đơn đã thanh toán hoặc giao thất bại.");
+        return;
+      }
 
-                await BillService.updateStatus(receiptId, "REFUNDED");
-                setStatus("REFUNDED");
-            }
+      await BillService.updateStatus(receiptId, "REFUNDED");
+      setStatus("REFUNDED");
+    }
 
-        } catch (e) {
-            console.error(e);
-            alert("Có lỗi khi cập nhật trạng thái đơn hàng.");
-        } finally {
-            setIsUpdatingStatus(false);
-            setConfirmState({ open: false, action: null }); // <--- ĐÓNG POPUP TẠI ĐÂY
-        }
-    };
+  } catch (e) {
+    console.error(e);
+    alert("Có lỗi khi cập nhật trạng thái đơn hàng.");
+  } finally {
+    setIsUpdatingStatus(false);
+    setConfirmState({ open: false, action: null }); // <--- ĐÓNG POPUP TẠI ĐÂY
+  }
+};
 
     const disableNext =
         status === "PAID" ||
@@ -722,71 +722,71 @@ export default function BillDetailPage() {
                 </button>
             </div>
 
-            {/* TRẠNG THÁI ĐƠN HÀNG */}
-            <div className="card space-y-6">
-                <h3 className="card-title">Trạng thái đơn hàng</h3>
+           {/* TRẠNG THÁI ĐƠN HÀNG */}
+      <div className="card space-y-6">
+        <h3 className="card-title">Trạng thái đơn hàng</h3>
 
-                <div className="flex justify-center">{renderStatusBadge(status)}</div>
+        <div className="flex justify-center">{renderStatusBadge(status)}</div>
 
-                {showTimeline && (
-                    <div className="flex justify-center pt-2">
-                        <StatusTimeline status={status} hasShipping={hasShipping} />
-                    </div>
-                )}
+        {showTimeline && (
+          <div className="flex justify-center pt-2">
+            <StatusTimeline status={status} hasShipping={hasShipping} />
+          </div>
+        )}
 
-                {/* Nút hành động */}
-                <div className="flex gap-3 pt-4 flex-wrap">
+        {/* Nút hành động */}
+        <div className="flex gap-3 pt-4 flex-wrap">
 
-                    {/* NEXT */}
-                    {["PENDING", "AUTHORIZED", "IN_TRANSIT"].includes(status) && (
-                        <button
-                            className="btn btn-primary"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleOpenConfirm("NEXT")}
-                        >
-                            {getNextActionLabel(status, { orderType, paymentType, hasShipping }) ??
-                                "Tiếp tục"}
-                        </button>
-                    )}
+  {/* NEXT */}
+  {["PENDING", "AUTHORIZED", "IN_TRANSIT"].includes(status) && (
+  <button
+    className="btn btn-primary"
+    disabled={isUpdatingStatus}
+    onClick={() => handleOpenConfirm("NEXT")}
+  >
+    {getNextActionLabel(status, { orderType, paymentType, hasShipping }) ??
+      "Tiếp tục"}
+  </button>
+)}
 
 
-                    {/* CANCEL chỉ cho PENDING + AUTHORIZED */}
-                    {(status === "PENDING" || status === "AUTHORIZED") && (
-                        <button
-                            className="btn bg-pink-600 text-white hover:bg-pink-700"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleOpenConfirm("CANCEL")}
-                        >
-                            Huỷ đơn
-                        </button>
-                    )}
+  {/* CANCEL chỉ cho PENDING + AUTHORIZED */}
+  {(status === "PENDING" || status === "AUTHORIZED") && (
+    <button
+      className="btn bg-pink-600 text-white hover:bg-pink-700"
+      disabled={isUpdatingStatus}
+      onClick={() => handleOpenConfirm("CANCEL")}
+    >
+      Huỷ đơn
+    </button>
+  )}
 
-                    {/* FAILED xuất hiện khi đang giao (IN_TRANSIT) */}
-                    {status === "IN_TRANSIT" && (
-                        <button
-                            className="btn bg-red-500 text-white hover:bg-red-600"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleOpenConfirm("FAILED")}
-                        >
-                            Xác nhận giao hàng thất bại
-                        </button>
-                    )}
+  {/* FAILED xuất hiện khi đang giao (IN_TRANSIT) */}
+  {status === "IN_TRANSIT" && (
+    <button
+      className="btn bg-red-500 text-white hover:bg-red-600"
+      disabled={isUpdatingStatus}
+      onClick={() => handleOpenConfirm("FAILED")}
+    >
+      Xác nhận giao hàng thất bại
+    </button>
+  )}
 
-                    {/* REFUND: chỉ prepaid */}
-                    {(status === "PAID" || status === "FAILED") &&
-                        paymentType !== "COD" && (
-                            <button
-                                className="btn bg-gray-800 text-white hover:bg-black"
-                                disabled={isUpdatingStatus}
-                                onClick={() => handleOpenConfirm("REFUND")}
-                            >
-                                Hoàn tiền
-                            </button>
-                        )}
+  {/* REFUND: chỉ prepaid */}
+  {(status === "PAID" || status === "FAILED") &&
+    paymentType !== "COD" && (
+      <button
+        className="btn bg-gray-800 text-white hover:bg-black"
+        disabled={isUpdatingStatus}
+        onClick={() => handleOpenConfirm("REFUND")}
+      >
+        Hoàn tiền
+      </button>
+    )}
 
-                </div>
+</div>
 
-            </div>
+      </div>
             {/* SẢN PHẨM TRONG ĐƠN */}
             <div className="border rounded-lg bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -1011,67 +1011,67 @@ export default function BillDetailPage() {
                     </div>
                 </div>
 
-                {/*    /!* HÓA ĐƠN *!/*/}
-                {/*    <div className="border rounded-lg bg-white p-5 shadow-sm text-sm space-y-3">*/}
-                {/*        <h3 className="text-lg font-semibold mb-2">Hóa đơn</h3>*/}
+            {/*    /!* HÓA ĐƠN *!/*/}
+            {/*    <div className="border rounded-lg bg-white p-5 shadow-sm text-sm space-y-3">*/}
+            {/*        <h3 className="text-lg font-semibold mb-2">Hóa đơn</h3>*/}
 
-                {/*        <div className="flex justify-between">*/}
-                {/*            <span>Tạm tính:</span>*/}
-                {/*            <b>{subTotal.toLocaleString("vi-VN")} đ</b>*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between">*/}
+            {/*            <span>Tạm tính:</span>*/}
+            {/*            <b>{subTotal.toLocaleString("vi-VN")} đ</b>*/}
+            {/*        </div>*/}
 
-                {/*        <div className="flex justify-between items-center">*/}
-                {/*            <span>Giảm giá:</span>*/}
-                {/*            <input*/}
-                {/*                type="number"*/}
-                {/*                className="input h-8 w-28 text-right"*/}
-                {/*                value={discount}*/}
-                {/*                onChange={(e) => setDiscount(Number(e.target.value) || 0)}*/}
-                {/*            />*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between items-center">*/}
+            {/*            <span>Giảm giá:</span>*/}
+            {/*            <input*/}
+            {/*                type="number"*/}
+            {/*                className="input h-8 w-28 text-right"*/}
+            {/*                value={discount}*/}
+            {/*                onChange={(e) => setDiscount(Number(e.target.value) || 0)}*/}
+            {/*            />*/}
+            {/*        </div>*/}
 
-                {/*        <div className="flex justify-between items-center">*/}
-                {/*            <span>Phí vận chuyển:</span>*/}
-                {/*            <input*/}
-                {/*                type="number"*/}
-                {/*                className="input h-8 w-28 text-right"*/}
-                {/*                value={shippingFee}*/}
-                {/*                onChange={(e) => setShippingFee(Number(e.target.value) || 0)}*/}
-                {/*            />*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between items-center">*/}
+            {/*            <span>Phí vận chuyển:</span>*/}
+            {/*            <input*/}
+            {/*                type="number"*/}
+            {/*                className="input h-8 w-28 text-right"*/}
+            {/*                value={shippingFee}*/}
+            {/*                onChange={(e) => setShippingFee(Number(e.target.value) || 0)}*/}
+            {/*            />*/}
+            {/*        </div>*/}
 
-                {/*        <div className="flex justify-between">*/}
-                {/*            <span>Thuế VAT ({taxPercent}%):</span>*/}
-                {/*            <b>{taxAmount.toLocaleString("vi-VN")} đ</b>*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between">*/}
+            {/*            <span>Thuế VAT ({taxPercent}%):</span>*/}
+            {/*            <b>{taxAmount.toLocaleString("vi-VN")} đ</b>*/}
+            {/*        </div>*/}
 
-                {/*        <div className="border-t my-2"></div>*/}
+            {/*        <div className="border-t my-2"></div>*/}
 
-                {/*        <div className="flex justify-between text-base font-semibold">*/}
-                {/*            <span>Tổng cộng:</span>*/}
-                {/*            <span className="text-red-600">*/}
-                {/*    {finalTotal.toLocaleString("vi-VN")} đ*/}
-                {/*</span>*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between text-base font-semibold">*/}
+            {/*            <span>Tổng cộng:</span>*/}
+            {/*            <span className="text-red-600">*/}
+            {/*    {finalTotal.toLocaleString("vi-VN")} đ*/}
+            {/*</span>*/}
+            {/*        </div>*/}
 
-                {/*        <div className="flex justify-between">*/}
-                {/*            <span>Đã thanh toán:</span>*/}
-                {/*            <span className="text-green-600 font-semibold">*/}
-                {/*    {amountPaid.toLocaleString("vi-VN")} đ*/}
-                {/*</span>*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between">*/}
+            {/*            <span>Đã thanh toán:</span>*/}
+            {/*            <span className="text-green-600 font-semibold">*/}
+            {/*    {amountPaid.toLocaleString("vi-VN")} đ*/}
+            {/*</span>*/}
+            {/*        </div>*/}
 
-                {/*        <div className="flex justify-between">*/}
-                {/*            <span>Cần trả thêm:</span>*/}
-                {/*            <span className="font-semibold">*/}
-                {/*    {needToPay.toLocaleString("vi-VN")} đ*/}
-                {/*</span>*/}
-                {/*        </div>*/}
+            {/*        <div className="flex justify-between">*/}
+            {/*            <span>Cần trả thêm:</span>*/}
+            {/*            <span className="font-semibold">*/}
+            {/*    {needToPay.toLocaleString("vi-VN")} đ*/}
+            {/*</span>*/}
+            {/*        </div>*/}
 
-                {/*        <button className="btn btn-primary w-full mt-2 text-sm">*/}
-                {/*            LƯU THAY ĐỔI*/}
-                {/*        </button>*/}
-                {/*    </div>*/}
+            {/*        <button className="btn btn-primary w-full mt-2 text-sm">*/}
+            {/*            LƯU THAY ĐỔI*/}
+            {/*        </button>*/}
+            {/*    </div>*/}
             </div>
 
             {/* MODALS */}

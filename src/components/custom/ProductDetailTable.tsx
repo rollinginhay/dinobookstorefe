@@ -49,7 +49,7 @@ const ProductDetailTable: React.FC = () => {
         dimensions: "",
         printLength: "",
         stock: "",
-        salesPrice: "",
+        salePrice: "",
     };
 
     const isEditing = useRef(false);
@@ -99,238 +99,264 @@ const ProductDetailTable: React.FC = () => {
     }
 
 
-    return (
-        <div>
-            <div
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-5">
-                <ProductInfoCard book={book}/>
-            </div>
+return (
+  <div>
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-5">
+      <ProductInfoCard book={book} />
+    </div>
 
-            <div
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
 
-                <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-                    <div className="flex gap-3 sm:justify-between">
-                        <div className="flex gap-3">
-                            <Button
-                                className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
-                                onClick={() => {
-                                    setEditingItem(initEditingItem);
-                                    isEditing.current = false;
-                                    openModal();
-                                }}
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 20 20"
-                                    fill="none"
-                                >
-                                    <path
-                                        d="M5 10.0002H15.0006M10.0002 5V15.0006"
-                                        stroke="currentColor"
-                                        strokeWidth="1.5"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
-                                Add bookDetail
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full">
-                        <thead>
-                        <tr className="border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                No.
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                ISBN
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Format
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Length
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Dimensions
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Price
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Stock
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Status
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Action
-                            </th>
-
-                            {/*<th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">*/}
-                            {/*    <div className="relative">*/}
-                            {/*        <span className="sr-only">Action</span>*/}
-                            {/*    </div>*/}
-                            {/*</th>*/}
-                        </tr>
-                        </thead>
-                        <tbody className="divide-x divide-y divide-gray-200 dark:divide-gray-800">
-                        {sortedItems.map((e, i) => (
-                            <tr
-                                key={e.id}
-                                className="transition hover:bg-gray-50 dark:hover:bg-gray-900"
-                            >
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {i + 1}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {e.isbn}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {e.bookFormat}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {e.printLength}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {e.dimensions}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {getVND(e.salesPrice)}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {e.stock}</p>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                  <span
-                      className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-                          e.enabled
-                              ? "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-500"
-                              : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-500"
-                      }`}
-                  >
-                    {e.enabled ? "Active" : "Disabled"}
-                      {/*  {e.enabled}*/}
-                  </span>
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap">
-                                    <TableActionButtons
-                                        viewLink={`/book/${e.id}`}
-                                        onEdit={() => {
-                                            setEditingItem(e);
-                                            isEditing.current = true;
-                                            openModal();
-                                        }}
-                                        onDelete={() => {
-                                            bookDetailDelete.mutate(e.id);
-                                        }}
-                                        enableButtons={{
-                                            view: false,
-                                            edit: true,
-                                            delete: true,
-                                        }
-                                        }
-                                    ></TableActionButtons>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <Modal
-                isOpen={isOpen}
-                onClose={closeModal}
-                className="max-w-[584px] p-5 lg:p-10"
+      {/* Header */}
+      <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+        <div className="flex gap-3 sm:justify-between">
+          <div className="flex gap-3">
+            <Button
+              className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
+              onClick={() => {
+                setEditingItem(initEditingItem);
+                isEditing.current = false;
+                openModal();
+              }}
             >
-                <Form onSubmit={handleSubmit}>
-                    <h4 className="mb-6 text-lg font-medium text-gray-800 dark:text-white/90">
-                        Book Detail
-                    </h4>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M5 10.0002H15.0006M10.0002 5V15.0006"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Thêm chi tiết sách
+            </Button>
+          </div>
+        </div>
+      </div>
 
-                    <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-                        <div>
-                            <Label>ISBN</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.isbn}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, isbn: e.target.value}))
-                                   }
-                            />
-                        </div>
+      {/* Table */}
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-800">
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                STT
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                ISBN
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Định dạng
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Số trang
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Kích thước
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Giá bán
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Tồn kho
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Trạng thái
+              </th>
+              <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                Thao tác
+              </th>
+            </tr>
+          </thead>
 
-                        <div>
-                            <Label>Format</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.bookFormat}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, bookFormat: e.target.value}))
-                                   }/>
-                        </div>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+            {sortedItems.map((e, i) => (
+              <tr
+                key={e.id}
+                className="transition hover:bg-gray-50 dark:hover:bg-gray-900"
+              >
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {i + 1}
+                </td>
 
-                        <div>
-                            <Label>Length</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.printLength}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, printLength: e.target.value}))
-                                   }/>
-                        </div>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {e.isbn}
+                </td>
 
-                        <div>
-                            <Label>Dimensions</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.dimensions}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, dimensions: e.target.value}))
-                                   }/>
-                        </div>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {e.bookFormat}
+                </td>
 
-                        <div>
-                            <Label>Price</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.salesPrice}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, price: e.target.value}))
-                                   }/>
-                        </div>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {e.printLength}
+                </td>
 
-                        <div>
-                            <Label>Stock</Label>
-                            <Input placeholder="title"
-                                   value={editingItem.stock}
-                                   onChange={(e) =>
-                                       setEditingItem(prev => ({...prev, stock: e.target.value}))
-                                   }/>
-                        </div>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {e.dimensions}
+                </td>
 
-                    </div>
-                    <div className="flex items-center justify-end w-full gap-3 mt-6">
-                        <Button size="sm" variant="outline" onClick={closeModal}>
-                            Close
-                        </Button>
-                        <Button size="sm">
-                            Save Changes
-                        </Button>
-                    </div>
-                </Form>
-            </Modal>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {getVND(e.salePrice)}
+                </td>
 
-        </div>)
-        ;
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {e.stock}
+                </td>
+
+                <td className="px-5 py-4">
+                  <span
+                    className={`text-xs rounded-full px-2 py-0.5 font-medium ${
+                      e.enabled
+                        ? "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-500"
+                        : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-500"
+                    }`}
+                  >
+                    {e.enabled ? "Đang bán" : "Ngừng bán"}
+                  </span>
+                </td>
+
+                <td className="px-5 py-4">
+                  <TableActionButtons
+                    viewLink={`/book/${e.id}`}
+                    onEdit={() => {
+                      setEditingItem(e);
+                      isEditing.current = true;
+                      openModal();
+                    }}
+                    onDelete={() => {
+                      bookDetailDelete.mutate(e.id);
+                    }}
+                    enableButtons={{
+                      view: false,
+                      edit: true,
+                      delete: true,
+                    }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* Modal */}
+    <Modal
+      isOpen={isOpen}
+      onClose={closeModal}
+      className="max-w-[584px] p-5 lg:p-10"
+    >
+      <Form onSubmit={handleSubmit}>
+        <h4 className="mb-6 text-lg font-medium text-gray-800 dark:text-white/90">
+          Chi tiết sách
+        </h4>
+
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+          <div>
+            <Label>ISBN</Label>
+            <Input
+              placeholder="ISBN"
+              value={editingItem.isbn}
+              onChange={(e) =>
+                setEditingItem((prev) => ({ ...prev, isbn: e.target.value }))
+              }
+            />
+          </div>
+
+          <div>
+            <Label>Định dạng</Label>
+            <Input
+              placeholder="Bìa mềm / Bìa cứng"
+              value={editingItem.bookFormat}
+              onChange={(e) =>
+                setEditingItem((prev) => ({
+                  ...prev,
+                  bookFormat: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div>
+            <Label>Số trang</Label>
+            <Input
+              placeholder="Số trang"
+              value={editingItem.printLength}
+              onChange={(e) =>
+                setEditingItem((prev) => ({
+                  ...prev,
+                  printLength: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div>
+            <Label>Kích thước</Label>
+            <Input
+              placeholder="VD: 14 x 20 cm"
+              value={editingItem.dimensions}
+              onChange={(e) =>
+                setEditingItem((prev) => ({
+                  ...prev,
+                  dimensions: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div>
+  <Label>Giá bán</Label>
+  <Input
+    type="number"
+    placeholder="Giá"
+    value={editingItem.salePrice}
+    onChange={(e) =>
+  setEditingItem((prev) => ({
+    ...prev,
+    salePrice: e.target.value,
+  }))
+}
+
+  />
+</div>
+
+
+
+          <div>
+            <Label>Tồn kho</Label>
+            <Input
+              placeholder="Số lượng"
+              value={editingItem.stock}
+              onChange={(e) =>
+                setEditingItem((prev) => ({
+                  ...prev,
+                  stock: e.target.value,
+                }))
+              }
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end w-full gap-3 mt-6">
+          <Button size="sm" variant="outline" onClick={closeModal}>
+            Đóng
+          </Button>
+          <Button size="sm">
+            Lưu thay đổi
+          </Button>
+        </div>
+      </Form>
+    </Modal>
+  </div>
+);
+
 };
 
 export default ProductDetailTable;

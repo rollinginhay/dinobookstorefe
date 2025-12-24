@@ -10,7 +10,7 @@ export const BillService = {
     // ============================================
     async getList(page = 0, limit = 50) {
         const res = await fetch(
-            `http://localhost:8080/v1/receipts?e=true&page=${page}&limit=${limit}`,
+            `http://localhost:8080/v1/receipts/list?e=true&page=${page}&limit=${limit}`,
             {
                 headers: {
                     "Content-Type": "application/vnd.api+json",
@@ -46,7 +46,7 @@ export const BillService = {
                 orderDate: a.createdAt ?? "",
 
                 // FE muốn khách hàng & sđt
-                customerName: a.customerName ?? "Khách vãng lai",
+                customerName: a.customerName ?? "Khách lẻ",
                 customerPhone: a.customerPhone ?? "-",
             };
         });

@@ -7,7 +7,7 @@ import {ProtectedRoute} from "@/components/custom/ProtectedRoute";
 
 export const metadata: Metadata = {
   title:
-    "Dinobooks",
+    "DinoBookstore",
   description: "",
 };
 

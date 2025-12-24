@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
   { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
   { name: "Phiếu giảm giá", icon: <TagIcon className="w-5 h-5" />, path: "/voucher" },
   {
-    name: "Thương mại điện tử",
+    name: "Quản lý sách",
     icon: <CartIcon />,
     new: true,
     subItems: [
@@ -46,60 +46,60 @@ const navItems: NavItem[] = [
         ],
   },
   { name: "Người dùng", icon: <UserCircleIcon />, path: "/profile" },
-  {
-    name: "Biểu mẫu",
-    icon: <ListIcon />,
-    subItems: [
-      { name: "Form cơ bản", path: "/form-elements" },
-      { name: "Bố cục form", path: "/form-layout" },
-    ],
-  },
+//   {
+//     name: "Biểu mẫu",
+//     icon: <ListIcon />,
+//     subItems: [
+//       { name: "Form cơ bản", path: "/form-elements" },
+//       { name: "Bố cục form", path: "/form-layout" },
+//     ],
+//   },
 ];
 
-const othersItems: NavItem[] = [
+// const othersItems: NavItem[] = [
     
-    {
-        icon: <BoxCubeIcon/>,
-        name: "UI Elements",
-        subItems: [
-            {name: "Alerts", path: "/alerts"},
-            {name: "Avatar", path: "/avatars"},
-            {name: "Badge", path: "/badge"},
-            {name: "Breadcrumb", path: "/breadcrumb"},
-            {name: "Buttons", path: "/buttons"},
-            {name: "Buttons Group", path: "/buttons-group"},
-            {name: "Cards", path: "/cards"},
-            {name: "Carousel", path: "/carousel"},
-            {name: "Dropdowns", path: "/dropdowns"},
-            {name: "Images", path: "/images"},
-            {name: "Links", path: "/links"},
-            {name: "List", path: "/list"},
-            {name: "Modals", path: "/modals"},
-            {name: "Notification", path: "/notifications"},
-            {name: "Pagination", path: "/pagination"},
-            {name: "Popovers", path: "/popovers"},
-            {name: "Progressbar", path: "/progress-bar"},
-            {name: "Ribbons", path: "/ribbons"},
-            {name: "Spinners", path: "/spinners"},
-            {name: "Tabs", path: "/tabs"},
-            {name: "Tooltips", path: "/tooltips"},
-            {name: "Videos", path: "/videos"},
-        ],
-    },
-    {
-        icon: <PlugInIcon/>,
-        name: "Authentication",
-        subItems: [
-            {name: "Sign In", path: "/signin", pro: false},
-            {name: "Sign Up", path: "/signup", pro: false},
-            {name: "Reset Password", path: "/reset-password"},
-            {
-                name: "Two Step Verification",
-                path: "/two-step-verification",
-            },
-        ],
-    },
-];
+//     {
+//         icon: <BoxCubeIcon/>,
+//         name: "UI Elements",
+//         subItems: [
+//             {name: "Alerts", path: "/alerts"},
+//             {name: "Avatar", path: "/avatars"},
+//             {name: "Badge", path: "/badge"},
+//             {name: "Breadcrumb", path: "/breadcrumb"},
+//             {name: "Buttons", path: "/buttons"},
+//             {name: "Buttons Group", path: "/buttons-group"},
+//             {name: "Cards", path: "/cards"},
+//             {name: "Carousel", path: "/carousel"},
+//             {name: "Dropdowns", path: "/dropdowns"},
+//             {name: "Images", path: "/images"},
+//             {name: "Links", path: "/links"},
+//             {name: "List", path: "/list"},
+//             {name: "Modals", path: "/modals"},
+//             {name: "Notification", path: "/notifications"},
+//             {name: "Pagination", path: "/pagination"},
+//             {name: "Popovers", path: "/popovers"},
+//             {name: "Progressbar", path: "/progress-bar"},
+//             {name: "Ribbons", path: "/ribbons"},
+//             {name: "Spinners", path: "/spinners"},
+//             {name: "Tabs", path: "/tabs"},
+//             {name: "Tooltips", path: "/tooltips"},
+//             {name: "Videos", path: "/videos"},
+//         ],
+//     },
+//     {
+//         icon: <PlugInIcon/>,
+//         name: "Authentication",
+//         subItems: [
+//             {name: "Sign In", path: "/signin", pro: false},
+//             {name: "Sign Up", path: "/signup", pro: false},
+//             {name: "Reset Password", path: "/reset-password"},
+//             {
+//                 name: "Two Step Verification",
+//                 path: "/two-step-verification",
+//             },
+//         ],
+//     },
+// ];
 
 const supportItems: NavItem[] = [
     {
@@ -285,25 +285,26 @@ const AppSidebar: React.FC = () => {
         // Check if the current path matches any submenu item
         let submenuMatched = false;
         ["main", "support", "others"].forEach((menuType) => {
-            const items =
-                menuType === "main"
-                    ? navItems
-                    : menuType === "support"
-                        ? supportItems
-                        : othersItems;
-            items.forEach((nav, index) => {
-                if (nav.subItems) {
-                    nav.subItems.forEach((subItem) => {
-                        if (isActive(subItem.path)) {
-                            setOpenSubmenu({
-                                type: menuType as "main" | "support" | "others",
-                                index,
-                            });
-                            submenuMatched = true;
-                        }
-                    });
-                }
-            });
+            // const items =
+            //     menuType === "main"
+            //         ? navItems
+            //         : menuType === "support"
+            //             ? supportItems
+            //             : othersItems
+            //             ;
+            // items.forEach((nav, index) => {
+            //     if (nav.subItems) {
+            //         nav.subItems.forEach((subItem) => {
+            //             if (isActive(subItem.path)) {
+            //                 setOpenSubmenu({
+            //                     type: menuType as "main" | "support" | "others",
+            //                     index,
+            //                 });
+            //                 submenuMatched = true;
+            //             }
+            //         });
+            //     }
+            // });
         });
 
         // If no submenu item matches, close the open submenu
@@ -440,7 +441,7 @@ const AppSidebar: React.FC = () => {
                                     <HorizontaLDots/>
                                 )}
                             </h2>
-                            {renderMenuItems(othersItems, "others")}
+                            {/* {renderMenuItems(othersItems, "others")} */}
                         </div>
                     </div>
                 </nav>

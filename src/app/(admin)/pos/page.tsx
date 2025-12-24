@@ -630,9 +630,6 @@ export default function POS() {
                                 />
                                 <div>
                                     <div className="font-medium text-gray-800">Tại quầy</div>
-                                    <div className="text-gray-500">
-                                        Có thể nhận hàng từ 7h30 đến 22h30 mỗi ngày tại cửa hàng
-                                    </div>
                                 </div>
                             </label>
 

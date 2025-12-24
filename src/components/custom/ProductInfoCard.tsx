@@ -39,40 +39,40 @@ export default function ProductInfoCard({book}) {
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-7 2xl:gap-x-32">
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Authors</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Tác giả</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.creators.data.map(e => e.name).join(", ")}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Edition</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ấn bản</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">{book.edition}</p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Genres</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Thể loại</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.genres.data.map(e => e.name).join(", ")}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Publisher</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">NXB</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.publisher.data.name}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Published</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Thời gian xuất bản</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {getDisplayDate(book.published)}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Series</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Bộ sách</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.series.data?.name}
                                         </p>
@@ -80,17 +80,10 @@ export default function ProductInfoCard({book}) {
 
                                     {/* BLURB — full width row */}
                                     <div className="col-span-full">
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Blurb</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mô tả</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.blurb}
-                                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus
-                                            aspernatur autem delectus dignissimos, ducimus exercitationem perferendis
-                                            possimus reprehenderit. Cupiditate, eos esse nam obcaecati odio repellat
-                                            suscipit! Ea nam repellat suscipit.
-                                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Dolorum facere
-                                            impedit inventore nemo quis, repellat. Deserunt dicta eligendi facere harum
-                                            id maiores, necessitatibus nihil obcaecati veritatis voluptates. Eligendi,
-                                            expedita, ut.
+                                            .
                                         </p>
                                     </div>
                                 </div>
