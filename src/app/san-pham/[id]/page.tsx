@@ -66,6 +66,9 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
             .filter(Boolean)
             .join(", ") || "Chưa phân loại";
 
+        // Genre CHÍNH để dùng tìm sách liên quan (lấy genre đầu tiên)
+        const mainGenreName = genreName.split(",")[0]?.trim() || "";
+
         // --- NXB ---
         const publisherId = item.relationships?.publisher?.data?.id;
         const publisherName = publisherId
@@ -94,7 +97,8 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
         const detail = detailObj?.attributes || detailObj || {};
 
-        const price = detail.price || 0;
+        // Một số API trả price, một số trả supplyPrice → ưu tiên supplyPrice
+        const price = detail.supplyPrice || detail.price || 0;
         const pages = detail.pages || "Không rõ";
         const isbn = detail.isbn || "Không rõ";
 
@@ -129,48 +133,70 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         // =============================
         // FETCH SÁCH LIÊN QUAN
         // =============================
-        if (genreIds.length > 0) {
+        // BE hiện tại đang filter theo tên thể loại (?genre=...) chứ không phải id
+        if (mainGenreName) {
           const relatedRes = await fetch(
-            `http://localhost:8080/v1/books?filter.genre=${genreIds[0]}&limit=5&e=true`
-          );
-          const relatedJson = await relatedRes.json();
-
-          const relIncludedMap = new Map();
-          relatedJson.included?.forEach((i: any) =>
-            relIncludedMap.set(`${i.type}-${i.id}`, i)
+            `http://localhost:8080/v1/books?e=true&page=0&limit=10&genre=${encodeURIComponent(
+              mainGenreName
+            )}`
           );
 
-          const list: Book[] =
-            relatedJson.data
-              ?.filter((b: any) => b.id !== item.id)
-              .map((b: any) => {
-                const detailId =
-                  b.relationships?.bookCopies?.data?.[0]?.id || null;
+          if (!relatedRes.ok) {
+            const msg = await relatedRes.text();
+            console.error("Lỗi fetch related books:", relatedRes.status, msg);
+            setRelatedBooks([]);
+          } else {
+            const relatedJson = await relatedRes.json();
 
-                const detObj = relIncludedMap.get(`bookDetail-${detailId}`);
-                const det = detObj?.attributes || detObj || {};
+            const relIncludedMap = new Map();
+            relatedJson.included?.forEach((i: any) =>
+              relIncludedMap.set(`${i.type}-${i.id}`, i)
+            );
 
-                return {
-                  id: Number(b.id),
-                  title: b.attributes?.title,
-                  author:
-                    b.relationships?.creators?.data
-                      ?.map(
-                        (c: any) =>
-                          relIncludedMap.get(`creator-${c.id}`)?.attributes
-                            ?.name
+            const list: Book[] =
+              relatedJson.data
+                // Loại bỏ chính cuốn hiện tại
+                ?.filter((b: any) => String(b.id) !== String(item.id))
+                .map((b: any) => {
+                  const detailId =
+                    b.relationships?.bookCopies?.data?.[0]?.id || null;
+
+                  const detObj = relIncludedMap.get(`bookDetail-${detailId}`);
+                  const det = detObj?.attributes || detObj || {};
+
+                  const creatorIds =
+                    b.relationships?.creators?.data?.map((c: any) => c.id) ||
+                    [];
+                  const authors =
+                    creatorIds
+                      .map(
+                        (id: string) =>
+                          relIncludedMap.get(`creator-${id}`)?.attributes?.name
                       )
-                      .join(", ") || "—",
-                  price: det.price || 0,
-                  image: b.attributes?.imageUrl || "/default-book.jpg",
-                  rating: b.attributes?.rating || 0,
-                  bookDetailId: Number(detailId),
-                  copyId: Number(detailId),
-                  bookFormat: det.bookFormat || "Khác",
-                };
-              }) || [];
+                      .filter(Boolean)
+                      .join(", ") || "—";
 
-          setRelatedBooks(list);
+                  const priceRel = det.supplyPrice || det.price || 0;
+
+                  return {
+                    id: Number(b.id),
+                    title: b.attributes?.title,
+                    author: authors,
+                    price: priceRel,
+                    image: b.attributes?.imageUrl || "/default-book.jpg",
+                    rating: b.attributes?.rating || 0,
+                    bookDetailId: Number(detailId),
+                    copyId: Number(detailId),
+                    bookFormat: det.bookFormat || "Khác",
+                    // các field khác BookCard không bắt buộc cho ô liên quan
+                    year: b.attributes?.year || 0,
+                    language: b.attributes?.language || "Không rõ",
+                  } as Book;
+                }) || [];
+
+            console.log("📚 Related books loaded:", list);
+            setRelatedBooks(list);
+          }
         } else {
           setRelatedBooks([]);
         }
@@ -885,53 +911,60 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
           📚 Sản phẩm liên quan
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
-          {relatedBooks.map((relatedBook) => (
-            <Link
-              key={relatedBook.id}
-              href={`/san-pham/${relatedBook.id}`}
-              className="group"
-            >
-              <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 transform hover:-translate-y-2 flex flex-col">
-                {/* Ảnh */}
-                <div className="aspect-[3/4] relative overflow-hidden">
-                  <img
-                    src={relatedBook.image}
-                    alt={relatedBook.title}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </div>
-
-                {/* Nội dung */}
-                <div className="p-4 flex flex-col justify-between flex-grow">
-                  <div>
-                    <h3
-                      className="font-semibold text-sm text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors"
-                      title={relatedBook.title}
-                    >
-                      {relatedBook.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 mb-3">
-                      {relatedBook.author || "—"}
-                    </p>
+        {relatedBooks.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500">
+            Hiện chưa tìm thấy sản phẩm liên quan phù hợp. Bạn có thể xem thêm
+            các sản phẩm khác ở trang chủ hoặc các danh mục sách.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+            {relatedBooks.map((relatedBook) => (
+              <Link
+                key={relatedBook.id}
+                href={`/san-pham/${relatedBook.id}`}
+                className="group"
+              >
+                <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 transform hover:-translate-y-2 flex flex-col">
+                  {/* Ảnh */}
+                  <div className="aspect-[3/4] relative overflow-hidden">
+                    <img
+                      src={relatedBook.image}
+                      alt={relatedBook.title}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-red-600 font-bold text-base">
-                      {relatedBook.price
-                        ? `${relatedBook.price.toLocaleString("vi-VN")} ₫`
-                        : "Liên hệ"}
-                    </span>
-                    <button className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all">
-                      Mua ngay
-                    </button>
+                  {/* Nội dung */}
+                  <div className="p-4 flex flex-col justify-between flex-grow">
+                    <div>
+                      <h3
+                        className="font-semibold text-sm text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors"
+                        title={relatedBook.title}
+                      >
+                        {relatedBook.title}
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-3">
+                        {relatedBook.author || "—"}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-auto">
+                      <span className="text-red-600 font-bold text-base">
+                        {relatedBook.price
+                          ? `${relatedBook.price.toLocaleString("vi-VN")} ₫`
+                          : "Liên hệ"}
+                      </span>
+                      <button className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all">
+                        Mua ngay
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
