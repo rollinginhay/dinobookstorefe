@@ -76,7 +76,11 @@ export const API_ROUTES = {
     PUT_USER_UPDATE: "/v1/user/update",
     DELETE_USER_DELETE: ({id}: { id: string | number }) =>
         `/v1/user/${id}`,
-    GET_CAMPAIGNS: "/v1/campaigns"
+    GET_CAMPAIGNS: "/v1/campaigns",
+    GET_CAMPAIGN_BY_ID: ({id}: { id: string | number }) => `/v1/campaign/${id}`,
+    POST_CAMPAIGN_CREATE: "/v1/campaign/create",
+    PUT_CAMPAIGN_UPDATE: "/v1/campaign/update",
+    DELETE_CAMPAIGN_DELETE: ({id}: { id: string | number }) => `/v1/campaign/${id}`
 } as const;
 
 
@@ -126,7 +130,11 @@ export const API_ROUTES_TREE = {
         delete: API_ROUTES.DELETE_BOOK_DETAIL_DELETE
     },
     campaign: {
-        getMultiple: API_ROUTES.GET_CAMPAIGNS
+        getMultiple: API_ROUTES.GET_CAMPAIGNS,
+        getOne: API_ROUTES.GET_CAMPAIGN_BY_ID,
+        create: API_ROUTES.POST_CAMPAIGN_CREATE,
+        update: API_ROUTES.PUT_CAMPAIGN_UPDATE,
+        delete: API_ROUTES.DELETE_CAMPAIGN_DELETE
     },
     receipt: {
         getMultiple: API_ROUTES.GET_RECEIPTS,

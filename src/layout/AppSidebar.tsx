@@ -32,7 +32,20 @@ const navItems: NavItem[] = [
     { name: "Thống kê", icon: <PieChartIcon />, path: "/" },
   { name: "Bán hàng tại quầy", icon: <CartIcon />, path: "/pos" },
   { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
-  { name: "Phiếu giảm giá", icon: <TagIcon className="w-5 h-5" />, path: "/voucher" },
+  {
+  name: "Giảm giá",
+  icon: <TagIcon className="w-5 h-5" />,
+  subItems: [
+    {
+      name: "Đợt giảm giá",
+      path: "/voucher", // 👈 TRỎ TỚI THỨ BẠN ĐANG LÀM
+    },
+    {
+      name: "Phiếu giảm giá",
+      path: "/vouchers", // 👈 để trống / fix cứng sau
+    },
+  ],
+},
   {
     name: "Quản lý sách",
     icon: <CartIcon />,

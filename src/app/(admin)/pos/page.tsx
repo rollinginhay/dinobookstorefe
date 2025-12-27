@@ -74,19 +74,24 @@ function convertCampaigns(campaigns: any[]) {
     return campaigns.map((c) => {
         const isPercent = c.campaignType === "PERCENTAGE_DISCOUNT";
 
-        const value = isPercent ? c.percentage : c.maxDiscount;
+        const value = isPercent
+            ? Number(c.percentage ?? 0)
+            : Number(c.maxDiscount ?? 0);
 
         return {
             id: c.id,
-            label: isPercent ? `${value}%` : `${value.toLocaleString()}đ`,
-            description: c.name,
-            minTotal: c.minTotal,
+            label: isPercent
+                ? `${value}%`
+                : `${value.toLocaleString()}đ`,
+            description: c.name ?? "",
+            minTotal: Number(c.minTotal ?? 0),
             type: isPercent ? "PERCENT" : "FIXED",
             value,
-            maxDiscount: c.maxDiscount,
+            maxDiscount: Number(c.maxDiscount ?? 0),
         };
     });
 }
+
 
 // {
 //     id: "VC000004",
