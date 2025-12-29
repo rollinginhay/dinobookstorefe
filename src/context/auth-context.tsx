@@ -1,6 +1,8 @@
 "use client";
 
 import React, {createContext, useContext, useEffect, useState} from 'react';
+import { login as loginApi } from '@/lib/auth/auth.api';
+import { toast } from 'sonner';
 
 interface User {
     email: string;
@@ -16,6 +18,7 @@ interface AuthContextType {
     token: string | null;
     isLoading: boolean;
     login: () => void;
+    loginWithCredentials: (email: string, password: string) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
     hasRole: (role: string) => boolean;
@@ -58,11 +61,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = `${BACKEND_URL}/oauth2/authorize/google`;
     };
 
+    // Login with email and password
+    const loginWithCredentials = async (email: string, password: string) => {
+        try {
+            const response = await loginApi({ email, password });
+            
+            // Save token and user info
+            localStorage.setItem(TOKEN_KEY, response.jwtToken);
+            localStorage.setItem(USER_KEY, JSON.stringify({
+                email: response.email,
+                username: response.username,
+                oauthId: response.oauthId,
+                roles: response.roles || [],
+                createdAt: response.createdAt,
+                updatedAt: response.updatedAt,
+            }));
+            
+            setToken(response.jwtToken);
+            setUser({
+                email: response.email,
+                username: response.username,
+                oauthId: response.oauthId,
+                roles: response.roles || [],
+                createdAt: response.createdAt,
+                updatedAt: response.updatedAt,
+            });
+            
+            toast.success('Đăng nhập thành công!');
+        } catch (error: any) {
+            console.error('Login error:', error);
+            let errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+            
+            if (error?.response?.status === 401) {
+                errorMessage = 'Email hoặc mật khẩu không đúng. Vui lòng thử lại.';
+            } else if (error?.response?.data?.message) {
+                // Map các thông báo lỗi sang tiếng Việt
+                const message = error.response.data.message;
+                if (message.includes('Invalid Email') || message.includes('Invalid Password')) {
+                    errorMessage = 'Email hoặc mật khẩu không đúng. Vui lòng thử lại.';
+                } else {
+                    errorMessage = message;
+                }
+            } else if (error?.response?.data?.errors?.[0]?.detail) {
+                errorMessage = error.response.data.errors[0].detail;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
+            throw error;
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         setToken(null);
         setUser(null);
+        toast.success('Đăng xuất thành công!');
     };
 
     // Helper function to check if user has a specific role
@@ -76,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isLoading,
         login,
+        loginWithCredentials,
         logout,
         isAuthenticated: !!token && !!user,
         hasRole,

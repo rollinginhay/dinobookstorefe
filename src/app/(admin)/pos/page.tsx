@@ -72,11 +72,26 @@ function extractBookDetails(books: any[]) {
 
 function convertCampaigns(campaigns: any[]) {
     return campaigns.map((c) => {
-        const isPercent = c.campaignType === "PERCENTAGE_DISCOUNT";
+        // Campaign có thể là: PERCENTAGE_DISCOUNT, PERCENTAGE_RECEIPT, PERCENTAGE_PRODUCT, FLAT_DISCOUNT
+        const isPercent = c.campaignType === "PERCENTAGE_DISCOUNT" 
+            || c.campaignType === "PERCENTAGE_RECEIPT" 
+            || c.campaignType === "PERCENTAGE_PRODUCT";
 
         const value = isPercent
             ? Number(c.percentage ?? 0)
             : Number(c.maxDiscount ?? 0);
+
+        // Xác định loại campaign để hiển thị
+        let campaignLabel = "";
+        if (c.campaignType === "PERCENTAGE_RECEIPT") {
+            campaignLabel = "Giảm toàn đơn hàng";
+        } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
+            campaignLabel = "Giảm sản phẩm";
+        } else if (c.campaignType === "PERCENTAGE_DISCOUNT") {
+            campaignLabel = "Giảm %";
+        } else {
+            campaignLabel = "Giảm cố định";
+        }
 
         return {
             id: c.id,
@@ -88,6 +103,8 @@ function convertCampaigns(campaigns: any[]) {
             type: isPercent ? "PERCENT" : "FIXED",
             value,
             maxDiscount: Number(c.maxDiscount ?? 0),
+            campaignType: c.campaignType, // Giữ lại để biết loại campaign
+            campaignLabel: campaignLabel, // Label để hiển thị
         };
     });
 }
@@ -195,9 +212,11 @@ export default function POS() {
         return bookDetails;
     }, [bookQuery.dataUpdatedAt]);
 
-    const VOUCHERS = useMemo(() => {
+    // Campaigns (đợt khuyến mãi + giảm giá toàn đơn hàng)
+    const CAMPAIGNS = useMemo(() => {
         if (!campaignQuery.isSuccess) return [];
         const campaigns = convertCampaigns(campaignQuery.data.data);
+        // Lọc chỉ lấy campaign đang active (có thể thêm logic check thời gian hiệu lực)
         return campaigns;
     }, [campaignQuery.dataUpdatedAt]);
 
@@ -416,27 +435,30 @@ export default function POS() {
     };
 
 
-    const applyVoucherByCode = (id: string) => {
-        if (VOUCHERS.length === 0) return;
-        const allVouchers = [
-            ...VOUCHERS.map((v) => normalizeVoucher(v)),
-            ...vouchersFromLocalStorage.map((v) => normalizeVoucher(v)),
+    const applyCampaign = (id: string | number) => {
+        // Gộp Campaigns từ API và từ localStorage (nếu có)
+        const allCampaigns = [
+            ...CAMPAIGNS.map((v) => normalizeVoucher(v)),
+            ...vouchersFromLocalStorage.map((v) => normalizeVoucher(v)), // Giữ lại để tương thích với localStorage cũ
         ];
 
-
-        const voucher = allVouchers.find((v) => v.id === id);
-        if (!voucher) {
-            alert("Mã giảm giá không hợp lệ.");
+        const campaign = allCampaigns.find((v) => v.id === id || String(v.id) === String(id));
+        if (!campaign) {
+            alert("Đợt khuyến mãi không hợp lệ.");
             return;
         }
 
-        const discount = calcDiscountFromVoucher(voucher, subTotal);
-        if (discount <= 0) {
-            alert(`Đơn hàng chưa đạt đơn tối thiểu ${voucher.minTotal.toLocaleString()}đ`);
+        const discountAmount = calcDiscountFromVoucher(campaign, subTotal);
+        if (discountAmount <= 0) {
+            alert(`Đơn hàng chưa đạt đơn tối thiểu ${campaign.minTotal.toLocaleString()}đ`);
             return;
         }
 
-        updateOrder({voucherCode: voucher.id, discountAmount: discount, discount});
+        updateOrder({
+            voucherCode: String(campaign.id), // Lưu campaign ID
+            discountAmount: discountAmount, 
+            discount: discountAmount
+        });
         setVoucherInput("");
     };
 
@@ -790,15 +812,15 @@ export default function POS() {
                                 {/*</button>*/}
                             </div>
 
-                            {/* DANH SÁCH VOUCHER DEMO */}
+                            {/* DANH SÁCH CAMPAIGN */}
                             <div className="space-y-3 max-h-[260px] overflow-y-auto custom-scrollbar">
-                                {VOUCHERS.map((v) => {
-                                    const isApplied = activeOrder.voucherCode === v.id;
+                                {CAMPAIGNS.map((v) => {
+                                    const isApplied = activeOrder.voucherCode === String(v.id);
                                     return (
                                         <button
                                             key={v.id}
                                             type="button"
-                                            onClick={() => applyVoucherByCode(v.id)}
+                                            onClick={() => applyCampaign(v.id)}
                                             className={`w-full flex border rounded-lg px-3 py-3 text-left items-center gap-3 ${
                                                 isApplied
                                                     ? "border-[var(--sidebar-primary)] bg-[var(--sidebar-primary-soft)]"
@@ -807,24 +829,34 @@ export default function POS() {
                                         >
                                             <div className="flex-1">
                                                 <div className="font-semibold text-sm">
-                                                    {v.id}
+                                                    {v.description}
+                                                    {v.campaignLabel && (
+                                                        <span className="text-xs text-gray-400 ml-1">
+                                                            ({v.campaignLabel})
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-gray-500 mt-1">
-                                                    {v.description}
+                                                    {v.minTotal > 0 && (
+                                                        <>Đơn tối thiểu {v.minTotal.toLocaleString("vi-VN")}đ</>
+                                                    )}
+                                                    {v.minTotal === 0 && (
+                                                        <>Áp dụng cho mọi đơn hàng</>
+                                                    )}
                                                 </div>
-                                                <div className="text-[11px] text-gray-400 mt-1">
-                                                    Đơn tối thiểu{" "}
-                                                    {v.minTotal.toLocaleString("vi-VN")}đ
-                                                </div>
+                                                {v.maxDiscount > 0 && v.type === "PERCENT" && (
+                                                    <div className="text-[11px] text-gray-400 mt-1">
+                                                        Tối đa {v.maxDiscount.toLocaleString("vi-VN")}đ
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div
-                                                className="flex flex-col items-center justify-between h-full text-center min-w-[48px]">
-                        <span className="text-xs text-gray-500 uppercase">
-                          Mã giảm giá
-                        </span>
+                                            <div className="flex flex-col items-center justify-between h-full text-center min-w-[48px]">
+                                                <span className="text-xs text-gray-500 uppercase">
+                                                    Đợt KM
+                                                </span>
                                                 <span className="text-base font-semibold text-[var(--sidebar-primary)]">
-                          {v.label}
-                        </span>
+                                                    {v.label}
+                                                </span>
                                             </div>
                                         </button>
                                     );
@@ -996,6 +1028,5 @@ export default function POS() {
                 )
             }
         </div>
-    )
-        ;
+    );
 }

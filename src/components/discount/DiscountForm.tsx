@@ -207,9 +207,35 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return false;
     }
 
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+    // Validate ngày bắt đầu - không được trong quá khứ
+    const startDate = new Date(formData.startDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    
+    if (mode === "create" || status === "UPCOMING") {
+      if (startDate < now) {
+        toast.error("Ngày bắt đầu không được chọn ngày đã qua");
+        return false;
+      }
+    }
+
+    // Validate ngày kết thúc
+    const endDate = new Date(formData.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    
+    // Ngày kết thúc phải sau ngày bắt đầu
+    if (startDate >= endDate) {
       toast.error("Ngày kết thúc phải sau ngày bắt đầu");
       return false;
+    }
+
+    // Validate: Khi tạo mới hoặc chưa bắt đầu, endDate không được trong quá khứ
+    if (mode === "create" || status === "UPCOMING") {
+      if (endDate < now) {
+        toast.error("Ngày kết thúc không được chọn ngày đã qua");
+        return false;
+      }
     }
 
     if (formData.campaignType === "PERCENTAGE_DISCOUNT") {
@@ -519,6 +545,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               onChange={handleChange}
               disabled={isFieldDisabled("startDate") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
+              min={mode === "create" || status === "UPCOMING" ? new Date().toISOString().split("T")[0] : undefined}
             />
             {isFieldDisabled("startDate") && (
               <p className="text-xs text-amber-600 mt-1">
@@ -538,12 +565,31 @@ export default function DiscountForm({ mode, initialData }: Props) {
               required
               value={formData.endDate}
               onChange={handleChange}
-              min={formData.startDate || undefined}
+              min={
+                formData.startDate 
+                  ? (() => {
+                      const startDate = new Date(formData.startDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      startDate.setHours(0, 0, 0, 0);
+                      
+                      // Nếu tạo mới hoặc chưa bắt đầu, min là max(today, startDate)
+                      if (mode === "create" || status === "UPCOMING") {
+                        return startDate > today ? formData.startDate : new Date().toISOString().split("T")[0];
+                      }
+                      // Nếu đã bắt đầu, chỉ cần sau startDate
+                      return formData.startDate;
+                    })()
+                  : mode === "create" || status === "UPCOMING"
+                  ? new Date().toISOString().split("T")[0]
+                  : undefined
+              }
               disabled={isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 mt-1">
               Ngày kết thúc phải sau ngày bắt đầu
+              {(mode === "create" || status === "UPCOMING") && " và không được trong quá khứ"}
             </p>
           </div>
 

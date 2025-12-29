@@ -2,8 +2,9 @@
 import React, {useCallback, useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {usePathname} from "next/navigation";
+import {usePathname, useRouter} from "next/navigation";
 import {useSidebar} from "../context/SidebarContext";
+import {useAuth} from "../context/auth-context";
 import {
     BoxCubeIcon,
     CallIcon,
@@ -58,7 +59,7 @@ const navItems: NavItem[] = [
             {name: "Bộ sách", path: "/series"},
         ],
   },
-  { name: "Người dùng", icon: <UserCircleIcon />, path: "/profile" },
+  { name: "Người dùng", icon: <UserCircleIcon />, path: "/users" },
 //   {
 //     name: "Biểu mẫu",
 //     icon: <ListIcon />,
@@ -142,6 +143,8 @@ const supportItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
     const {isExpanded, isMobileOpen, isHovered, setIsHovered} = useSidebar();
     const pathname = usePathname();
+    const router = useRouter();
+    const { logout } = useAuth();
 
     const renderMenuItems = (
         navItems: NavItem[],
@@ -459,6 +462,40 @@ const AppSidebar: React.FC = () => {
                     </div>
                 </nav>
                 {/*{isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}*/}
+            </div>
+            
+            {/* Logout Button */}
+            <div className="mt-auto pb-6 border-t border-gray-200 dark:border-gray-800 pt-4">
+                <button
+                    onClick={() => {
+                        logout();
+                        router.push('/login');
+                    }}
+                    className={`menu-item group menu-item-inactive w-full ${
+                        !isExpanded && !isHovered
+                            ? "xl:justify-center"
+                            : "justify-start"
+                    }`}
+                >
+                    <span className="menu-item-icon-inactive">
+                        <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
+                        </svg>
+                    </span>
+                    {(isExpanded || isHovered || isMobileOpen) && (
+                        <span className="menu-item-text">Đăng xuất</span>
+                    )}
+                </button>
             </div>
         </aside>
     );

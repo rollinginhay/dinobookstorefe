@@ -76,6 +76,7 @@ export const API_ROUTES = {
     PUT_USER_UPDATE: "/v1/user/update",
     DELETE_USER_DELETE: ({id}: { id: string | number }) =>
         `/v1/user/${id}`,
+    GET_ROLES: "/v1/roles",
     GET_CAMPAIGNS: "/v1/campaigns",
     GET_CAMPAIGN_BY_ID: ({id}: { id: string | number }) => `/v1/campaign/${id}`,
     POST_CAMPAIGN_CREATE: "/v1/campaign/create",
@@ -85,7 +86,10 @@ export const API_ROUTES = {
     GET_VOUCHER_BY_ID: ({id}: { id: string | number }) => `/v1/voucher/${id}`,
     POST_VOUCHER_CREATE: "/v1/voucher/create",
     PUT_VOUCHER_UPDATE: "/v1/voucher/update",
-    DELETE_VOUCHER_DELETE: ({id}: { id: string | number }) => `/v1/voucher/${id}`
+    DELETE_VOUCHER_DELETE: ({id}: { id: string | number }) => `/v1/voucher/${id}`,
+    // ===================== AUTH =====================
+    POST_AUTH_LOGIN: "/v1/auth/login",
+    POST_AUTH_REGISTER: "/v1/auth/register",
 } as const;
 
 
