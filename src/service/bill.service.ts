@@ -37,6 +37,8 @@ export const BillService = {
                 // FE muốn ONLINE / POS
                 orderType: a.orderType === "DIRECT"
                     ? "POS"
+                    : a.orderType === "ONLINE"
+                    ? "ONLINE"
                     : a.orderType || "UNKNOWN",
 
                 // FE muốn tổng tiền — fallback 0 để không toLocaleString(undefined)
@@ -77,11 +79,90 @@ export const BillService = {
         const bookDetails = included.filter((x) => x.type === "bookDetail");
         const books = included.filter((x) => x.type === "book");
 
-        const items = receiptDetails.map((rd: any) => {
+        // CUSTOMER (user) để lấy mã KH + email
+        const customerRelId =
+            receipt.relationships?.customer?.data?.id ??
+            receipt.relationships?.customer?.data?.ID; // fallback phòng BE viết hoa
+
+        const customerUser = customerRelId
+            ? included.find(
+                  (x) => x.type === "user" && String(x.id) === String(customerRelId)
+              )
+            : null;
+
+        // Fetch book for a bookDetail - try multiple approaches
+        const fetchBookForBookDetail = async (bookDetailId: string | number) => {
+            try {
+                // First, try to get book ID from bookDetail relationship
+                const bookDetailRes = await fetch(`http://localhost:8080/v1/bookDetail/${bookDetailId}`, {
+                    headers: {
+                        "Content-Type": "application/vnd.api+json",
+                        ...getAuthHeader(),
+                    },
+                    cache: "no-store",
+                });
+                if (bookDetailRes.ok) {
+                    const bookDetailJson = await bookDetailRes.json();
+                    const bookDetailData = bookDetailJson.data;
+                    const bookIdFromRel = bookDetailData?.relationships?.book?.data?.id;
+                    
+                    if (bookIdFromRel) {
+                        const bookRes = await fetch(`http://localhost:8080/v1/book/${bookIdFromRel}`, {
+                            headers: {
+                                "Content-Type": "application/vnd.api+json",
+                                ...getAuthHeader(),
+                            },
+                            cache: "no-store",
+                        });
+                        if (bookRes.ok) {
+                            const bookJson = await bookRes.json();
+                            return bookJson.data;
+                        }
+                    }
+                }
+                
+                // Fallback: try fetching book directly using bookDetailId (in case they're the same)
+                const bookRes = await fetch(`http://localhost:8080/v1/book/${bookDetailId}`, {
+                    headers: {
+                        "Content-Type": "application/vnd.api+json",
+                        ...getAuthHeader(),
+                    },
+                    cache: "no-store",
+                });
+                if (bookRes.ok) {
+                    const bookJson = await bookRes.json();
+                    return bookJson.data;
+                }
+            } catch (e) {
+                console.error(`Failed to fetch book for bookDetail ${bookDetailId}:`, e);
+            }
+            return null;
+        };
+
+        // Process items with async book fetching
+        const itemsPromises = receiptDetails.map(async (rd: any) => {
             const bookDetailId = rd.relationships?.bookDetail?.data?.id;
             const bd = bookDetails.find((x) => x.id === bookDetailId);
-            const bookId = bd?.relationships?.book?.data?.id;
-            const book = books.find((x) => x.id === bookId);
+            
+            // Try to find book from included first
+            let bookId = bd?.relationships?.book?.data?.id;
+            let book = books.find((x) => x.id === bookId);
+            
+            // If not found in included, try reverse lookup through bookCopies
+            if (!book && bd && books.length > 0) {
+                book = books.find((b: any) => {
+                    const bookCopies = b.relationships?.bookCopies?.data || [];
+                    return bookCopies.some((bc: any) => bc.id === bookDetailId);
+                });
+                if (book) {
+                    bookId = book.id;
+                }
+            }
+
+            // If still not found, fetch book separately using bookDetailId
+            if (!book && bookDetailId) {
+                book = await fetchBookForBookDetail(bookDetailId);
+            }
 
             const name =
                 (book?.attributes?.title ?? "Sách") +
@@ -100,27 +181,49 @@ export const BillService = {
             };
         });
 
+        const items = await Promise.all(itemsPromises);
+
         return {
             id: Number(receipt.id),
             status: attrs.orderStatus || "PENDING",
             orderType:
                 attrs.orderType === "DIRECT"
                     ? "POS"
-                    : attrs.orderType || "ONLINE",
+                    : attrs.orderType === "ONLINE"
+                    ? "ONLINE"
+                    : attrs.orderType || "UNKNOWN",
             hasShipping: Boolean(attrs.hasShipping),
 
             customer: {
+                // Mã KH: dùng ID user → format KH + số (VD: KH49). Nếu không có user thì null để FE hiển thị "-"
+                code: customerUser && customerUser.id != null
+                    ? `KH${customerUser.id}`
+                    : null,
                 name: attrs.customerName ?? "",
+                // Email: lấy từ user trong included; nếu không có thì null (POS / khách lẻ)
+                email: customerUser?.attributes?.email ?? null,
                 phone: attrs.customerPhone ?? "",
                 address: attrs.customerAddress ?? "",
-                note: "",
+                note: attrs.note ?? "",
             },
 
             items,
+
+            // Ưu đãi & voucher: chỉ là số tiền giảm, FE sẽ tự ẩn nếu = 0
             discount: attrs.discount ?? 0,
+            voucher: attrs.voucher ?? 0,
+
             shippingFee: attrs.serviceCost ?? 0,
+
+            // Thuế hiện tại không hiển thị ở UI chi tiết hóa đơn,
+            // nhưng vẫn trả ra nếu sau này cần dùng.
             taxPercent: attrs.tax ?? 0,
-            amountPaid: attrs.grandTotal ?? 0, // BE chưa tách tiền đã trả, tạm dùng grandTotal
+
+            // Thành tiền cuối cùng khách phải trả (grandTotal của BE)
+            amountPaid: attrs.grandTotal ?? 0,
+
+            // Ghi chú đơn hàng (nếu BE có field)
+            orderNote: attrs.orderNote ?? attrs.note ?? "",
         };
     },
 
@@ -168,6 +271,74 @@ export const BillService = {
 
         if (!res.ok) throw new Error("Cập nhật trạng thái thất bại");
         return res.json();
-    }
+    },
+
+    // ============================================
+    // GET ORDER HISTORY — GET /v1/receipt/{id}/history
+    // ============================================
+    async getHistory(id: number) {
+        const res = await fetch(`http://localhost:8080/v1/receipt/${id}/history`, {
+            headers: {
+                "Content-Type": "application/vnd.api+json",
+                ...getAuthHeader(),
+            },
+            cache: "no-store",
+        });
+
+        if (!res.ok) throw new Error("Không lấy được lịch sử đơn hàng");
+        const json = await res.json();
+
+        // Parse response based on API structure
+        // Assuming the API returns data in JSON:API format
+        const historyItems = json.data || json.history || [];
+
+        return historyItems.map((item: any) => {
+            const attrs = item.attributes || item;
+            return {
+                id: item.id || attrs.id,
+                status: attrs.status || attrs.orderStatus || "",
+                statusLabel: attrs.statusLabel || attrs.status || "",
+                timestamp: attrs.timestamp || attrs.createdAt || attrs.time || "",
+                confirmer: attrs.confirmer || attrs.confirmedBy || attrs.userName || "",
+                note: attrs.note || attrs.description || "",
+                icon: attrs.icon || "checkmark", // default icon
+            };
+        });
+    },
+
+    // ============================================
+    // GET PAYMENT HISTORY (paymentDetail) — /v1/receipt/{id}/relationships/paymentDetail
+    // ============================================
+    async getPaymentHistory(id: number) {
+        const res = await fetch(
+            `http://localhost:8080/v1/receipt/${id}/relationships/paymentDetail`,
+            {
+                headers: {
+                    "Content-Type": "application/vnd.api+json",
+                    ...getAuthHeader(),
+                },
+                cache: "no-store",
+            }
+        );
+
+        if (!res.ok) throw new Error("Không lấy được lịch sử thanh toán");
+
+        const json = await res.json();
+        const data: any[] = json.data || [];
+
+        return data.map((item) => {
+            const attrs = item.attributes || {};
+
+            return {
+                id: Number(item.id),
+                amount: attrs.amount ?? 0,
+                paymentType: attrs.paymentType || "CASH",
+                createdAt: attrs.createdAt || "",
+                note: attrs.note || "",
+                provider: attrs.provider || "",
+                providerId: attrs.providerId || "",
+            };
+        });
+    },
 
 };

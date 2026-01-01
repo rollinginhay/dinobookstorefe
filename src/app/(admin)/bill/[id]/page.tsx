@@ -29,10 +29,22 @@ interface BillItem {
 }
 
 interface CustomerInfo {
-    name: string;
-    phone: string;
-    address: string;
-    note: string;
+  code: string | null;
+  name: string;
+  email: string | null;
+  phone: string;
+  address: string;
+  note: string;
+}
+
+interface PaymentHistoryItem {
+  id: number;
+  amount: number;
+  paymentType: PaymentType | string;
+  createdAt: string;
+  note: string;
+  provider: string;
+  providerId: string;
 }
 
 interface ConfirmState {
@@ -481,16 +493,24 @@ export default function BillDetailPage() {
 
   const [items, setItems] = useState<BillItem[]>([]);
   const [customer, setCustomer] = useState<CustomerInfo>({
+    code: null,
     name: "",
+    email: null,
     phone: "",
     address: "",
     note: "",
   });
 
+  // Ưu đãi (đợt giảm giá) & voucher (phiếu giảm giá)
   const [discount, setDiscount] = useState<number>(0);
+  const [voucher, setVoucher] = useState<number>(0);
+
+  // Phí ship & thành tiền
   const [shippingFee, setShippingFee] = useState<number>(0);
-  const [taxPercent, setTaxPercent] = useState<number>(8);
   const [amountPaid, setAmountPaid] = useState<number>(0);
+
+  // Ghi chú đơn hàng
+  const [orderNote, setOrderNote] = useState<string>("");
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
@@ -498,6 +518,8 @@ export default function BillDetailPage() {
   });
 
   const [showProductModal, setShowProductModal] = useState(false);
+
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
 
     
     const { id } = useParams();
@@ -513,15 +535,17 @@ export default function BillDetailPage() {
         setLoadError(null);
 
         const res = await BillService.getById(receiptId);
+        const payments = await BillService.getPaymentHistory(receiptId);
 
         setStatus(res.status as OrderStatus);
+        // Service đã chuyển "DIRECT" → "POS" rồi, nên chỉ cần kiểm tra "POS" hoặc "ONLINE"
         setOrderType(
-  res.orderType === "DIRECT"
-    ? "POS"
-    : res.orderType === "ONLINE"
-    ? "ONLINE"
-    : "UNKNOWN"
-);
+          res.orderType === "POS"
+            ? "POS"
+            : res.orderType === "ONLINE"
+            ? "ONLINE"
+            : "UNKNOWN"
+        );
 
         let detectedHasShipping = res.hasShipping;
 
@@ -537,10 +561,17 @@ setHasShipping(detectedHasShipping);
 
         setItems(res.items);
         setCustomer(res.customer);
+
         setDiscount(res.discount);
+        setVoucher(res.voucher ?? 0);
         setShippingFee(res.shippingFee);
-        setTaxPercent(res.taxPercent);
+
+        // Thành tiền cuối cùng từ BE (grandTotal)
         setAmountPaid(res.amountPaid);
+
+        setOrderNote(res.orderNote ?? "");
+
+        setPaymentHistory(payments);
 
         setShowTimeline(true);
       } catch (e) {
@@ -555,13 +586,14 @@ setHasShipping(detectedHasShipping);
   }, [receiptId]);
 
     // ---------- TÍNH TIỀN ----------
+    // Tổng tiền hàng: chỉ tính tiền sách, chưa trừ giảm giá / voucher / cộng phí ship
     const subTotal = items.reduce(
         (sum, it) => sum + it.pricePerUnit * it.quantity,
         0
     );
-    const taxAmount = Math.round((subTotal * taxPercent) / 100);
-    const finalTotal = subTotal + shippingFee + taxAmount - discount;
-    const needToPay = Math.max(finalTotal - amountPaid, 0);
+
+    // Thành tiền: số tiền cuối cùng khách phải trả
+    const finalTotal = subTotal + shippingFee - discount - voucher;
 
     // ---------- HANDLERS ----------
     const handleChangeQuantity = (id: number, delta: 1 | -1) => {
@@ -792,37 +824,38 @@ setHasShipping(detectedHasShipping);
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">Sản phẩm trong đơn</h3>
 
-                    <button
-                        className="btn btn-primary text-sm"
-                        onClick={() => setShowProductModal(true)}
-                    >
-                        + Thêm sản phẩm
-                    </button>
+                    {/* Theo yêu cầu: bỏ nút thêm sản phẩm, bảng chỉ hiển thị, không chỉnh sửa */}
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="table w-full text-sm table-fixed">
                         <thead className="bg-gray-100">
                         <tr>
-                            <th className="px-3 py-2 text-left">Sản phẩm</th>
+                            <th className="px-3 py-2 text-center w-16">STT</th>
+                            <th className="px-3 py-2 text-center">Ảnh</th>
+                            <th className="px-3 py-2 text-left">Tên sản phẩm</th>
                             <th className="px-3 py-2 text-center">Giá</th>
                             <th className="px-3 py-2 text-center">Số lượng</th>
                             <th className="px-3 py-2 text-center">Thành tiền</th>
-                            <th className="px-3 py-2 text-center">Hành động</th>
                         </tr>
                         </thead>
 
                         <tbody>
-                        {items.map((item) => (
+                        {items.map((item, index) => (
                             <tr key={item.id} className="border-b">
+                                <td className="px-3 py-2 text-center align-middle">
+                                  {index + 1}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                  <img
+                                    src={item.image}
+                                    className="w-12 h-12 rounded border mx-auto object-cover"
+                                  />
+                                </td>
+
                                 <td className="px-3 py-2 align-middle whitespace-nowrap">
-                                    <div className="flex items-center gap-3 h-12">
-                                        <img
-                                            src={item.image}
-                                            className="w-12 h-12 rounded border"
-                                        />
-                                        <span>{item.name}</span>
-                                    </div>
+                                  <span>{item.name}</span>
                                 </td>
 
                                 <td className="px-3 py-2 text-center">
@@ -830,48 +863,14 @@ setHasShipping(detectedHasShipping);
                                 </td>
 
                                 <td className="px-3 py-2 text-center">
-                                    <div className="inline-flex items-center gap-2">
-                                        <button
-                                            className="px-2 py-1 bg-gray-200 rounded"
-                                            onClick={() => handleChangeQuantity(item.id, -1)}
-                                        >
-                                            -
-                                        </button>
-                                        <span className="w-8 text-center">{item.quantity}</span>
-                                        <button
-                                            className="px-2 py-1 bg-gray-200 rounded"
-                                            onClick={() => handleChangeQuantity(item.id, 1)}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
+                                  {/* Số lượng fix cứng, chỉ hiển thị, không thay đổi */}
+                                  <span className="w-8 text-center inline-block">
+                                    {item.quantity}
+                                  </span>
                                 </td>
 
                                 <td className="px-3 py-2 text-center font-medium">
                                     {(item.pricePerUnit * item.quantity).toLocaleString("vi-VN")} đ
-                                </td>
-
-                                <td className="px-3 py-2 text-center">
-                                    <button
-                                        onClick={() => handleRemoveItem(item.id)}
-                                        className="p-2 rounded bg-red-500 hover:bg-red-600 text-white"
-                                        title="Xóa sản phẩm"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            strokeWidth={1.8}
-                                            stroke="currentColor"
-                                            className="w-5 h-5"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="M6 7h12m-9 3v6m6-6v6M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1zm10 3H5l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12z"
-                                            />
-                                        </svg>
-                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -898,117 +897,206 @@ setHasShipping(detectedHasShipping);
 
                     {/* CARD TRÁI — THÔNG TIN ĐƠN HÀNG */}
                     <div className="border rounded-lg bg-white p-5 shadow-sm">
-                        <h3 className="text-lg font-semibold mb-4">Thông tin đơn hàng</h3>
+                      <h3 className="text-lg font-semibold mb-4">
+                        Thông tin đơn hàng
+                      </h3>
 
-                        <div className="space-y-3 text-sm">
-
-                            <div className="flex justify-between border-b pb-2">
-                                <span className="text-gray-600">Mã đơn hàng:</span>
-                                <span className="font-medium">HD{id}</span>
-                            </div>
-
-                            <div className="flex justify-between border-b pb-2">
-                                <span className="text-gray-600">Loại đơn hàng:</span>
-                                <span className="font-medium">{orderType}</span>
-                            </div>
-
-                            <div className="flex justify-between border-b pb-2">
-                                <span className="text-gray-600">Phương thức thanh toán:</span>
-                                <span className="font-medium">{paymentType}</span>
-                            </div>
-
-                            <div className="flex justify-between items-center border-b pb-2">
-                                <span className="text-gray-600">Trạng thái:</span>
-                                <span>{renderStatusBadge(status)}</span>
-                            </div>
-
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Phí vận chuyển:</span>
-                                <span className="font-semibold">
-                        {shippingFee.toLocaleString("vi-VN")} đ
-                    </span>
-                            </div>
-
+                      <div className="space-y-3 text-sm">
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Mã đơn hàng:</span>
+                          <span className="font-medium">HD{id}</span>
                         </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Loại đơn hàng:</span>
+                          <span className="font-medium">
+                            {orderType === "POS" ? "Tại quầy" : orderType === "ONLINE" ? "Trực tuyến" : "Không xác định"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">
+                            Phương thức thanh toán:
+                          </span>
+                          <span className="font-medium">
+                            {paymentType === "CASH"
+                              ? "Tiền mặt"
+                              : paymentType === "TRANSFER"
+                              ? "Chuyển khoản"
+                              : "Thanh toán khi nhận hàng (COD)"}
+                          </span>
+                        </div>
+
+                        {/* Tổng tiền hàng: tổng giá sách, chưa tính giảm giá / ship */}
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Tổng tiền hàng:</span>
+                          <span className="font-semibold">
+                            {subTotal.toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+
+                        {/* Ưu đãi (đợt giảm giá) - chỉ hiển thị khi có dùng */}
+                        {discount > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Ưu đãi:</span>
+                            <span className="font-semibold text-red-600">
+                              -{discount.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Voucher - chỉ hiển thị khi có dùng */}
+                        {voucher > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Voucher:</span>
+                            <span className="font-semibold text-red-600">
+                              -{voucher.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Phí ship:</span>
+                          <span className="font-semibold">
+                            {shippingFee.toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Thành tiền:</span>
+                          <span className="font-semibold text-red-600">
+                            {finalTotal.toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Ghi chú đơn hàng:</span>
+                          <span className="text-right max-w-[55%]">
+                            {orderNote && orderNote.trim() !== ""
+                              ? orderNote
+                              : "-"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* CARD PHẢI — THÔNG TIN KHÁCH HÀNG */}
                     <div className="border rounded-lg bg-white p-5 shadow-sm">
-                        <h3 className="text-lg font-semibold mb-4">Thông tin khách hàng</h3>
+                      <h3 className="text-lg font-semibold mb-4">
+                        Thông tin khách hàng
+                      </h3>
 
-                        <div className="space-y-3 text-sm">
-
-                            <div>
-                                <label className="text-xs font-medium text-gray-600">Tên khách hàng</label>
-                                <input
-                                    className="input mt-1"
-                                    value={customer.name}
-                                    onChange={(e) => setCustomer(c => ({ ...c, name: e.target.value }))}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-medium text-gray-600">Số điện thoại</label>
-                                <input
-                                    className="input mt-1"
-                                    value={customer.phone}
-                                    onChange={(e) => setCustomer(c => ({ ...c, phone: e.target.value }))}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-medium text-gray-600">Địa chỉ</label>
-                                <textarea
-                                    className="input mt-1 min-h-[70px]"
-                                    value={customer.address}
-                                    onChange={(e) => setCustomer(c => ({ ...c, address: e.target.value }))}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-medium text-gray-600">Ghi chú</label>
-                                <textarea
-                                    className="input mt-1 min-h-[60px]"
-                                    value={customer.note}
-                                    onChange={(e) => setCustomer(c => ({ ...c, note: e.target.value }))}
-                                />
-                            </div>
-
-                            <button className="btn btn-primary w-full text-sm mt-2">
-                                CẬP NHẬT THÔNG TIN
-                            </button>
+                      {/* Card chỉ hiển thị thông tin, không cho chỉnh sửa */}
+                      <div className="space-y-3 text-sm">
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Mã KH:</span>
+                          <span className="font-medium">
+                            {customer.code ?? "-"}
+                          </span>
                         </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Email:</span>
+                          <span className="font-medium">
+                            {customer.email && customer.email.trim() !== ""
+                              ? customer.email
+                              : "-"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Tên khách hàng:</span>
+                          <span className="font-medium">
+                            {customer.name || "-"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Số điện thoại:</span>
+                          <span className="font-medium">
+                            {customer.phone || "-"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Địa chỉ:</span>
+                          <span className="font-medium text-right max-w-[60%]">
+                            {customer.address || "-"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                 </div>
 
                 {/* LỊCH SỬ THANH TOÁN */}
                 <div className="border rounded-lg bg-white p-5 shadow-sm">
-                    <h3 className="text-lg font-semibold mb-4">Lịch sử thanh toán</h3>
+                  <h3 className="text-lg font-semibold mb-4">Lịch sử thanh toán</h3>
 
-                    <div className="overflow-x-auto">
-                        <table className="table w-full text-sm border">
-                            <thead className="bg-gray-100">
-                            <tr>
-                                <th className="border px-3 py-2">STT</th>
-                                <th className="border px-3 py-2">Phương thức</th>
-                                <th className="border px-3 py-2">Số tiền</th>
-                                <th className="border px-3 py-2">Thời gian</th>
-                                <th className="border px-3 py-2">Ghi chú</th>
-                                <th className="border px-3 py-2">Người nhận</th>
+                  <div className="overflow-x-auto">
+                    <table className="table w-full text-sm border">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="border px-3 py-2">STT</th>
+                          <th className="border px-3 py-2">Phương thức</th>
+                          <th className="border px-3 py-2">Số tiền</th>
+                          <th className="border px-3 py-2">Thời gian</th>
+                          <th className="border px-3 py-2">Ghi chú</th>
+                          <th className="border px-3 py-2">Mã giao dịch</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paymentHistory.length > 0 ? (
+                          paymentHistory.map((p, idx) => {
+                            // Nếu chỉ có 1 payment, dùng finalTotal (tổng tiền đã tính đúng) để đảm bảo khớp với tổng tiền
+                            // Nếu có nhiều payment, dùng số tiền từ payment detail
+                            const displayAmount = paymentHistory.length === 1 
+                              ? finalTotal 
+                              : p.amount;
+                            
+                            return (
+                            <tr key={p.id}>
+                              <td className="border px-3 py-2 text-center">
+                                {idx + 1}
+                              </td>
+                              <td className="border px-3 py-2">
+                                {p.paymentType === "CASH"
+                                  ? "Tiền mặt"
+                                  : p.paymentType === "TRANSFER"
+                                  ? "Chuyển khoản"
+                                  : p.paymentType === "COD"
+                                  ? "Thanh toán khi nhận hàng (COD)"
+                                  : p.paymentType}
+                              </td>
+                              <td className="border px-3 py-2 font-medium">
+                                {displayAmount.toLocaleString("vi-VN")} đ
+                              </td>
+                              <td className="border px-3 py-2">
+                                {p.createdAt
+                                  ? new Date(p.createdAt).toLocaleString("vi-VN")
+                                  : "-"}
+                              </td>
+                              <td className="border px-3 py-2">
+                                {p.note || "-"}
+                              </td>
+                              <td className="border px-3 py-2">
+                                {p.providerId || "-"}
+                              </td>
                             </tr>
-                            </thead>
-                            <tbody>
-                            <tr>
-                                <td className="border px-3 py-2 text-center">1</td>
-                                <td className="border px-3 py-2">Thanh toán khi nhận hàng (COD)</td>
-                                <td className="border px-3 py-2 font-medium">224.400 đ</td>
-                                <td className="border px-3 py-2">21/04/2024 09:12</td>
-                                <td className="border px-3 py-2">Thanh toán thành công</td>
-                                <td className="border px-3 py-2">Vũ Thảo Mai</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td
+                              className="border px-3 py-3 text-center text-gray-500"
+                              colSpan={6}
+                            >
+                              Chưa có lịch sử thanh toán.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
             {/*    /!* HÓA ĐƠN *!/*/}
