@@ -29,7 +29,8 @@ type NavItem = {
     subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
+// Tất cả menu items (chưa filter theo role)
+const allNavItems: NavItem[] = [
     { name: "Thống kê", icon: <PieChartIcon />, path: "/" },
   { name: "Bán hàng tại quầy", icon: <CartIcon />, path: "/pos" },
   { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
@@ -59,7 +60,15 @@ const navItems: NavItem[] = [
             {name: "Bộ sách", path: "/series"},
         ],
   },
-  { name: "Người dùng", icon: <UserCircleIcon />, path: "/users" },
+  {
+    name: "Người dùng",
+    icon: <UserCircleIcon />,
+    subItems: [
+      { name: "Danh sách user", path: "/users" },
+      { name: "Nhân viên", path: "/users/staff" },
+      { name: "Phân quyền", path: "/users/roles" },
+    ],
+  },
 //   {
 //     name: "Biểu mẫu",
 //     icon: <ListIcon />,
@@ -144,7 +153,27 @@ const AppSidebar: React.FC = () => {
     const {isExpanded, isMobileOpen, isHovered, setIsHovered} = useSidebar();
     const pathname = usePathname();
     const router = useRouter();
-    const { logout } = useAuth();
+    const { logout, isAdmin, isStaff } = useAuth();
+
+    // Filter menu items dựa trên role
+    const getFilteredNavItems = (): NavItem[] => {
+        // ROLE_ADMIN: thấy tất cả
+        if (isAdmin()) {
+            return allNavItems;
+        }
+        
+        // ROLE_EMPLOYEE (staff): chỉ thấy Bán hàng tại quầy và Danh sách hóa đơn
+        if (isStaff()) {
+            return allNavItems.filter(item => 
+                item.path === "/pos" || item.path === "/bill"
+            );
+        }
+        
+        // ROLE_USER: không thấy sidebar này (trả về empty array)
+        return [];
+    };
+
+    const navItems = getFilteredNavItems();
 
     const renderMenuItems = (
         navItems: NavItem[],

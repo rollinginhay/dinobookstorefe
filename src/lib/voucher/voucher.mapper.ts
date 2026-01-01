@@ -7,11 +7,15 @@ export function mapVoucherList(raw: any[]) {
     // Hỗ trợ cả format JSON:API (có attributes) và format thường
     const a = item.attributes || item;
     const id = item.id || a.id;
+    
+    // Campaign có campaignType, map sang voucherType để tương thích
+    const campaignType = a.campaignType || a.voucherType || "";
+    const voucherType = a.voucherType || campaignType || "";
 
     return {
       id: String(id),
       name: a.name || "",
-      type: a.voucherType?.includes("PERCENT") ? "PERCENT" : "FIXED",
+      type: campaignType?.includes("PERCENT") || voucherType?.includes("PERCENT") ? "PERCENT" : "FIXED",
       minTotal: a.minTotal ?? 0,
       discountLabel: a.percentage
         ? `${a.percentage}%`
@@ -23,7 +27,8 @@ export function mapVoucherList(raw: any[]) {
       endDate: a.endDate || null,
       startDate: a.startDate || null,
       enabled: a.enabled !== undefined ? a.enabled : true,
-      voucherType: a.voucherType || "",
+      voucherType: voucherType,
+      campaignType: campaignType, // Giữ cả campaignType cho tương thích
       percentage: a.percentage ?? null,
       maxDiscount: a.maxDiscount ?? null,
       note: a.note || null,

@@ -3,8 +3,40 @@
 import React, {createContext, useContext, useEffect, useState} from 'react';
 import { login as loginApi } from '@/lib/auth/auth.api';
 import { toast } from 'sonner';
+import { Role } from '@/components/user/user.types';
+import {
+    hasRole as checkRole,
+    isAdmin,
+    isStaff,
+    isUser,
+    isGuest,
+    canViewBooks,
+    canViewBookDetails,
+    canUseShoppingCart,
+    canRegister,
+    canLogin,
+    canViewAccountInfo,
+    canManageCart,
+    canMakePayment,
+    canTrackOrders,
+    canApplyVoucher,
+    canUsePOS,
+    canCreateInvoice,
+    canManageOrders,
+    canManageCustomers,
+    canSupportCustomers,
+    canManageProducts,
+    canManageProductAttributes,
+    canManageStaff,
+    canManageUsers,
+    canManagePermissions,
+    canManageVouchers,
+    canManageDiscountCampaigns,
+    canViewStatistics,
+} from '@/lib/user/role.utils';
 
 interface User {
+    id?: string;
     email: string;
     username: string;
     oauthId?: string;
@@ -22,6 +54,38 @@ interface AuthContextType {
     logout: () => void;
     isAuthenticated: boolean;
     hasRole: (role: string) => boolean;
+    // Role checks
+    isAdmin: () => boolean;
+    isStaff: () => boolean;
+    isUser: () => boolean;
+    isGuest: () => boolean;
+    // Permission checks - Guest
+    canViewBooks: () => boolean;
+    canViewBookDetails: () => boolean;
+    canUseShoppingCart: () => boolean;
+    canRegister: () => boolean;
+    // Permission checks - User
+    canLogin: () => boolean;
+    canViewAccountInfo: () => boolean;
+    canManageCart: () => boolean;
+    canMakePayment: () => boolean;
+    canTrackOrders: () => boolean;
+    canApplyVoucher: () => boolean;
+    // Permission checks - Staff
+    canUsePOS: () => boolean;
+    canCreateInvoice: () => boolean;
+    canManageOrders: () => boolean;
+    canManageCustomers: () => boolean;
+    canSupportCustomers: () => boolean;
+    // Permission checks - Admin
+    canManageProducts: () => boolean;
+    canManageProductAttributes: () => boolean;
+    canManageStaff: () => boolean;
+    canManageUsers: () => boolean;
+    canManagePermissions: () => boolean;
+    canManageVouchers: () => boolean;
+    canManageDiscountCampaigns: () => boolean;
+    canViewStatistics: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Save token and user info
             localStorage.setItem(TOKEN_KEY, response.jwtToken);
             localStorage.setItem(USER_KEY, JSON.stringify({
+                id: response.userId,
                 email: response.email,
                 username: response.username,
                 oauthId: response.oauthId,
@@ -79,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             setToken(response.jwtToken);
             setUser({
+                id: response.userId,
                 email: response.email,
                 username: response.username,
                 oauthId: response.oauthId,
@@ -121,11 +187,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.success('Đăng xuất thành công!');
     };
 
-    // Helper function to check if user has a specific role
-    const hasRole = (role: string): boolean => {
-        if (!user || !user.roles) return false;
-        return user.roles.includes(role);
+    // Convert string[] roles to Role[] format for utility functions
+    const getUserRoles = (): Role[] => {
+        if (!user || !user.roles) return [];
+        return user.roles.map((roleName) => ({
+            id: roleName,
+            name: roleName,
+            enabled: true,
+        }));
     };
+
+    // Helper function to check if user has a specific role (with inheritance)
+    const hasRole = (role: string): boolean => {
+        const roles = getUserRoles();
+        return checkRole(roles, role);
+    };
+
+    // Role checks
+    const checkIsAdmin = () => isAdmin(getUserRoles());
+    const checkIsStaff = () => isStaff(getUserRoles());
+    const checkIsUser = () => isUser(getUserRoles());
+    const checkIsGuest = () => isGuest(getUserRoles());
+
+    // Permission checks - Guest
+    const checkCanViewBooks = () => canViewBooks(getUserRoles());
+    const checkCanViewBookDetails = () => canViewBookDetails(getUserRoles());
+    const checkCanUseShoppingCart = () => canUseShoppingCart(getUserRoles());
+    const checkCanRegister = () => canRegister(getUserRoles());
+
+    // Permission checks - User
+    const checkCanLogin = () => canLogin(getUserRoles());
+    const checkCanViewAccountInfo = () => canViewAccountInfo(getUserRoles());
+    const checkCanManageCart = () => canManageCart(getUserRoles());
+    const checkCanMakePayment = () => canMakePayment(getUserRoles());
+    const checkCanTrackOrders = () => canTrackOrders(getUserRoles());
+    const checkCanApplyVoucher = () => canApplyVoucher(getUserRoles());
+
+    // Permission checks - Staff
+    const checkCanUsePOS = () => canUsePOS(getUserRoles());
+    const checkCanCreateInvoice = () => canCreateInvoice(getUserRoles());
+    const checkCanManageOrders = () => canManageOrders(getUserRoles());
+    const checkCanManageCustomers = () => canManageCustomers(getUserRoles());
+    const checkCanSupportCustomers = () => canSupportCustomers(getUserRoles());
+
+    // Permission checks - Admin
+    const checkCanManageProducts = () => canManageProducts(getUserRoles());
+    const checkCanManageProductAttributes = () => canManageProductAttributes(getUserRoles());
+    const checkCanManageStaff = () => canManageStaff(getUserRoles());
+    const checkCanManageUsers = () => canManageUsers(getUserRoles());
+    const checkCanManagePermissions = () => canManagePermissions(getUserRoles());
+    const checkCanManageVouchers = () => canManageVouchers(getUserRoles());
+    const checkCanManageDiscountCampaigns = () => canManageDiscountCampaigns(getUserRoles());
+    const checkCanViewStatistics = () => canViewStatistics(getUserRoles());
 
     const value: AuthContextType = {
         user,
@@ -136,6 +249,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         isAuthenticated: !!token && !!user,
         hasRole,
+        // Role checks
+        isAdmin: checkIsAdmin,
+        isStaff: checkIsStaff,
+        isUser: checkIsUser,
+        isGuest: checkIsGuest,
+        // Permission checks - Guest
+        canViewBooks: checkCanViewBooks,
+        canViewBookDetails: checkCanViewBookDetails,
+        canUseShoppingCart: checkCanUseShoppingCart,
+        canRegister: checkCanRegister,
+        // Permission checks - User
+        canLogin: checkCanLogin,
+        canViewAccountInfo: checkCanViewAccountInfo,
+        canManageCart: checkCanManageCart,
+        canMakePayment: checkCanMakePayment,
+        canTrackOrders: checkCanTrackOrders,
+        canApplyVoucher: checkCanApplyVoucher,
+        // Permission checks - Staff
+        canUsePOS: checkCanUsePOS,
+        canCreateInvoice: checkCanCreateInvoice,
+        canManageOrders: checkCanManageOrders,
+        canManageCustomers: checkCanManageCustomers,
+        canSupportCustomers: checkCanSupportCustomers,
+        // Permission checks - Admin
+        canManageProducts: checkCanManageProducts,
+        canManageProductAttributes: checkCanManageProductAttributes,
+        canManageStaff: checkCanManageStaff,
+        canManageUsers: checkCanManageUsers,
+        canManagePermissions: checkCanManagePermissions,
+        canManageVouchers: checkCanManageVouchers,
+        canManageDiscountCampaigns: checkCanManageDiscountCampaigns,
+        canViewStatistics: checkCanViewStatistics,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

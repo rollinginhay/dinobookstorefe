@@ -76,6 +76,8 @@ export const API_ROUTES = {
     PUT_USER_UPDATE: "/v1/user/update",
     DELETE_USER_DELETE: ({id}: { id: string | number }) =>
         `/v1/user/${id}`,
+    POST_USER_RESET_PASSWORD: ({id}: { id: string | number }) =>
+        `/v1/user/${id}/reset-password`,
     GET_ROLES: "/v1/roles",
     GET_CAMPAIGNS: "/v1/campaigns",
     GET_CAMPAIGN_BY_ID: ({id}: { id: string | number }) => `/v1/campaign/${id}`,

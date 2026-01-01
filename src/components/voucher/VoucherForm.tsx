@@ -35,13 +35,14 @@ export default function VoucherForm({ mode, initialData }: Props) {
 
   // Khôi phục dữ liệu từ localStorage hoặc dùng initialData
   const getInitialFormData = () => {
+    // Lấy voucherType từ campaignType (vì campaign API dùng campaignType)
+    const voucherTypeFromData = attributes.voucherType || attributes.campaignType;
+    
     if (typeof window === "undefined") {
       return {
         name: attributes.name || "",
         voucherType:
-          attributes.voucherType ||
-          (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-          "PERCENTAGE_DISCOUNT",
+          voucherTypeFromData || "PERCENTAGE_RECEIPT",
         startDate: formatDateForInput(attributes.startDate),
         endDate: formatDateForInput(attributes.endDate),
         enabled: attributes.enabled !== undefined ? attributes.enabled : true,
@@ -61,14 +62,12 @@ export default function VoucherForm({ mode, initialData }: Props) {
         const baseData = {
           name: attributes.name || "",
           voucherType:
-            attributes.voucherType ||
-            (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-            "PERCENTAGE_DISCOUNT",
+            voucherTypeFromData || "PERCENTAGE_RECEIPT",
           enabled: attributes.enabled !== undefined ? attributes.enabled : true,
         };
         return {
           name: parsed.name || "",
-          voucherType: parsed.voucherType || (mode === "create" ? "PERCENTAGE_DISCOUNT" : baseData.voucherType),
+          voucherType: parsed.voucherType || (mode === "create" ? "PERCENTAGE_RECEIPT" : baseData.voucherType),
           startDate: parsed.startDate || "",
           endDate: parsed.endDate || "",
           enabled: parsed.enabled !== undefined ? parsed.enabled : (mode === "create" ? true : baseData.enabled),
@@ -86,9 +85,7 @@ export default function VoucherForm({ mode, initialData }: Props) {
     return {
       name: attributes.name || "",
       voucherType:
-        attributes.voucherType ||
-        (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-        "PERCENTAGE_DISCOUNT",
+        voucherTypeFromData || "PERCENTAGE_RECEIPT",
       startDate: formatDateForInput(attributes.startDate),
       endDate: formatDateForInput(attributes.endDate),
       enabled: attributes.enabled !== undefined ? attributes.enabled : true,
@@ -239,18 +236,14 @@ export default function VoucherForm({ mode, initialData }: Props) {
       }
     }
 
-    if (formData.voucherType === "PERCENTAGE_DISCOUNT" || formData.voucherType === "PERCENTAGE_RECEIPT" || formData.voucherType === "PERCENTAGE_PRODUCT") {
+    // Phiếu giảm giá chỉ có PERCENTAGE_RECEIPT (giảm theo đơn)
+    if (formData.voucherType === "PERCENTAGE_RECEIPT") {
       if (!formData.percentage || formData.percentage <= 0 || formData.percentage > 100) {
         toast.error("Phần trăm giảm giá phải từ 1% đến 100%");
         return false;
       }
       if (formData.maxDiscount && formData.maxDiscount <= 0) {
         toast.error("Giảm giá tối đa phải lớn hơn 0");
-        return false;
-      }
-    } else if (formData.voucherType === "FLAT_DISCOUNT") {
-      if (!formData.maxDiscount || formData.maxDiscount <= 0) {
-        toast.error("Số tiền giảm giá phải lớn hơn 0");
         return false;
       }
     }
@@ -272,6 +265,12 @@ export default function VoucherForm({ mode, initialData }: Props) {
     e.preventDefault();
 
     if (!validateForm()) {
+      return;
+    }
+
+    // Kiểm tra nếu là edit mode và chưa có thay đổi gì
+    if (mode === "edit" && !hasChanges) {
+      toast.info("Bạn chưa chỉnh sửa gì");
       return;
     }
 
@@ -299,15 +298,12 @@ export default function VoucherForm({ mode, initialData }: Props) {
         code: formData.code.trim(),
       };
 
-      // Thêm percentage hoặc maxDiscount tùy theo loại
-      if (formData.voucherType === "PERCENTAGE_DISCOUNT" || formData.voucherType === "PERCENTAGE_RECEIPT" || formData.voucherType === "PERCENTAGE_PRODUCT") {
+      // Phiếu giảm giá chỉ có PERCENTAGE_RECEIPT (giảm theo đơn)
+      if (formData.voucherType === "PERCENTAGE_RECEIPT") {
         payloadData.percentage = formData.percentage;
         if (formData.maxDiscount) {
           payloadData.maxDiscount = formData.maxDiscount;
         }
-      } else if (formData.voucherType === "FLAT_DISCOUNT") {
-        payloadData.maxDiscount = formData.maxDiscount;
-        payloadData.percentage = null;
       }
 
       // Luôn gửi note, kể cả khi null hoặc rỗng
@@ -427,17 +423,12 @@ export default function VoucherForm({ mode, initialData }: Props) {
               className="input w-full"
               required
             >
-              <option value="PERCENTAGE_DISCOUNT">Giảm theo phần trăm</option>
-              <option value="FLAT_DISCOUNT">Giảm số tiền cố định</option>
-              <option value="PERCENTAGE_RECEIPT">Giảm phần trăm theo hóa đơn</option>
-              <option value="PERCENTAGE_PRODUCT">Giảm phần trăm theo sản phẩm</option>
+              <option value="PERCENTAGE_RECEIPT">Giảm phần trăm theo hóa đơn (Phiếu giảm giá)</option>
             </select>
           </div>
 
           {/* Phần trăm giảm giá */}
-          {(formData.voucherType === "PERCENTAGE_DISCOUNT" || 
-            formData.voucherType === "PERCENTAGE_RECEIPT" || 
-            formData.voucherType === "PERCENTAGE_PRODUCT") && (
+          {formData.voucherType === "PERCENTAGE_RECEIPT" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Phần trăm giảm giá (%) <span className="text-red-500">*</span>
@@ -459,9 +450,7 @@ export default function VoucherForm({ mode, initialData }: Props) {
           )}
 
           {/* Giảm giá tối đa */}
-          {(formData.voucherType === "PERCENTAGE_DISCOUNT" || 
-            formData.voucherType === "PERCENTAGE_RECEIPT" || 
-            formData.voucherType === "PERCENTAGE_PRODUCT") && (
+          {formData.voucherType === "PERCENTAGE_RECEIPT" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Giảm giá tối đa (đồng)
@@ -483,26 +472,6 @@ export default function VoucherForm({ mode, initialData }: Props) {
             </div>
           )}
 
-          {/* Số tiền giảm cố định */}
-          {formData.voucherType === "FLAT_DISCOUNT" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số tiền giảm (đồng) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="maxDiscount"
-                value={formData.maxDiscount || ""}
-                onChange={handleChange}
-                disabled={!canEdit("maxDiscount")}
-                className="input w-full"
-                placeholder="Ví dụ: 50000"
-                min="0"
-                step="1000"
-                required
-              />
-            </div>
-          )}
 
           {/* Giá trị đơn hàng tối thiểu */}
           <div>
@@ -684,24 +653,14 @@ export default function VoucherForm({ mode, initialData }: Props) {
             <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-1 text-sm">
               <p><span className="font-medium">Tên:</span> {formData.name}</p>
               <p><span className="font-medium">Mã:</span> {formData.code || "Chưa nhập"}</p>
-              <p><span className="font-medium">Loại:</span> {
-                formData.voucherType === "PERCENTAGE_DISCOUNT" ? "Giảm theo phần trăm" :
-                formData.voucherType === "FLAT_DISCOUNT" ? "Giảm số tiền cố định" :
-                formData.voucherType === "PERCENTAGE_RECEIPT" ? "Giảm phần trăm theo hóa đơn" :
-                "Giảm phần trăm theo sản phẩm"
-              }</p>
-              {(formData.voucherType === "PERCENTAGE_DISCOUNT" || 
-                formData.voucherType === "PERCENTAGE_RECEIPT" || 
-                formData.voucherType === "PERCENTAGE_PRODUCT") && (
+              <p><span className="font-medium">Loại:</span> Giảm phần trăm theo hóa đơn (Phiếu giảm giá)</p>
+              {formData.voucherType === "PERCENTAGE_RECEIPT" && (
                 <>
                   <p><span className="font-medium">Giảm:</span> {formData.percentage}%</p>
                   {formData.maxDiscount && (
                     <p><span className="font-medium">Tối đa:</span> {formData.maxDiscount.toLocaleString("vi-VN")}đ</p>
                   )}
                 </>
-              )}
-              {formData.voucherType === "FLAT_DISCOUNT" && (
-                <p><span className="font-medium">Giảm:</span> {formData.maxDiscount?.toLocaleString("vi-VN")}đ</p>
               )}
               {formData.minTotal > 0 && (
                 <p><span className="font-medium">Đơn hàng tối thiểu:</span> {formData.minTotal.toLocaleString("vi-VN")}đ</p>

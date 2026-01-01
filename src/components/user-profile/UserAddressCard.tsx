@@ -157,27 +157,27 @@ export default function UserAddressCard({ user }: { user: any }) {
         </div>
 
         <Button size="sm" variant="outline" onClick={openModal}>
-          Edit
+          Chỉnh sửa
         </Button>
       </div>
 
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[600px]">
         <div className="bg-white rounded-2xl p-6">
-          <h3 className="text-xl font-semibold mb-1">Edit Address</h3>
+          <h3 className="text-xl font-semibold mb-1">Chỉnh sửa địa chỉ</h3>
           <p className="text-sm text-gray-500 mb-6">
-            Update your address information
+            Cập nhật thông tin địa chỉ của bạn
           </p>
 
           <div>
-            <Label>Address</Label>
+            <Label>Địa chỉ</Label>
             <Input defaultValue={attrs.address} />
           </div>
 
           <div className="flex justify-end gap-3 mt-8">
             <Button variant="outline" onClick={closeModal}>
-              Close
+              Hủy
             </Button>
-            <Button>Save</Button>
+            <Button>Lưu</Button>
           </div>
         </div>
       </Modal>

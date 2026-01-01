@@ -10,7 +10,7 @@ type ConfirmDialogProps = {
   message: string | ReactNode;
   confirmText?: string;
   cancelText?: string;
-  confirmButtonColor?: "blue" | "red" | "green";
+  confirmButtonColor?: "blue" | "red" | "green" | "orange";
   loading?: boolean;
   loadingText?: string;
 };
@@ -33,11 +33,21 @@ export default function ConfirmDialog({
     blue: "bg-blue-600 hover:bg-blue-700",
     red: "bg-red-600 hover:bg-red-700",
     green: "bg-green-600 hover:bg-green-700",
+    orange: "bg-orange-600 hover:bg-orange-700",
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+    <>
+      {/* Overlay - chỉ che phần main content, không che sidebar (sidebar có z-50) */}
+      <div 
+        className="fixed inset-0 bg-black/30 flex items-center justify-center z-40"
+        onClick={onClose}
+      >
+        {/* Dialog - click vào dialog không đóng */}
+        <div 
+          className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl relative z-50"
+          onClick={(e) => e.stopPropagation()}
+        >
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
           {title}
         </h3>
@@ -60,8 +70,9 @@ export default function ConfirmDialog({
             {loading ? loadingText : confirmText}
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

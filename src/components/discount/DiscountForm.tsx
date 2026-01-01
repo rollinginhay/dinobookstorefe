@@ -41,9 +41,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return {
         name: attributes.name || "",
         campaignType:
-          attributes.campaignType ||
-          (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-          "PERCENTAGE_DISCOUNT",
+          attributes.campaignType || "PERCENTAGE_PRODUCT",
         startDate: formatDateForInput(attributes.startDate),
         endDate: formatDateForInput(attributes.endDate),
         enabled: attributes.enabled !== undefined ? attributes.enabled : true,
@@ -62,14 +60,12 @@ export default function DiscountForm({ mode, initialData }: Props) {
         const baseData = {
           name: attributes.name || "",
           campaignType:
-            attributes.campaignType ||
-            (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-            "PERCENTAGE_DISCOUNT",
+            attributes.campaignType || "PERCENTAGE_PRODUCT",
           enabled: attributes.enabled !== undefined ? attributes.enabled : true,
         };
         return {
           name: parsed.name || "",
-          campaignType: parsed.campaignType || (mode === "create" ? "PERCENTAGE_DISCOUNT" : baseData.campaignType),
+          campaignType: parsed.campaignType || (mode === "create" ? "PERCENTAGE_PRODUCT" : baseData.campaignType),
           startDate: parsed.startDate || "",
           endDate: parsed.endDate || "",
           enabled: parsed.enabled !== undefined ? parsed.enabled : (mode === "create" ? true : baseData.enabled),
@@ -86,9 +82,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
     return {
       name: attributes.name || "",
       campaignType:
-        attributes.campaignType ||
-        (attributes.type === "PERCENT" ? "PERCENTAGE_DISCOUNT" : "FLAT_DISCOUNT") ||
-        "PERCENTAGE_DISCOUNT",
+        attributes.campaignType || "PERCENTAGE_PRODUCT",
       startDate: formatDateForInput(attributes.startDate),
       endDate: formatDateForInput(attributes.endDate),
       enabled: attributes.enabled !== undefined ? attributes.enabled : true,
@@ -238,7 +232,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
       }
     }
 
-    if (formData.campaignType === "PERCENTAGE_DISCOUNT") {
+    // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
+    if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
       if (!formData.percentage || formData.percentage <= 0 || formData.percentage > 100) {
         toast.error("Phần trăm giảm giá phải từ 1% đến 100%");
         return false;
@@ -265,6 +260,12 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return;
     }
 
+    // Kiểm tra nếu là edit mode và chưa có thay đổi gì
+    if (mode === "edit" && !hasChanges) {
+      toast.info("Bạn chưa chỉnh sửa gì");
+      return;
+    }
+
     // Hiển thị confirm dialog
     setShowConfirm(true);
   };
@@ -285,7 +286,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
       };
 
       // Thêm percentage hoặc maxDiscount tùy theo loại
-      if (formData.campaignType === "PERCENTAGE_DISCOUNT") {
+      // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
+      if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
         payloadData.percentage = formData.percentage;
         payloadData.maxDiscount = null;
       } else if (formData.campaignType === "FLAT_DISCOUNT") {
@@ -412,6 +414,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
+              <option value="PERCENTAGE_PRODUCT">Giảm phần trăm theo sản phẩm (SALE ĐỢT / SALE COMBO)</option>
               <option value="PERCENTAGE_DISCOUNT">Giảm theo phần trăm (%)</option>
               <option value="FLAT_DISCOUNT">Giảm theo số tiền cố định (đ)</option>
             </select>
@@ -423,7 +426,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
           </div>
 
           {/* Giá trị giảm */}
-          {formData.campaignType === "PERCENTAGE_DISCOUNT" && (
+          {(formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Phần trăm giảm giá (%) <span className="text-red-500">*</span>

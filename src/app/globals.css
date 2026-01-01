@@ -23,7 +23,7 @@ input[type="date"]::placeholder {
 
 @theme {
     --font-*: initial;
-    --font-outfit: Outfit, sans-serif;
+    --font-inter: Inter, sans-serif;
 
     --breakpoint-*: initial;
     --breakpoint-2xsm: 375px;
@@ -204,7 +204,7 @@ input[type="date"]::placeholder {
     }
 
     body {
-        @apply relative font-normal font-outfit z-1 bg-gray-50;
+        @apply relative font-normal font-inter z-1 bg-gray-50;
     }
 }
 
@@ -1034,9 +1034,7 @@ pre[class*="language-"].line-numbers {
 .menu-item-arrow-inactive {
   color: #98a2b3 !important;
 }
-html, body {
-  font-family: "Inter", sans-serif;
-}
+/* Font Inter đã được áp dụng qua Next.js font loader và Tailwind */
 /* =========================================================
    COMPONENT STYLES - LIGHTBEE
    ========================================================= */

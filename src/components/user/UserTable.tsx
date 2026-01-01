@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { User } from "./user.types";
-import { getRoleDisplayName } from "@/lib/user/role.utils";
+import { getRoleDisplayName, getRoleColorClasses } from "@/lib/user/role.utils";
 
 export default function UserTable({ data }: { data: User[] }) {
   return (
@@ -42,7 +42,7 @@ export default function UserTable({ data }: { data: User[] }) {
                     user.roles.map((role) => (
                       <span
                         key={role.id}
-                        className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium"
+                        className={`px-2 py-0.5 text-xs rounded-full font-medium ${getRoleColorClasses(role.name)}`}
                       >
                         {getRoleDisplayName(role.name)}
                       </span>

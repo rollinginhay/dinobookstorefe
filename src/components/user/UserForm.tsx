@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createUser, updateUser } from "@/lib/user/user.api";
+import { createUser, updateUser, resetUserPassword } from "@/lib/user/user.api";
 import { fetchRoles } from "@/lib/user/role.api";
-import { getRoleDisplayName } from "@/lib/user/role.utils";
+import { getRoleDisplayName, getRoleColorClasses } from "@/lib/user/role.utils";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { User, Role } from "./user.types";
+import { useAuth } from "@/context/auth-context";
 
 type Props = {
   mode: "create" | "edit";
@@ -16,9 +17,12 @@ type Props = {
 
 export default function UserForm({ mode, initialData }: Props) {
   const router = useRouter();
+  const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [showResetPasswordConfirm, setShowResetPasswordConfirm] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
@@ -235,6 +239,12 @@ export default function UserForm({ mode, initialData }: Props) {
       return;
     }
 
+    // Kiểm tra nếu là edit mode và chưa có thay đổi gì
+    if (mode === "edit" && !hasChanges) {
+      toast.info("Bạn chưa chỉnh sửa gì");
+      return;
+    }
+
     // Hiển thị confirm dialog
     setShowConfirm(true);
   };
@@ -310,6 +320,31 @@ export default function UserForm({ mode, initialData }: Props) {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setResettingPassword(true);
+    setShowResetPasswordConfirm(false);
+
+    try {
+      const userId = initialData?.id || attributes.id;
+      if (!userId) {
+        toast.error("Không tìm thấy ID người dùng");
+        return;
+      }
+
+      await resetUserPassword(userId);
+      toast.success("Reset mật khẩu thành công! Người dùng sẽ nhận được email với mật khẩu tạm và cần đổi mật khẩu khi đăng nhập lại.");
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      const errorMessage =
+        error?.response?.data?.errors?.[0]?.title ||
+        error?.response?.data?.errors?.[0]?.detail ||
+        "Có lỗi xảy ra khi reset mật khẩu";
+      toast.error(errorMessage);
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -446,7 +481,9 @@ export default function UserForm({ mode, initialData }: Props) {
                         onChange={() => handleRoleToggle(role.id)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-700">{getRoleDisplayName(role.name)}</span>
+                      <span className={`text-sm font-medium ${getRoleColorClasses(role.name)} px-2 py-0.5 rounded`}>
+                        {getRoleDisplayName(role.name)}
+                      </span>
                       {!role.enabled && (
                         <span className="text-xs text-gray-400">(Vô hiệu hóa)</span>
                       )}
@@ -481,7 +518,7 @@ export default function UserForm({ mode, initialData }: Props) {
           <button
             type="button"
             onClick={handleBack}
-            disabled={loading}
+            disabled={loading || resettingPassword}
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
           >
             <svg
@@ -500,17 +537,41 @@ export default function UserForm({ mode, initialData }: Props) {
             Quay lại danh sách
           </button>
           <div className="flex gap-3">
+            {/* Reset Password Button - chỉ hiển thị cho admin và khi edit */}
+            {mode === "edit" && isAdmin() && (
+              <button
+                type="button"
+                onClick={() => setShowResetPasswordConfirm(true)}
+                disabled={loading || resettingPassword}
+                className="px-5 py-2.5 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                  />
+                </svg>
+                Reset mật khẩu
+              </button>
+            )}
             <button
               type="button"
               onClick={handleBack}
-              disabled={loading}
+              disabled={loading || resettingPassword}
               className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || resettingPassword}
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {loading
@@ -566,6 +627,34 @@ export default function UserForm({ mode, initialData }: Props) {
         confirmText="Quay lại"
         cancelText="Ở lại"
         confirmButtonColor="red"
+      />
+
+      {/* Reset Password Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={showResetPasswordConfirm}
+        onClose={() => setShowResetPasswordConfirm(false)}
+        onConfirm={handleResetPassword}
+        title="Xác nhận reset mật khẩu"
+        message={
+          <div className="space-y-2">
+            <p className="font-medium">
+              Bạn có chắc muốn reset mật khẩu cho người dùng này?
+            </p>
+            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-1 text-sm">
+              <p className="font-medium text-orange-800">Lưu ý:</p>
+              <ul className="list-disc list-inside space-y-1 text-orange-700">
+                <li>Hệ thống sẽ tạo mật khẩu tạm hoặc gửi link reset qua email</li>
+                <li>Người dùng bắt buộc phải đổi mật khẩu khi đăng nhập lại</li>
+                <li>Hành động này sẽ được ghi vào audit log</li>
+              </ul>
+            </div>
+          </div>
+        }
+        confirmText="Xác nhận reset"
+        cancelText="Hủy"
+        confirmButtonColor="orange"
+        loading={resettingPassword}
+        loadingText="Đang reset mật khẩu..."
       />
     </div>
   );

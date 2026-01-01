@@ -190,80 +190,148 @@
 // }
 'use client';
 
-import React from "react";
+import React, { useState } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { updateUser } from "@/lib/user/user.api";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function UserInfoCard({ user }: { user: any }) {
   const { isOpen, openModal, closeModal } = useModal();
+  const router = useRouter();
   const attrs = user.attributes;
+  const userId = user.id;
+  
+  const [formData, setFormData] = useState({
+    personName: attrs?.personName || "",
+    email: attrs?.email || "",
+    phoneNumber: attrs?.phoneNumber || "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      await updateUser({
+        id: userId,
+        personName: formData.personName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+      });
+      
+      toast.success("Cập nhật thông tin thành công!");
+      closeModal();
+      router.refresh(); // Refresh để load lại data
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      const errorMessage = 
+        error?.response?.data?.errors?.[0]?.detail ||
+        error?.response?.data?.errors?.[0]?.title ||
+        "Có lỗi xảy ra khi cập nhật thông tin";
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-5 border border-gray-200 rounded-2xl lg:p-6">
       <div className="flex justify-between items-start">
         <div>
-          <h4 className="text-lg font-semibold mb-4">Personal Information</h4>
+          <h4 className="text-lg font-semibold mb-4">Thông tin cá nhân</h4>
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-xs text-gray-500 mb-1">Name</p>
-              <p className="font-medium">{attrs.personName}</p>
+              <p className="text-xs text-gray-500 mb-1">Họ tên</p>
+              <p className="font-medium">{attrs?.personName || "-"}</p>
             </div>
 
             <div>
               <p className="text-xs text-gray-500 mb-1">Email</p>
-              <p className="font-medium">{attrs.email}</p>
+              <p className="font-medium">{attrs?.email || "-"}</p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-500 mb-1">Phone</p>
-              <p className="font-medium">{attrs.phoneNumber}</p>
+              <p className="text-xs text-gray-500 mb-1">Số điện thoại</p>
+              <p className="font-medium">{attrs?.phoneNumber || "-"}</p>
             </div>
           </div>
         </div>
 
         <Button size="sm" variant="outline" onClick={openModal}>
-          Edit
+          Chỉnh sửa
         </Button>
       </div>
 
       {/* MODAL */}
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px]">
-        <div className="bg-white rounded-2xl p-6">
-          <h3 className="text-xl font-semibold mb-1">
-            Edit Personal Information
-          </h3>
-          <p className="text-sm text-gray-500 mb-6">
-            Update your profile information
-          </p>
+        <form onSubmit={handleSave}>
+          <div className="bg-white rounded-2xl p-6">
+            <h3 className="text-xl font-semibold mb-1">
+              Chỉnh sửa thông tin cá nhân
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Cập nhật thông tin hồ sơ của bạn
+            </p>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="col-span-2">
-              <Label>Name</Label>
-              <Input defaultValue={attrs.personName} />
+            <div className="grid grid-cols-2 gap-6">
+              <div className="col-span-2">
+                <Label>Họ tên</Label>
+                <Input 
+                  name="personName"
+                  value={formData.personName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>Email</Label>
+                <Input 
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>Số điện thoại</Label>
+                <Input 
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input defaultValue={attrs.email} />
-            </div>
-
-            <div>
-              <Label>Phone</Label>
-              <Input defaultValue={attrs.phoneNumber} />
+            <div className="flex justify-end gap-3 mt-8">
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={closeModal}
+                disabled={loading}
+              >
+                Hủy
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Đang lưu..." : "Lưu"}
+              </Button>
             </div>
           </div>
-
-          <div className="flex justify-end gap-3 mt-8">
-            <Button variant="outline" onClick={closeModal}>
-              Close
-            </Button>
-            <Button>Save</Button>
-          </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );

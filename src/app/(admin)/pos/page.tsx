@@ -11,6 +11,7 @@ import {deserializeUsers, serializeReceipt, serializeUser} from "@/lib/serialize
 import {useCampaign} from "@/hooks/api-calls/useCampaign";
 import {useReceipt} from "@/hooks/api-calls/useReceipt";
 import {useUser} from "@/hooks/api-calls/useUser";
+import {isUser as checkIsUser} from "@/lib/user/role.utils";
 
 // ===============================
 // DEMO VOUCHER LIST (POS PANEL)
@@ -995,7 +996,7 @@ export default function POS() {
                             setShowCustomerPopup(false);
                         }}
                         customers={USERS.filter(u =>
-                            u.roles.some(r => r.name === "ROLE_USER")
+                            checkIsUser(u.roles)
                         )}
                         onSave={(data) => {
                             console.log(data);

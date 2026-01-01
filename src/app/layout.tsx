@@ -1,4 +1,4 @@
-import {Outfit} from "next/font/google";
+import {Inter} from "next/font/google";
 import "./globals.css";
 import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
@@ -8,8 +8,9 @@ import {AppProviders} from "@/lib/providers";
 import {Toaster} from "sonner";
 import {AuthProvider} from "@/context/auth-context";
 
-const outfit = Outfit({
+const inter = Inter({
     subsets: ["latin"],
+    variable: "--font-inter",
 });
 
 export default function RootLayout({
@@ -19,7 +20,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-        <body className={`${outfit.className} dark:bg-gray-900`}>
+        <body className={`${inter.className} dark:bg-gray-900`}>
         <ThemeProvider>
             <SidebarProvider>
                 <AuthProvider>

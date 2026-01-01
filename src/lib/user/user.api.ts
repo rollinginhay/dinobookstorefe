@@ -105,3 +105,8 @@ export async function deleteUser(id: string | number) {
   return res.data;
 }
 
+export async function resetUserPassword(id: string | number) {
+  const res = await api.post(API_ROUTES.POST_USER_RESET_PASSWORD({ id }));
+  return res.data;
+}
+

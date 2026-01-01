@@ -1,6 +1,5 @@
 import {useQuery, useQueryClient} from "@tanstack/react-query";
-import {api, jsonApi} from "@/lib/api";
-import {API_ROUTES} from "@/lib/routes";
+import {fetchVouchers} from "@/lib/voucher/voucher.api";
 
 export function useVoucher(
     enabled = true
@@ -10,13 +9,8 @@ export function useVoucher(
     const voucherQuery = useQuery({
         queryKey: ["vouchers", {enabled}],
         queryFn: async () => {
-            const res = await api.get(API_ROUTES.GET_VOUCHERS);
-            try {
-                return jsonApi.deserialise(res.data);
-            } catch {
-                // If server returns plain array/object, return as-is
-                return (res.data as unknown);
-            }
+            // Sử dụng fetchVouchers để lấy voucher campaigns từ campaigns API
+            return await fetchVouchers();
         },
         enabled: enabled,
     });
@@ -25,4 +19,6 @@ export function useVoucher(
         voucherQuery,
     };
 }
+
+
 
