@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
 import PromotionBanner from "@/components/PromotionBanner";
+import BookCombo from "@/components/BookCombo";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorite } from "@/contexts/FavoriteContext";
 import Link from "next/link";
 
-export default function ProductDetail({ params }: { params: { id: string } }) {
+export default function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { addToCart } = useCart();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorite();
-  const bookId = parseInt(params.id);
+  const resolvedParams = use(params);
+  const bookId = parseInt(resolvedParams.id);
 
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
@@ -58,16 +60,38 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         // --- Thể loại ---
         const genreIds =
           item.relationships?.genres?.data?.map((g: any) => g.id) || [];
-        const genreName =
+        const genreList =
           genreIds
             .map(
               (id: string) => includedMap.get(`genre-${id}`)?.attributes?.name
             )
-            .filter(Boolean)
-            .join(", ") || "Chưa phân loại";
+            .filter(Boolean) || [];
+        
+        const genreName = genreList.join(", ") || "Chưa phân loại";
 
-        // Genre CHÍNH để dùng tìm sách liên quan (lấy genre đầu tiên)
-        const mainGenreName = genreName.split(",")[0]?.trim() || "";
+        // Parent genres cần loại bỏ
+        const parentGenres = [
+          "Sách trong nước",
+          "Sách nước ngoài",
+          "Sách thiếu nhi",
+          "Kinh doanh",
+          "Kỹ năng sống",
+          "Manga / Comic",
+        ];
+
+        // Lọc bỏ parent genres để lấy genre con (genre cụ thể hơn)
+        const childGenres = genreList.filter(
+          (g: string) => !parentGenres.includes(g)
+        );
+
+        // Genre CHÍNH để dùng tìm sách liên quan
+        // Ưu tiên genre con, nếu không có thì mới dùng parent genre
+        const mainGenreName = childGenres.length > 0
+          ? childGenres[0]?.trim() || ""
+          : genreList.find((g: string) => parentGenres.includes(g))?.trim() || "";
+        
+        // Debug logs
+  
 
         // --- NXB ---
         const publisherId = item.relationships?.publisher?.data?.id;
@@ -88,11 +112,10 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         const copyIds =
           item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
         const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-        console.log("firstCopy", firstCopy);
+
         // const price = firstCopy?.attributes?.supplyPrice || 0;
         // const pages = firstCopy?.attributes?.pages || "Không rõ";
         const stock = firstCopy.attributes.stock;
-        console.log("item.addtributes.stock", stock);
 
         const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
         const detail = detailObj?.attributes || detailObj || {};
@@ -131,29 +154,37 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
         setBook(bookData);
 
         // =============================
-        // FETCH SÁCH LIÊN QUAN
+        // FETCH SÁCH CHO COMBO THEO CATEGORY/GENRE
+        // Gộp sách từ nhiều series cùng thể loại (Cross-series)
         // =============================
-        // BE hiện tại đang filter theo tên thể loại (?genre=...) chứ không phải id
+        let comboBooks: Book[] = [];
+        
+        // Tìm sách liên quan theo genre
+        // Ưu tiên genre con, nếu không có thì dùng parent genre
         if (mainGenreName) {
+          console.log("🔍 Đang tìm sách với genre:", mainGenreName);
+          
+          // Lấy nhiều sách hơn để có thể tạo combo đa dạng (20-30 cuốn)
           const relatedRes = await fetch(
-            `http://localhost:8080/v1/books?e=true&page=0&limit=10&genre=${encodeURIComponent(
+            `http://localhost:8080/v1/books?e=true&page=0&limit=30&genre=${encodeURIComponent(
               mainGenreName
             )}`
           );
 
           if (!relatedRes.ok) {
             const msg = await relatedRes.text();
-            console.error("Lỗi fetch related books:", relatedRes.status, msg);
-            setRelatedBooks([]);
+            console.error("❌ Lỗi fetch combo books:", relatedRes.status, msg);
           } else {
             const relatedJson = await relatedRes.json();
+            console.log("📦 API trả về:", relatedJson.data?.length || 0, "sách");
 
             const relIncludedMap = new Map();
             relatedJson.included?.forEach((i: any) =>
               relIncludedMap.set(`${i.type}-${i.id}`, i)
             );
 
-            const list: Book[] =
+            // Parse tất cả sách cùng genre
+            const allBooksInGenre: Book[] =
               relatedJson.data
                 // Loại bỏ chính cuốn hiện tại
                 ?.filter((b: any) => String(b.id) !== String(item.id))
@@ -178,6 +209,11 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
 
                   const priceRel = det.supplyPrice || det.price || 0;
 
+                  // Chỉ lọc sách có đủ thông tin cơ bản
+                  if (!b.id || !b.attributes?.title || priceRel <= 0) {
+                    return null;
+                  }
+
                   return {
                     id: Number(b.id),
                     title: b.attributes?.title,
@@ -185,21 +221,177 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
                     price: priceRel,
                     image: b.attributes?.imageUrl || "/default-book.jpg",
                     rating: b.attributes?.rating || 0,
-                    bookDetailId: Number(detailId),
-                    copyId: Number(detailId),
+                    bookDetailId: Number(detailId) || 0,
+                    copyId: Number(detailId) || 0,
                     bookFormat: det.bookFormat || "Khác",
-                    // các field khác BookCard không bắt buộc cho ô liên quan
                     year: b.attributes?.year || 0,
                     language: b.attributes?.language || "Không rõ",
                   } as Book;
-                }) || [];
+                })
+                .filter((b: Book | null): b is Book => b !== null) || []; // Lọc sách hợp lệ
 
-            console.log("📚 Related books loaded:", list);
-            setRelatedBooks(list);
+            console.log("✅ Sách hợp lệ sau khi parse:", allBooksInGenre.length);
+            console.log("📖 Chi tiết sách:", allBooksInGenre.map(b => ({ id: b.id, title: b.title, price: b.price })));
+
+            if (allBooksInGenre.length > 0) {
+              // Ưu tiên sách từ các tác giả/series khác nhau để tạo combo đa dạng
+              const authorGroups = new Map<string, Book[]>();
+              allBooksInGenre.forEach((book) => {
+                const authorKey = book.author || "Unknown";
+                if (!authorGroups.has(authorKey)) {
+                  authorGroups.set(authorKey, []);
+                }
+                authorGroups.get(authorKey)!.push(book);
+              });
+
+              // Lấy tối đa 1-2 cuốn từ mỗi tác giả để đảm bảo đa dạng
+              const diversifiedBooks: Book[] = [];
+              const maxPerAuthor = 2;
+              const maxComboSize = 6; // Tối đa 6 cuốn trong combo
+              const minComboSize = 2; // Tối thiểu 2 cuốn để có combo
+
+              for (const [author, books] of authorGroups.entries()) {
+                if (diversifiedBooks.length >= maxComboSize) break;
+                const booksToAdd = books.slice(0, maxPerAuthor);
+                diversifiedBooks.push(...booksToAdd);
+              }
+
+              // Nếu chưa đủ, lấy thêm từ các tác giả khác
+              if (diversifiedBooks.length < maxComboSize) {
+                const remaining = allBooksInGenre.filter(
+                  (b) => !diversifiedBooks.find((db) => db.id === b.id)
+                );
+                diversifiedBooks.push(
+                  ...remaining.slice(0, maxComboSize - diversifiedBooks.length)
+                );
+              }
+
+              // Giới hạn tối đa 6 cuốn cho combo
+              comboBooks = diversifiedBooks.slice(0, maxComboSize);
+              
+              // Nếu chưa đủ, lấy thêm từ tất cả sách có sẵn
+              if (comboBooks.length < 2) {
+                comboBooks = allBooksInGenre.slice(0, 6);
+              }
+              
+              console.log("✅ Combo books sau khi xử lý:", comboBooks.length, "cuốn");
+            } else {
+              console.log("⚠️ Không có sách hợp lệ trong genre:", mainGenreName);
+            }
           }
         } else {
-          setRelatedBooks([]);
+          console.log("⚠️ Không có mainGenreName để tìm sách liên quan");
         }
+
+        // Fallback: Nếu không có sách cùng genre con, thử lấy sách từ parent genre
+        // Hoặc nếu không có genre con, lấy trực tiếp từ parent genre
+        if (comboBooks.length === 0 && genreList.length > 0) {
+          // Tìm parent genre từ danh sách genres
+          const parentGenre = genreList.find((g: string) => parentGenres.includes(g));
+          
+          // Nếu có parent genre và (chưa tìm được sách hoặc mainGenreName là parent genre)
+          if (parentGenre) {
+            try {
+              const fallbackRes = await fetch(
+                `http://localhost:8080/v1/books?e=true&page=0&limit=30&genre=${encodeURIComponent(
+                  parentGenre
+                )}`
+              );
+              
+              if (fallbackRes.ok) {
+                const fallbackJson = await fallbackRes.json();
+                console.log("📦 Fallback API trả về:", fallbackJson.data?.length || 0, "sách");
+                
+                const fallbackIncludedMap = new Map();
+                fallbackJson.included?.forEach((i: any) =>
+                  fallbackIncludedMap.set(`${i.type}-${i.id}`, i)
+                );
+
+                const fallbackBooks: Book[] = fallbackJson.data
+                  ?.filter((b: any) => String(b.id) !== String(item.id))
+                  .map((b: any) => {
+                    const detailId = b.relationships?.bookCopies?.data?.[0]?.id || null;
+                    const detObj = fallbackIncludedMap.get(`bookDetail-${detailId}`);
+                    const det = detObj?.attributes || detObj || {};
+                    const creatorIds = b.relationships?.creators?.data?.map((c: any) => c.id) || [];
+                    const authors = creatorIds
+                      .map((id: string) => fallbackIncludedMap.get(`creator-${id}`)?.attributes?.name)
+                      .filter(Boolean)
+                      .join(", ") || "—";
+                    const priceRel = det.supplyPrice || det.price || 0;
+
+                    // Chỉ lọc sách có đủ thông tin cơ bản
+                    if (!b.id || !b.attributes?.title || priceRel <= 0) {
+                      return null;
+                    }
+
+                    return {
+                      id: Number(b.id),
+                      title: b.attributes?.title,
+                      author: authors,
+                      price: priceRel,
+                      image: b.attributes?.imageUrl || "/default-book.jpg",
+                      rating: b.attributes?.rating || 0,
+                      bookDetailId: Number(detailId) || 0,
+                      copyId: Number(detailId) || 0,
+                      bookFormat: det.bookFormat || "Khác",
+                      year: b.attributes?.year || 0,
+                      language: b.attributes?.language || "Không rõ",
+                    } as Book;
+                  })
+                  .filter((b: Book | null): b is Book => b !== null) || [];
+                  
+                console.log("✅ Fallback books hợp lệ:", fallbackBooks.length);
+
+                if (fallbackBooks.length > 0) {
+                  // Áp dụng logic đa dạng hóa tương tự
+                  const authorGroups = new Map<string, Book[]>();
+                  fallbackBooks.forEach((book) => {
+                    const authorKey = book.author || "Unknown";
+                    if (!authorGroups.has(authorKey)) {
+                      authorGroups.set(authorKey, []);
+                    }
+                    authorGroups.get(authorKey)!.push(book);
+                  });
+
+                  const diversifiedFallback: Book[] = [];
+                  const maxPerAuthor = 2;
+                  const maxComboSize = 6;
+
+                  for (const [author, books] of authorGroups.entries()) {
+                    if (diversifiedFallback.length >= maxComboSize) break;
+                    const booksToAdd = books.slice(0, maxPerAuthor);
+                    diversifiedFallback.push(...booksToAdd);
+                  }
+
+                  if (diversifiedFallback.length < maxComboSize) {
+                    const remaining = fallbackBooks.filter(
+                      (b) => !diversifiedFallback.find((db) => db.id === b.id)
+                    );
+                    diversifiedFallback.push(
+                      ...remaining.slice(0, maxComboSize - diversifiedFallback.length)
+                    );
+                  }
+
+                  comboBooks = diversifiedFallback.slice(0, maxComboSize);
+                  
+                  if (comboBooks.length < 2) {
+                    comboBooks = fallbackBooks.slice(0, 6);
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("Lỗi khi lấy sách từ parent genre:", err);
+            }
+          }
+        }
+
+        // Đảm bảo luôn set relatedBooks, ngay cả khi rỗng
+        console.log("📚 Final combo books:", comboBooks.length, "cuốn");
+        if (comboBooks.length > 0) {
+          console.log("📖 Danh sách sách:", comboBooks.map(b => b.title));
+        }
+        setRelatedBooks(comboBooks);
       } catch (err) {
         console.error(err);
       } finally {
@@ -676,6 +868,13 @@ export default function ProductDetail({ params }: { params: { id: string } }) {
               </div>
             </div>
           </div>
+
+          {/* COMBO SÁCH */}
+          {book && relatedBooks.length > 0 && (
+            <div className="px-8 pb-8 border-t">
+              <BookCombo mainBook={book} relatedBooks={relatedBooks} />
+            </div>
+          )}
 
           {/* TABS */}
           <div className="border-t">

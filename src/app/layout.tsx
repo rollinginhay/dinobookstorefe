@@ -5,6 +5,7 @@ import Navigation from "@/components/Navigation";
 import { CartProvider } from "@/contexts/CartContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { VoucherProvider } from "@/contexts/VoucherContext";
+import { PromotionProvider } from "@/contexts/PromotionContext";
 import FloatingWidgets from "@/components/FloatingWidgets";
 import Footer from "@/components/Footer";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
@@ -39,11 +40,13 @@ export default function RootLayout({
           <CartProvider>
             <FavoriteProvider>
               <VoucherProvider>
-                <Navigation />
-                {children}
-                <FloatingWidgets />
-                {/* <AIChatbox /> */}
-                <Footer />
+                <PromotionProvider>
+                  <Navigation />
+                  {children}
+                  <FloatingWidgets />
+                  {/* <AIChatbox /> */}
+                  <Footer />
+                </PromotionProvider>
               </VoucherProvider>
             </FavoriteProvider>
           </CartProvider>

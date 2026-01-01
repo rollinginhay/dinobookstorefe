@@ -114,9 +114,6 @@ function SachThieuNhi() {
 
             // Nếu có genre con → lấy nó, không thì gán "Khác"
             const genres = genreChildren.length > 0 ? genreChildren : ["Khác"];
-
-            console.log("Name", genres);
-            console.log("Child", genreChildren);
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 

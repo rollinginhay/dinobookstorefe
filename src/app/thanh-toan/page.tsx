@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useVoucher } from "@/contexts/VoucherContext";
+import { usePromotion } from "@/contexts/PromotionContext";
 import Breadcrumb from "@/components/Breadcrumb";
 import { useRouter } from "next/navigation";
 import { ReceiptDetail } from "@/contexts/ReceiptContext";
@@ -14,11 +15,13 @@ type Ward = { code: number; name: string };
 
 export default function ThanhToan() {
   const router = useRouter();
-  const { cartItems, clearCart, totalPrice } = useCart();
+  const { selectedCartItems, clearCart, clearAllCartFromBackend, selectedTotalPrice } = useCart();
   const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
+  const { activePromotions, getPromotionForBook, calculatePromotionDiscount } = usePromotion();
 
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [selectedPromotionId, setSelectedPromotionId] = useState<string>("");
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -45,8 +48,47 @@ export default function ThanhToan() {
   }, []);
 
   // --- Calculate totals ---
-  const shipping = totalPrice >= 299000 ? 0 : 30000;
-  const subtotal = totalPrice + shipping;
+  // Chỉ tính phí ship khi có sản phẩm được chọn
+  const shipping = selectedCartItems.length > 0 ? (selectedTotalPrice >= 299000 ? 0 : 30000) : 0;
+  const subtotal = selectedTotalPrice + shipping;
+
+  // Tính promotion discount (tự động áp dụng đợt giảm giá tốt nhất)
+  const calculateBestPromotion = () => {
+    if (selectedCartItems.length === 0) return null;
+    
+    // Tìm đợt giảm giá phù hợp nhất cho từng sản phẩm
+    let bestPromotion = null;
+    let maxDiscount = 0;
+    
+    selectedCartItems.forEach((item) => {
+      const promo = getPromotionForBook(item.id, item.genreName);
+      if (promo) {
+        const discount = calculatePromotionDiscount(promo.id, item.price * item.quantity);
+        if (discount > maxDiscount) {
+          maxDiscount = discount;
+          bestPromotion = promo;
+        }
+      }
+    });
+    
+    // Hoặc tìm đợt giảm giá áp dụng cho toàn bộ đơn hàng
+    activePromotions.forEach((promo) => {
+      if (!promo.applicableCategories && !promo.applicableBooks) {
+        const discount = calculatePromotionDiscount(promo.id, subtotal);
+        if (discount > maxDiscount) {
+          maxDiscount = discount;
+          bestPromotion = promo;
+        }
+      }
+    });
+    
+    return bestPromotion;
+  };
+
+  const bestPromotion = calculateBestPromotion();
+  const promotionDiscount = bestPromotion 
+    ? calculatePromotionDiscount(bestPromotion.id, subtotal)
+    : 0;
 
   const voucherDiscount =
     selectedVoucherId &&
@@ -54,7 +96,25 @@ export default function ThanhToan() {
       ? calculateDiscount(selectedVoucherId, subtotal)
       : 0;
 
-  const finalTotal = Math.max(subtotal - voucherDiscount, 0);
+  // Tổng giảm giá = promotion + voucher (không cộng dồn, lấy cái lớn hơn hoặc cộng tùy logic)
+  const totalDiscount = promotionDiscount + voucherDiscount;
+  const finalTotal = Math.max(subtotal - totalDiscount, 0);
+
+  // Debug logs (có thể xóa sau khi test)
+  useEffect(() => {
+    if (selectedCartItems.length > 0) {
+      console.log('=== DEBUG GIẢM GIÁ ===');
+      console.log('Active Promotions:', activePromotions);
+      console.log('Best Promotion:', bestPromotion);
+      console.log('Promotion Discount:', promotionDiscount);
+      console.log('Selected Voucher ID:', selectedVoucherId);
+      console.log('Voucher Discount:', voucherDiscount);
+      console.log('Subtotal:', subtotal);
+      console.log('Total Discount:', totalDiscount);
+      console.log('Final Total:', finalTotal);
+      console.log('========================');
+    }
+  }, [selectedCartItems, bestPromotion, promotionDiscount, selectedVoucherId, voucherDiscount, subtotal, totalDiscount, finalTotal, activePromotions]);
 
   // ----------------- Handle Submit -----------------
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,14 +143,14 @@ export default function ThanhToan() {
           orderStatus: "PENDING",
           orderType: "ONLINE",
           note: formData.note,
-          discount: voucherDiscount,
+          discount: totalDiscount,
           subTotal: subtotal,
           serviceCost: shipping,
           grandTotal: finalTotal,
         },
         relationships: {
           receiptDetails: {
-            data: cartItems.map((item) => ({
+            data: selectedCartItems.map((item) => ({
               id: item.id,
               type: "receiptDetails",
               attributes: {
@@ -157,8 +217,17 @@ export default function ThanhToan() {
         if (!res.ok) throw new Error("Lỗi tạo đơn hàng COD");
 
         const receipt = await res.json();
-        clearCart();
         localStorage.setItem("latestOrder", JSON.stringify(receipt));
+        
+        // Xóa TẤT CẢ giỏ hàng từ backend (không chỉ items đã chọn)
+        // Đợi xóa xong mới chuyển trang
+        console.log('🛒 Bắt đầu xóa giỏ hàng sau khi đặt hàng...');
+        await clearAllCartFromBackend();
+        console.log('✅ Đã xóa xong giỏ hàng, chuyển trang...');
+        
+        // Đợi thêm một chút để đảm bảo backend đã xử lý xong
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         alert("Đặt hàng thành công!");
         router.push("/hoa-don");
         return;
@@ -382,18 +451,21 @@ export default function ThanhToan() {
   // ===================================================
   // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
   // ===================================================
-  if (cartItems.length === 0) {
+  if (selectedCartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Giỏ hàng trống
+            Chưa có sản phẩm được chọn
           </h2>
+          <p className="text-gray-600 mb-4">
+            Vui lòng chọn sản phẩm trong giỏ hàng để thanh toán
+          </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/gio-hang")}
             className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
           >
-            Tiếp tục mua sắm
+            Quay lại giỏ hàng
           </button>
         </div>
       </div>
@@ -660,7 +732,7 @@ export default function ThanhToan() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Đơn hàng</h2>
 
               <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                {cartItems.map((item) => (
+                {selectedCartItems.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center gap-3 text-sm"
@@ -684,6 +756,33 @@ export default function ThanhToan() {
                   </div>
                 ))}
               </div>
+
+              {/* Promotion Section */}
+              {bestPromotion && promotionDiscount > 0 && (
+                <div className="border-t pt-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Đợt giảm giá
+                    </span>
+                    <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold">
+                      Tự động áp dụng
+                    </span>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-red-800">
+                        {bestPromotion.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-600 mb-1">
+                      {bestPromotion.description}
+                    </p>
+                    <div className="text-sm font-bold text-red-600">
+                      -{promotionDiscount.toLocaleString("vi-VN")}₫
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Voucher Section */}
               <div className="border-t pt-4 mb-4">
@@ -726,7 +825,7 @@ export default function ThanhToan() {
               <div className="border-t pt-4 space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính</span>
-                  <span>{totalPrice.toLocaleString("vi-VN")} ₫</span>
+                  <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>
@@ -740,12 +839,24 @@ export default function ThanhToan() {
                     )}
                   </span>
                 </div>
-                {voucherDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Giảm giá</span>
-                    <span className="font-semibold">
-                      -{voucherDiscount.toLocaleString("vi-VN")} ₫
-                    </span>
+                {totalDiscount > 0 && (
+                  <div className="space-y-1">
+                    {promotionDiscount > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>Đợt giảm giá</span>
+                        <span className="font-semibold">
+                          -{promotionDiscount.toLocaleString("vi-VN")} ₫
+                        </span>
+                      </div>
+                    )}
+                    {voucherDiscount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Mã giảm giá</span>
+                        <span className="font-semibold">
+                          -{voucherDiscount.toLocaleString("vi-VN")} ₫
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="border-t pt-3">

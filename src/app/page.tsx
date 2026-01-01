@@ -226,7 +226,6 @@ export default function Home() {
           };
         }) || [];
 
-      console.log("boooks", books);
       localStorage.setItem("allBookData", JSON.stringify(books));
       setAllBooks(books);
     } catch (err: any) {

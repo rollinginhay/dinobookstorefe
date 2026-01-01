@@ -1,6 +1,24 @@
 'use client';
 
+import { usePromotion } from '@/contexts/PromotionContext';
+import Link from 'next/link';
+
 export default function PromotionBanner() {
+  const { activePromotions } = usePromotion();
+  
+  // Lấy đợt giảm giá nổi bật nhất (discount cao nhất)
+  const featuredPromotion = activePromotions.length > 0
+    ? activePromotions.reduce((best, current) => {
+        const bestDiscount = best.discountType === 'percentage' 
+          ? best.discount 
+          : (best.discount / 1000) * 100; // Ước tính % cho fixed
+        const currentDiscount = current.discountType === 'percentage'
+          ? current.discount
+          : (current.discount / 1000) * 100;
+        return currentDiscount > bestDiscount ? current : best;
+      })
+    : null;
+
   return (
     <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white py-3 relative overflow-hidden">
       {/* Animated background */}
@@ -19,12 +37,31 @@ export default function PromotionBanner() {
             <span className="font-bold text-lg">KHUYẾN MÃI ĐẶC BIỆT</span>
           </div>
           <span className="hidden sm:inline text-white/70">|</span>
-          <div className="text-center sm:text-left">
-            <span className="text-base sm:text-lg">
-              Giảm đến <span className="font-bold text-yellow-300 text-xl">50%</span> cho đơn hàng đầu tiên
-            </span>
-          </div>
-          <span className="hidden sm:inline text-white/70">|</span>
+          {featuredPromotion ? (
+            <>
+              <Link href="/khuyen-mai" className="text-center sm:text-left hover:underline">
+                <span className="text-base sm:text-lg">
+                  🔥 {featuredPromotion.name}: Giảm{' '}
+                  <span className="font-bold text-yellow-300 text-xl">
+                    {featuredPromotion.discountType === 'percentage' 
+                      ? `${featuredPromotion.discount}%`
+                      : `${featuredPromotion.discount.toLocaleString('vi-VN')}₫`
+                    }
+                  </span>
+                </span>
+              </Link>
+              <span className="hidden sm:inline text-white/70">|</span>
+            </>
+          ) : (
+            <>
+              <div className="text-center sm:text-left">
+                <span className="text-base sm:text-lg">
+                  Giảm đến <span className="font-bold text-yellow-300 text-xl">50%</span> cho đơn hàng đầu tiên
+                </span>
+              </div>
+              <span className="hidden sm:inline text-white/70">|</span>
+            </>
+          )}
           <div className="text-center sm:text-left">
             <span className="text-base sm:text-lg">
               🚚 Miễn phí ship cho đơn từ <span className="font-bold">299.000₫</span>

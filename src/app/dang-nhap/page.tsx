@@ -87,7 +87,6 @@ export default function DangNhapPage() {
         localStorage.setItem("userId", data.userId);
         window.location.reload();
         setIsLoggedIn(true);
-        console.log("data", data);
       }
 
       setLoginMessage("Đăng nhập thành công! Bạn có thể quay lại trang chủ.");
