@@ -1,5 +1,5 @@
 import axios from "axios"; // your configured axios instance
-
+// import {api} from "@/lib/api"; // your configured axios instance
 export async function uploadToCloudinary(imageFile: File) {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -12,6 +12,7 @@ export async function uploadToCloudinary(imageFile: File) {
 
     // Must use a raw axios instance that allows multipart/form-data
     const response = await axios.post(url, formData, {
+    // const response = await api.post(url, formData, {
         headers: {
             "Content-Type": "multipart/form-data",
         },
