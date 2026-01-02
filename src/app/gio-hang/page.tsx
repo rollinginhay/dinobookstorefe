@@ -7,13 +7,17 @@ import { useEffect, useState } from "react";
 import { Book } from "@/components/BookCard";
 
 // Component để quản lý state expanded cho từng combo
-function ComboItem({ item, handleQuantityChange, removeFromCart }: {
+function ComboItem({
+  item,
+  handleQuantityChange,
+  removeFromCart,
+}: {
   item: CartItem;
   handleQuantityChange: (cartDetailId: number, quantity: number) => void;
   removeFromCart: (cartDetailId: number) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   if (!item.isCombo || !item.comboBooks || item.comboBooks.length === 0) {
     return null;
   }
@@ -45,10 +49,14 @@ function ComboItem({ item, handleQuantityChange, removeFromCart }: {
                 </h3>
               </div>
               <p className="text-sm text-gray-600 mb-2">
-                {item.comboBooks.map(b => b.title).join(", ").substring(0, 80)}
-                {item.comboBooks.map(b => b.title).join(", ").length > 80 && "..."}
+                {item.comboBooks
+                  .map((b) => b.title)
+                  .join(", ")
+                  .substring(0, 80)}
+                {item.comboBooks.map((b) => b.title).join(", ").length > 80 &&
+                  "..."}
               </p>
-              
+
               {/* Combo Price Info */}
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-red-600 font-bold text-lg">
@@ -75,7 +83,9 @@ function ComboItem({ item, handleQuantityChange, removeFromCart }: {
               >
                 {isExpanded ? "Ẩn" : "Xem"} chi tiết combo
                 <svg
-                  className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -138,10 +148,7 @@ function ComboItem({ item, handleQuantityChange, removeFromCart }: {
           <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
             <button
               onClick={() =>
-                handleQuantityChange(
-                  item.cartDetailId,
-                  item.quantity - 1
-                )
+                handleQuantityChange(item.cartDetailId, item.quantity - 1)
               }
               className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -174,10 +181,7 @@ function ComboItem({ item, handleQuantityChange, removeFromCart }: {
             />
             <button
               onClick={() =>
-                handleQuantityChange(
-                  item.cartDetailId,
-                  item.quantity + 1
-                )
+                handleQuantityChange(item.cartDetailId, item.quantity + 1)
               }
               className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -226,9 +230,6 @@ export default function GioHang() {
     totalPrice,
   } = useCart();
   const currentBookList = localStorage.getItem("allBookData");
-  console.log("currentBookList", currentBookList);
-  // console.log("cartItems", cartItems);
-  // Sử dụng cartDetailId để update quantity
   const handleQuantityChange = (cartDetailId: number, newQuantity: number) => {
     if (isNaN(newQuantity)) return;
 
@@ -240,7 +241,8 @@ export default function GioHang() {
   const [currentCartItems, setCurrentCartItems] = useState<CartItem[]>([]);
 
   // Chỉ tính phí ship khi có sản phẩm được chọn
-  const shipping = selectedTotalItems > 0 ? (selectedTotalPrice >= 299000 ? 0 : 30000) : 0;
+  const shipping =
+    selectedTotalItems > 0 ? (selectedTotalPrice >= 299000 ? 0 : 30000) : 0;
   const finalTotal = selectedTotalPrice + shipping;
   const getBookDataByID = (
     id: number
@@ -263,18 +265,20 @@ export default function GioHang() {
 
   useEffect(() => {
     // Lấy combo metadata từ localStorage
-    const comboMetadata = JSON.parse(localStorage.getItem('cartCombos') || '[]');
-    
+    const comboMetadata = JSON.parse(
+      localStorage.getItem("cartCombos") || "[]"
+    );
+
     // Tạo map để nhóm các items theo comboId
     const comboMap = new Map<string, CartItem[]>();
     const standaloneItems: CartItem[] = [];
-    
+
     cartItems.forEach((item) => {
       // Kiểm tra xem item này có thuộc combo nào không
-      const comboMeta = comboMetadata.find((cm: any) => 
+      const comboMeta = comboMetadata.find((cm: any) =>
         cm.cartDetailIds.includes(item.cartDetailId)
       );
-      
+
       if (comboMeta) {
         // Item thuộc combo
         if (!comboMap.has(comboMeta.comboId)) {
@@ -286,39 +290,43 @@ export default function GioHang() {
         standaloneItems.push(item);
       }
     });
-    
+
     // Tạo combo items từ comboMap
-    const comboItems: CartItem[] = Array.from(comboMap.entries()).map(([comboId, items]) => {
-      const comboMeta = comboMetadata.find((cm: any) => cm.comboId === comboId);
-      if (!comboMeta) return null;
-      
-      // Lấy item đầu tiên làm đại diện
-      const firstItem = items[0];
-      
-      return {
-        ...firstItem,
-        id: `combo-${comboId}` as any,
-        title: comboMeta.comboName,
-        price: comboMeta.comboPrice,
-        amount: comboMeta.comboPrice * comboMeta.quantity,
-        quantity: comboMeta.quantity,
-        isCombo: true,
-        comboBooks: comboMeta.books,
-        comboName: comboMeta.comboName,
-        comboOriginalPrice: comboMeta.comboOriginalPrice,
-        comboDiscount: comboMeta.comboDiscount,
-      } as CartItem;
-    }).filter((item): item is CartItem => item !== null);
-    
+    const comboItems: CartItem[] = Array.from(comboMap.entries())
+      .map(([comboId, items]) => {
+        const comboMeta = comboMetadata.find(
+          (cm: any) => cm.comboId === comboId
+        );
+        if (!comboMeta) return null;
+
+        // Lấy item đầu tiên làm đại diện
+        const firstItem = items[0];
+
+        return {
+          ...firstItem,
+          id: `combo-${comboId}` as any,
+          title: comboMeta.comboName,
+          price: comboMeta.comboPrice,
+          amount: comboMeta.comboPrice * comboMeta.quantity,
+          quantity: comboMeta.quantity,
+          isCombo: true,
+          comboBooks: comboMeta.books,
+          comboName: comboMeta.comboName,
+          comboOriginalPrice: comboMeta.comboOriginalPrice,
+          comboDiscount: comboMeta.comboDiscount,
+        } as CartItem;
+      })
+      .filter((item): item is CartItem => item !== null);
+
     // Gộp combo items và standalone items
     const allItems = [...comboItems, ...standaloneItems];
-    
+
     // Nhóm các items đơn lẻ trùng lặp (giữ nguyên logic cũ)
     const previousData: { [id: number]: any } = {};
     allItems.forEach((item) => {
       // Bỏ qua combo items
       if (item.isCombo) return;
-      
+
       if (!previousData[item.id]) {
         previousData[item.id] = { ...item };
         return;
@@ -420,14 +428,27 @@ export default function GioHang() {
                   className="bg-white rounded-lg shadow-sm p-6"
                 >
                   <div className="flex items-start gap-4">
+                    {/* Image */}
+                    <Link href={`/san-pham/${item.id}`}>
+                      <div className="aspect-[3/4] w-24 rounded-lg overflow-hidden relative cursor-pointer flex-shrink-0">
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      </div>
+                    </Link>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.cartDetailId)}
                       onChange={() => toggleSelectItem(item.cartDetailId)}
                       className="w-5 h-5 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
+                    {/* Info */}
                     <div className="flex-1">
-                      {item.isCombo && item.comboBooks && item.comboBooks.length > 0 ? (
+                      {item.isCombo &&
+                      item.comboBooks &&
+                      item.comboBooks.length > 0 ? (
                         <ComboItem
                           item={item}
                           handleQuantityChange={handleQuantityChange}
@@ -496,7 +517,9 @@ export default function GioHang() {
                                 </button>
                                 <input
                                   type="number"
-                                  value={isNaN(item.quantity) ? 1 : item.quantity}
+                                  value={
+                                    isNaN(item.quantity) ? 1 : item.quantity
+                                  }
                                   onChange={(e) =>
                                     handleQuantityChange(
                                       item.cartDetailId,
@@ -535,7 +558,9 @@ export default function GioHang() {
 
                               {/* Remove Button */}
                               <button
-                                onClick={() => removeFromCart(item.cartDetailId)}
+                                onClick={() =>
+                                  removeFromCart(item.cartDetailId)
+                                }
                                 className="text-red-600 hover:text-red-700 p-2"
                               >
                                 <svg
@@ -559,7 +584,9 @@ export default function GioHang() {
                           <div className="text-right mt-2">
                             <span className="text-gray-600">Thành tiền: </span>
                             <span className="text-xl font-bold text-red-600">
-                              {(item.price * item.quantity).toLocaleString("vi-VN")}{" "}
+                              {(item.price * item.quantity).toLocaleString(
+                                "vi-VN"
+                              )}{" "}
                               ₫
                             </span>
                           </div>
@@ -582,8 +609,12 @@ export default function GioHang() {
                   {selectedTotalItems > 0 ? (
                     <>
                       <div className="flex justify-between text-gray-600">
-                        <span>Tạm tính ({selectedTotalItems} sản phẩm đã chọn)</span>
-                        <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
+                        <span>
+                          Tạm tính ({selectedTotalItems} sản phẩm đã chọn)
+                        </span>
+                        <span>
+                          {selectedTotalPrice.toLocaleString("vi-VN")} ₫
+                        </span>
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>Phí vận chuyển</span>
@@ -597,12 +628,16 @@ export default function GioHang() {
                           )}
                         </span>
                       </div>
-                      {selectedTotalPrice > 0 && selectedTotalPrice < 299000 && (
-                        <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                          Mua thêm {(299000 - selectedTotalPrice).toLocaleString("vi-VN")} ₫
-                          để được miễn phí ship
-                        </div>
-                      )}
+                      {selectedTotalPrice > 0 &&
+                        selectedTotalPrice < 299000 && (
+                          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                            Mua thêm{" "}
+                            {(299000 - selectedTotalPrice).toLocaleString(
+                              "vi-VN"
+                            )}{" "}
+                            ₫ để được miễn phí ship
+                          </div>
+                        )}
                       <div className="border-t pt-4">
                         <div className="flex justify-between text-lg font-bold text-gray-900">
                           <span>Tổng cộng</span>

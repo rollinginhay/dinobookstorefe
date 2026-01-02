@@ -502,16 +502,10 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     try {
       // 1) Tạo hóa đơn
       const receiptId = await createReceipt();
-      console.log("Tạo hóa đơn thành công:", receiptId);
-
       // 2) Tạo receipt detail (sản phẩm)
       const detailId = await createReceiptDetail(book.price, quantity);
-      console.log("Tạo chi tiết hóa đơn:", detailId);
-
       // 3) Gắn vào hóa đơn
       await attachDetail(receiptId, detailId);
-      console.log("Đã gắn sản phẩm vào hóa đơn");
-
       // 4) Điều hướng sang trang thanh toán
       router.push(`/thanh-toan?receiptId=${receiptId}`);
     } catch (err) {

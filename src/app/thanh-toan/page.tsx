@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useVoucher } from "@/contexts/VoucherContext";
-import { usePromotion } from "@/contexts/PromotionContext";
+
 import Breadcrumb from "@/components/Breadcrumb";
 import { useRouter } from "next/navigation";
-import { ReceiptDetail } from "@/contexts/ReceiptContext";
-import { json } from "stream/consumers";
 
 type Province = { code: number; name: string };
 type District = { code: number; name: string };
@@ -15,13 +13,13 @@ type Ward = { code: number; name: string };
 
 export default function ThanhToan() {
   const router = useRouter();
-  const { selectedCartItems, clearCart, clearAllCartFromBackend, selectedTotalPrice } = useCart();
+  const { selectedCartItems, clearAllCartFromBackend, selectedTotalPrice } =
+    useCart();
   const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
-  const { activePromotions, getPromotionForBook, calculatePromotionDiscount } = usePromotion();
 
+  const { cartItems, clearCart, totalPrice } = useCart();
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
-  const [selectedPromotionId, setSelectedPromotionId] = useState<string>("");
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -35,7 +33,7 @@ export default function ThanhToan() {
     city: "",
     district: "",
     ward: "",
-    paymentMethod: "cod||banking",
+    paymentMethod: "CASH||TRANSFER",
     note: "",
   });
 
@@ -48,47 +46,8 @@ export default function ThanhToan() {
   }, []);
 
   // --- Calculate totals ---
-  // Chỉ tính phí ship khi có sản phẩm được chọn
-  const shipping = selectedCartItems.length > 0 ? (selectedTotalPrice >= 299000 ? 0 : 30000) : 0;
-  const subtotal = selectedTotalPrice + shipping;
-
-  // Tính promotion discount (tự động áp dụng đợt giảm giá tốt nhất)
-  const calculateBestPromotion = () => {
-    if (selectedCartItems.length === 0) return null;
-    
-    // Tìm đợt giảm giá phù hợp nhất cho từng sản phẩm
-    let bestPromotion = null;
-    let maxDiscount = 0;
-    
-    selectedCartItems.forEach((item) => {
-      const promo = getPromotionForBook(item.id, item.genreName);
-      if (promo) {
-        const discount = calculatePromotionDiscount(promo.id, item.price * item.quantity);
-        if (discount > maxDiscount) {
-          maxDiscount = discount;
-          bestPromotion = promo;
-        }
-      }
-    });
-    
-    // Hoặc tìm đợt giảm giá áp dụng cho toàn bộ đơn hàng
-    activePromotions.forEach((promo) => {
-      if (!promo.applicableCategories && !promo.applicableBooks) {
-        const discount = calculatePromotionDiscount(promo.id, subtotal);
-        if (discount > maxDiscount) {
-          maxDiscount = discount;
-          bestPromotion = promo;
-        }
-      }
-    });
-    
-    return bestPromotion;
-  };
-
-  const bestPromotion = calculateBestPromotion();
-  const promotionDiscount = bestPromotion 
-    ? calculatePromotionDiscount(bestPromotion.id, subtotal)
-    : 0;
+  const shipping = totalPrice >= 299000 ? 0 : 30000;
+  const subtotal = totalPrice + shipping;
 
   const voucherDiscount =
     selectedVoucherId &&
@@ -97,24 +56,7 @@ export default function ThanhToan() {
       : 0;
 
   // Tổng giảm giá = promotion + voucher (không cộng dồn, lấy cái lớn hơn hoặc cộng tùy logic)
-  const totalDiscount = promotionDiscount + voucherDiscount;
-  const finalTotal = Math.max(subtotal - totalDiscount, 0);
-
-  // Debug logs (có thể xóa sau khi test)
-  useEffect(() => {
-    if (selectedCartItems.length > 0) {
-      console.log('=== DEBUG GIẢM GIÁ ===');
-      console.log('Active Promotions:', activePromotions);
-      console.log('Best Promotion:', bestPromotion);
-      console.log('Promotion Discount:', promotionDiscount);
-      console.log('Selected Voucher ID:', selectedVoucherId);
-      console.log('Voucher Discount:', voucherDiscount);
-      console.log('Subtotal:', subtotal);
-      console.log('Total Discount:', totalDiscount);
-      console.log('Final Total:', finalTotal);
-      console.log('========================');
-    }
-  }, [selectedCartItems, bestPromotion, promotionDiscount, selectedVoucherId, voucherDiscount, subtotal, totalDiscount, finalTotal, activePromotions]);
+  const finalTotal = Math.max(subtotal - voucherDiscount, 0);
 
   // ----------------- Handle Submit -----------------
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,36 +85,23 @@ export default function ThanhToan() {
           orderStatus: "PENDING",
           orderType: "ONLINE",
           note: formData.note,
-          discount: totalDiscount,
+          discount: voucherDiscount,
           subTotal: subtotal,
           serviceCost: shipping,
           grandTotal: finalTotal,
+          hasShipping: shipping > 0,
         },
         relationships: {
           receiptDetails: {
-            data: selectedCartItems.map((item) => ({
-              id: item.id,
-              type: "receiptDetails",
-              attributes: {
-                id: item.id,
-                quantity: item.quantity,
-                price: item.price,
-              },
+            data: cartItems.map((item) => ({
+              type: "receiptDetail",
+              id: String(item.id),
             })),
           },
           // paymentDetail: {
           //   data: {
-          //     id: Date.now(),
           //     type: "paymentDetail",
-          //     attributes: {
-          //       totalPrice: totalPrice,
-          //       paymentType:
-          //         formData.paymentMethod === "cod"
-          //           ? "CASH"
-          //           : formData.paymentMethod === "banking"
-          //           ? "VNPAY"
-          //           : "MOMO",
-          //     },
+          //     id: 1,
           //   },
           // },
           customer: {
@@ -181,30 +110,41 @@ export default function ThanhToan() {
               id: userId,
             },
           },
-          employee: {
-            data: null,
-          },
+          employee: { data: null },
         },
       },
+      included: [
+        ...cartItems.map((item) => ({
+          type: "receiptDetail",
+          id: String(item.id),
+          attributes: {
+            quantity: item.quantity,
+            pricePerUnit: item.price,
+            bookCopy: item.cartDetailId,
+          },
+          relationships: {
+            bookCopy: {
+              data: {
+                type: "bookCopy",
+                id: item.cartDetailId ?? item.id,
+              },
+            },
+          },
+        })),
+        // {
+        //   type: "paymentDetail",
+        //   id: 1,
+        //   attributes: {
+        //     paymentType: formData.paymentMethod,
+        //     amount: finalTotal, // tổng tiền
+        //   },
+        // },
+      ],
     };
-    // const paymentDetailPayload =  {
-    //   data: {
-    //     type: "paymentDetail",
-    //     id: 0,
-    //     attributes: {
-    //       amount: ,
-    //       paymentType: formData.paymentMethod === "COD"
-    //                 ? "CASH"
-    //                 : formData.paymentMethod === "BANKING"
-    //                 ? "VNPAY"
-    //                 : "MOMO",
-    //     }
 
-    //   }
-    // }
     try {
       // --------------- COD ----------------
-      if (formData.paymentMethod === "cod") {
+      if (formData.paymentMethod === "CASH") {
         const res = await fetch(
           "http://localhost:8080/v1/receipt/createOnline",
           {
@@ -215,66 +155,65 @@ export default function ThanhToan() {
         );
 
         if (!res.ok) throw new Error("Lỗi tạo đơn hàng COD");
-
         const receipt = await res.json();
+        clearCart();
         localStorage.setItem("latestOrder", JSON.stringify(receipt));
-        
+
         // Xóa TẤT CẢ giỏ hàng từ backend (không chỉ items đã chọn)
         // Đợi xóa xong mới chuyển trang
-        console.log('🛒 Bắt đầu xóa giỏ hàng sau khi đặt hàng...');
-        await clearAllCartFromBackend();
-        console.log('✅ Đã xóa xong giỏ hàng, chuyển trang...');
-        
-        // Đợi thêm một chút để đảm bảo backend đã xử lý xong
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        alert("Đặt hàng thành công!");
-        router.push("/hoa-don");
+        alert("Đặt hàng thành công! Vui lòng kiểm tra email của bạn");
+        router.push("/");
         return;
       }
 
       // --------------- BANKING / VNPay ----------------
-      if (formData.paymentMethod === "banking") {
-        // 1. Tạo receipt
-        const receiptRes = await fetch(
-          "http://localhost:8080/v1/receipt/createOnline",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(receiptPayload),
+      if (formData.paymentMethod === "TRANSFER") {
+        try {
+          // 1. Tạo receipt trước
+          const receiptRes = await fetch(
+            "http://localhost:8080/v1/receipt/createOnline",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(receiptPayload),
+            }
+          );
+
+          if (!receiptRes.ok) {
+            throw new Error("Không tạo được đơn hàng!");
           }
-        );
 
-        if (!receiptRes.ok) throw new Error("Lỗi tạo receipt!");
-
-        const receipt = await receiptRes.json();
-        const receiptId = receipt.data.id;
-
-        // 2. Tạo VNPay URL
-        const payRes = await fetch(
-          `http://localhost:8080/api/vnpay/pay-receipt/${receiptId}?returnUrl=http://localhost:3000/vnpay-return`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(receiptPayload),
+          const receipt = await receiptRes.json();
+          const receiptId = receipt?.data?.id;
+          if (!receiptId) {
+            throw new Error("Không lấy được receiptId!");
           }
-        );
 
-        if (!payRes.ok) throw new Error("Lỗi tạo URL VNPay!");
+          // 2. Gọi API tạo URL VNPay
+          const vnpayRes = await fetch(
+            `http://localhost:8080/api/vnpay/pay-receipt/${receiptId}?returnUrl=http://localhost:3000/vnpay-return`,
+            {
+              method: "POST",
+            }
+          );
+          if (!vnpayRes.ok) {
+            throw new Error("Không tạo được URL thanh toán VNPay!");
+          }
 
-        const data = await payRes.json();
+          const vnpayData = await vnpayRes.json();
 
-        if (data.paymentUrl) {
-          window.location.href = data.paymentUrl;
-        } else {
-          alert("Không tạo được URL thanh toán VNPay!");
+          if (vnpayData?.paymentUrl) {
+            // 3. Redirect sang VNPay
+            window.location.href = vnpayData.paymentUrl;
+          } else {
+            throw new Error("paymentUrl không tồn tại!");
+          }
+
+          return;
+        } catch (error) {
+          console.error("VNPay error:", error);
+          alert("Lỗi khi thanh toán VNPay!");
         }
-        return;
-      }
-
-      // --------------- MOMO ----------------
-      if (formData.paymentMethod === "momo") {
-        alert("Thanh toán Momo đang phát triển");
       }
     } catch (err) {
       console.error(err);
@@ -349,104 +288,6 @@ export default function ThanhToan() {
       ward: selected?.name || "",
     }));
   };
-
-  // ===============================
-  // 🔥 HANDLE SUBMIT
-  // ===============================
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-
-  //   const payload = {
-  //     fullName: formData.fullName,
-  //     phone: formData.phone,
-  //     email: formData.email,
-  //     address: `${formData.address}, ${formData.ward}, ${formData.district}, ${formData.city}`,
-  //     note: formData.note,
-  //     paymentMethod: formData.paymentMethod,
-  //     items: cartItems.map((item) => ({
-  //       bookDetailId: item.copyId,
-  //       quantity: item.quantity,
-  //       pricePerUnit: item.price,
-  //     })),
-  //   };
-
-  //   console.log("📦 PAYLOAD gửi BE:", payload);
-  //   console.log("🛒 CART:", cartItems);
-
-  //   try {
-  //     const res = await fetch("http://localhost:8080/v1/orders/guest", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(payload),
-  //     });
-
-  //     if (!res.ok) {
-  //       console.error("❌ Lỗi tạo đơn hàng", res.status);
-  //       alert("Đặt hàng thất bại, vui lòng thử lại!");
-  //       return;
-  //     }
-
-  //     const data = await res.json();
-  //     console.log("✅ ORDER RESPONSE:", data);
-
-  //     alert("Đặt hàng thành công! Kiểm tra email nhé ❤️");
-  //     clearCart();
-  //     router.push("/");
-  //   } catch (err) {
-  //     console.error("❌ ERROR:", err);
-  //     alert("Không thể kết nối server!");
-
-  //     const confirmOrder = window.confirm(
-  //       "Bạn có chắc chắn muốn đặt hàng không?"
-  //     );
-  //     if (!confirmOrder) return;
-
-  //     const orderData = {
-  //       info: formData,
-  //       items: cartItems,
-  //       shipping,
-  //       voucherDiscount,
-  //       finalTotal,
-  //       voucherId: selectedVoucherId,
-  //       createdAt: new Date().toISOString(),
-  //     };
-
-  //     if (formData.paymentMethod === "cod") {
-  //       localStorage.setItem("latestOrder", JSON.stringify(orderData));
-  //       clearCart();
-  //       alert("Đặt hàng thành công!");
-  //       router.push("/hoa-don");
-  //     } else if (formData.paymentMethod === "banking") {
-  //       try {
-  //         const res = await fetch(
-  //           "http://localhost:8080/api/vnpay/create-payment",
-  //           {
-  //             method: "POST",
-  //             headers: { "Content-Type": "application/json" },
-  //             body: JSON.stringify({
-  //               amount: finalTotal,
-  //               orderInfo: "Đơn hàng #" + new Date().getTime(),
-  //               returnUrl: "http://localhost:3000/vnpay-return",
-  //             }),
-  //           }
-  //         );
-
-  //         const data = await res.json();
-
-  //         if (data.paymentUrl) {
-  //           window.location.href = data.paymentUrl;
-  //         } else {
-  //           alert("Không tạo được URL thanh toán VNPay!");
-  //         }
-  //       } catch (err) {
-  //         console.error(err);
-  //         alert("Lỗi kết nối VNPay");
-  //       }
-  //     } else if (formData.paymentMethod === "momo") {
-  //       alert("Chức năng thanh toán Momo đang phát triển");
-  //     }
-  //   }
-  // };
 
   // ===================================================
   // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
@@ -659,8 +500,8 @@ export default function ThanhToan() {
                   <input
                     type="radio"
                     name="paymentMethod"
-                    value="cod"
-                    checked={formData.paymentMethod === "cod"}
+                    value="CASH"
+                    checked={formData.paymentMethod === "CASH"}
                     onChange={handleChange}
                     className="mr-3 text-blue-600"
                   />
@@ -693,8 +534,8 @@ export default function ThanhToan() {
                   <input
                     type="radio"
                     name="paymentMethod"
-                    value="banking"
-                    checked={formData.paymentMethod === "banking"}
+                    value="TRANSFER"
+                    checked={formData.paymentMethod === "TRANSFER"}
                     onChange={handleChange}
                     className="mr-3 text-blue-600"
                   />
@@ -757,33 +598,6 @@ export default function ThanhToan() {
                 ))}
               </div>
 
-              {/* Promotion Section */}
-              {bestPromotion && promotionDiscount > 0 && (
-                <div className="border-t pt-4 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      Đợt giảm giá
-                    </span>
-                    <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold">
-                      Tự động áp dụng
-                    </span>
-                  </div>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-red-800">
-                        {bestPromotion.name}
-                      </span>
-                    </div>
-                    <p className="text-xs text-red-600 mb-1">
-                      {bestPromotion.description}
-                    </p>
-                    <div className="text-sm font-bold text-red-600">
-                      -{promotionDiscount.toLocaleString("vi-VN")}₫
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Voucher Section */}
               <div className="border-t pt-4 mb-4">
                 <div className="flex items-center justify-between mb-3">
@@ -839,26 +653,7 @@ export default function ThanhToan() {
                     )}
                   </span>
                 </div>
-                {totalDiscount > 0 && (
-                  <div className="space-y-1">
-                    {promotionDiscount > 0 && (
-                      <div className="flex justify-between text-red-600">
-                        <span>Đợt giảm giá</span>
-                        <span className="font-semibold">
-                          -{promotionDiscount.toLocaleString("vi-VN")} ₫
-                        </span>
-                      </div>
-                    )}
-                    {voucherDiscount > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Mã giảm giá</span>
-                        <span className="font-semibold">
-                          -{voucherDiscount.toLocaleString("vi-VN")} ₫
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Tổng cộng</span>

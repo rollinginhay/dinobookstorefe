@@ -1,11 +1,11 @@
 // Generated TypeScript interfaces (Dto suffix removed + optional fields)
 
 export interface Book {
-  createdAt: string;
-  updatedAt: string;
-  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  enabled?: boolean;
   note?: string;
-  id: string | number;
+  id: number;
   blurb?: string;
   title: string;
   language?: string;
@@ -15,10 +15,12 @@ export interface Book {
   genres: Genre[];
   tags: Tag[];
   reviews: Review[];
-  publisher?: Publisher;
+  publisher?: Publisher[];
   bookCopies: BookDetail[];
   series?: Series;
   imageUrl?: string;
+  isTrending?: boolean;
+  rating: any;
 }
 
 export interface BookDetail {
@@ -26,7 +28,7 @@ export interface BookDetail {
   updatedAt: string;
   enabled: boolean;
   note?: string;
-  id: string;
+  id: number;
   isbn: string;
   bookFormat: string;
   dimensions: string;
