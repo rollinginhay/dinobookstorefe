@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorite } from "@/contexts/FavoriteContext";
 
@@ -36,6 +37,7 @@ interface BookCardProps {
 }
 
 export default function BookCard({ book }: BookCardProps) {
+  const router = useRouter();
   const { addToCart } = useCart();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorite();
   const isFav = isFavorite(book.id);
@@ -58,6 +60,12 @@ export default function BookCard({ book }: BookCardProps) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    // Kiểm tra đăng nhập
+    const token = typeof window !== "undefined" ? localStorage.getItem("jwtToken") : null;
+    if (!token) {
+      router.push("/dang-nhap");
+      return;
+    }
     addToCart(book, 1);
   };
 

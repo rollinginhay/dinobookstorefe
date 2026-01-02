@@ -15,9 +15,8 @@ export default function ThanhToan() {
   const router = useRouter();
   const { selectedCartItems, clearAllCartFromBackend, selectedTotalPrice } =
     useCart();
-  const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
-
   const { cartItems, clearCart, totalPrice } = useCart();
+  const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -149,7 +148,7 @@ export default function ThanhToan() {
           "http://localhost:8080/v1/receipt/createOnline",
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/vnd.api+json" },
             body: JSON.stringify(receiptPayload),
           }
         );
@@ -292,21 +291,18 @@ export default function ThanhToan() {
   // ===================================================
   // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
   // ===================================================
-  if (selectedCartItems.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Chưa có sản phẩm được chọn
+            Giỏ hàng trống
           </h2>
-          <p className="text-gray-600 mb-4">
-            Vui lòng chọn sản phẩm trong giỏ hàng để thanh toán
-          </p>
           <button
-            onClick={() => router.push("/gio-hang")}
+            onClick={() => router.push("/")}
             className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
           >
-            Quay lại giỏ hàng
+            Tiếp tục mua sắm
           </button>
         </div>
       </div>
@@ -388,7 +384,7 @@ export default function ThanhToan() {
 
                 <div className="grid grid-cols-3 gap-4">
                   {/* Tỉnh / Thành phố */}
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tỉnh/Thành phố <span className="text-red-600">*</span>
                     </label>
@@ -408,10 +404,10 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
                   {/* Quận / Huyện */}
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Quận/Huyện <span className="text-red-600">*</span>
                     </label>
@@ -432,10 +428,10 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
                   {/* Phường / Xã */}
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phường/Xã <span className="text-red-600">*</span>
                     </label>
@@ -455,7 +451,7 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
                 </div>
                 {/* Địa chỉ chi tiết */}
                 <div>
@@ -573,7 +569,7 @@ export default function ThanhToan() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Đơn hàng</h2>
 
               <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                {selectedCartItems.map((item) => (
+                {cartItems.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center gap-3 text-sm"
@@ -639,7 +635,7 @@ export default function ThanhToan() {
               <div className="border-t pt-4 space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính</span>
-                  <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
+                  <span>{totalPrice.toLocaleString("vi-VN")} ₫</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>
@@ -653,7 +649,6 @@ export default function ThanhToan() {
                     )}
                   </span>
                 </div>
-
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Tổng cộng</span>

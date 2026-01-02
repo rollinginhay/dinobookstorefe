@@ -277,11 +277,12 @@ export default function DangNhapPage() {
   };
 
   if (isLoggedIn) {
+    const username = localStorage.getItem("username") || "Người dùng";
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
         <h1 className="text-3xl font-bold text-gray-800">Bạn đã đăng nhập</h1>
         <p className="text-gray-600">
-          Xin chào <span className="font-semibold">bạn</span>. Bạn có thể quay
+          Xin chào <span className="font-semibold">{username}</span>. Bạn có thể quay
           lại trang chủ hoặc đăng xuất bên dưới.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

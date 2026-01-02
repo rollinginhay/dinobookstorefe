@@ -68,7 +68,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [userId, setUserId] = useState<number | null>(null);
   const [token, setToken] = useState<string | null>(null);
-
+  const [guestCart, setGuestCart] = useState<CartItem[]>([]);
   const BASE_URL = "http://localhost:8080";
   // Lấy token & decode userId
   useEffect(() => {
@@ -82,10 +82,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.error("Invalid token", err);
     }
   }, []);
+  useEffect(() => {
+    if (token) return;
+
+    const saved = localStorage.getItem("guest_cart");
+    if (saved) {
+      setCartItems(JSON.parse(saved));
+      setGuestCart(JSON.parse(saved));
+    }
+  }, [token]);
+  //guest save
+  useEffect(() => {
+    if (!token) {
+      localStorage.setItem("guest_cart", JSON.stringify(cartItems));
+    }
+  }, [cartItems, token]);
 
   // Lấy giỏ hàng và bookDetail
   useEffect(() => {
     if (!userId || !token) return;
+    //guest load
 
     // Kiểm tra xem giỏ hàng vừa được xóa không (trong vòng 5 giây)
     const cartJustCleared = localStorage.getItem("cartJustCleared");
@@ -106,6 +122,157 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("cartJustCleared");
       console.log("🔄 Đã hết thời gian chờ, cho phép fetch lại giỏ hàng");
     }
+
+    //     const fetchCart = async () => {
+    //       try {
+    //         const res = await fetch(
+    //           `${BASE_URL}/v1/user/${userId}/relationships/cartDetail`,
+    //           { headers: { Authorization: `Bearer ${token}` } }
+    //         );
+
+    //         if (!res.ok) {
+    //           console.error("Failed to fetch cart:", res.status);
+    //           setCartItems([]);
+    //           return;
+    //         }
+
+    //         const data = await res.json();
+
+    //         // Nếu không có items, không cần fetch thêm
+    //         if (!data.data || data.data.length === 0) {
+    //           setCartItems([]);
+    //           return;
+    //         }
+
+    //         // const items: CartItem[] = await Promise.all(
+    //         //   data.data.map(async (item: any) => {
+    //         //     try {
+    //         //       const bookRes = await fetch(
+    //         //         `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
+    //         //         { headers: { Authorization: `Bearer ${token}` } }
+    //         //       );
+    //         //       if (!bookRes.ok) {
+    //         //         console.warn('Failed to fetch bookDetail:', item.attributes.bookDetailId);
+    //         //         return null;
+    //         //       }
+    //         //       const bookData = await bookRes.json();
+    //         //       return {
+    //         //         cartDetailId: Number(item.id),
+    //         //         quantity: Number(item.quantity ?? 1),
+    //         //         amount: Number(item.attributes.amount),
+    //         //         id: Number(bookData.data.id),
+    //         //         title: bookData.data.attributes.title,
+    //         //         author: bookData.data.attributes.author,
+    //         //         price: Number(
+    //         //           String(bookData.data.attributes.supplyPrice).replace(
+    //         //             /[^0-9]/g,
+    //         //             ""
+    //         //           )
+    //         //         ),
+    //         //         image: bookData.data.attributes.image,
+    //         //       };
+    //         //     } catch (err) {
+    //         //       console.error("Error fetching bookDetail:", err);
+    //         //       return null;
+    //         //     }
+    //         const items: CartItem[] = await Promise.all(
+    //           data.data.map(async (item: any) => {
+    // <<<<<<< Updated upstream
+    //             // const bookRes = await fetch(
+    //             //   `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
+    //             //   { headers: { Authorization: `Bearer ${token}` } }
+    //             // );
+    //             // const bookData = await bookRes.json();
+    //             // return {
+    //             //   cartDetailId: Number(item.id),
+    //             //   quantity: Number(item.quantity ?? 1),
+    //             //   amount: Number(item.attributes.amount),
+    //             //   id: Number(bookData.data.id),
+    //             //   title: bookData.data.attributes.title,
+    //             //   author: bookData.data.attributes.author,
+    //             //   price: Number(
+    //             //     String(bookData.data.attributes.supplyPrice).replace(
+    //             //       /[^0-9]/g,
+    //             //       ""
+    //             //     )
+    //             //   ),
+    //             //   image: bookData.data.attributes.image,
+    //             // };
+    // =======
+    //             try {
+    //               // Fetch bookDetail với ?e=true để lấy book trong included
+    //               const bookDetailRes = await fetch(
+    //                 `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}?e=true`,
+    //                 { headers: { Authorization: `Bearer ${token}` } }
+    //               );
+
+    //               if (!bookDetailRes.ok) {
+    //                 console.warn(
+    //                   "Failed to fetch bookDetail:",
+    //                   item.attributes.bookDetailId
+    //                 );
+    //                 return null;
+    //               }
+
+    //               const bookDetailData = await bookDetailRes.json();
+
+    //               // Tìm book trong included
+    //               const included = bookDetailData.included || [];
+    //               let book = included.find((x: any) => x.type === "book");
+
+    //               // Nếu không có book trong included, fetch từ relationships
+    //               if (!book && bookDetailData.data?.relationships?.book?.data?.id) {
+    //                 try {
+    //                   const bookId = bookDetailData.data.relationships.book.data.id;
+    //                   const bookRes = await fetch(`${BASE_URL}/v1/book/${bookId}`, {
+    //                     headers: { Authorization: `Bearer ${token}` },
+    //                   });
+    //                   if (bookRes.ok) {
+    //                     const bookJson = await bookRes.json();
+    //                     book = bookJson.data;
+    //                   }
+    //                 } catch (err) {
+    //                   console.warn("Failed to fetch book from relationships:", err);
+    //                 }
+    //               }
+
+    //               return {
+    //                 cartDetailId: Number(item.id),
+    //                 quantity: Number(item.quantity ?? 1),
+    //                 amount: Number(item.attributes.amount),
+    //                 id: Number(bookDetailData.data.id), // bookDetailId
+    //                 title: book?.attributes?.title || "Sách",
+    //                 author: book?.attributes?.author || "—",
+    //                 price: Number(
+    //                   String(bookDetailData.data.attributes.supplyPrice).replace(
+    //                     /[^0-9]/g,
+    //                     ""
+    //                   )
+    //                 ),
+    //                 image: book?.attributes?.imageUrl || "/default-book.jpg",
+    //                 bookDetailId: Number(bookDetailData.data.id),
+    //               };
+    //             } catch (err) {
+    //               console.error("Error fetching bookDetail:", err);
+    //               return null;
+    //             }
+    // >>>>>>> Stashed changes
+    //           })
+    //         );
+
+    //         // Lọc bỏ các items null
+    //         const validItems = items.filter(
+    //           (item): item is CartItem => item !== null
+    //         );
+    //         console.log("📦 Fetched cart items:", validItems.length);
+    //         setCartItems(validItems);
+    //       } catch (err) {
+    //         console.error("Failed to fetch cart", err);
+    //         setCartItems([]);
+    //       }
+    //     };
+    //     fetchCart();
+    //   }, [userId, token]);
 
     const fetchCart = async () => {
       try {
@@ -197,10 +364,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
     fetchCart();
   }, [userId, token]);
+
   // Thêm vào giỏ
   const addToCart = async (book: Book, quantity: number = 1) => {
-    if (!token || !userId) return;
+    // =====================
+    // 🟡 CHƯA LOGIN → LOCAL
+    // =====================
+    if (!token || !userId) {
+      setCartItems((prev) => {
+        const exist = prev.find((i) => i.id === book.id);
+        if (exist) {
+          return prev.map((i) =>
+            i.id === book.id
+              ? {
+                  ...i,
+                  quantity: i.quantity + quantity,
+                  amount: (i.quantity + quantity) * i.price,
+                }
+              : i
+          );
+        }
 
+        return [
+          ...prev,
+          {
+            ...book,
+            quantity,
+            amount: book.price * quantity,
+            cartDetailId: -Date.now(), // fake id cho guest
+            bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
+          },
+        ];
+      });
+      return;
+    }
+
+    // =====================
+    // 🟢 ĐÃ LOGIN → API (GIỮ NGUYÊN CODE CŨ)
+    // =====================
     //     return [...prevItems, { ...book, quantity }];
     //   });
 
@@ -312,7 +513,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           quantity,
           amount: book.price * quantity,
           price: book.price,
-          bookDetailId: (book as any).bookDetailId || book.id,
+          bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
         };
 
         setCartItems((prev) => [...prev, newItem]);
@@ -324,7 +525,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Xóa khỏi giỏ
   const removeFromCart = async (cartDetailId: number) => {
-    if (!token || !userId) return;
+    if (!token || !userId) {
+      setCartItems((prev) =>
+        prev.filter((i) => i.cartDetailId !== cartDetailId)
+      );
+      return;
+    }
 
     try {
       // Kiểm tra xem có phải là combo không
@@ -392,7 +598,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Cập nhật số lượng
   const updateQuantity = async (cartDetailId: number, quantity: number) => {
-    if (!token || !userId) return;
+    if (!token || !userId) {
+      setCartItems((prev) =>
+        prev.map((i) =>
+          i.cartDetailId === cartDetailId
+            ? { ...i, quantity, amount: i.price * quantity }
+            : i
+        )
+      );
+      return;
+    }
 
     if (quantity <= 0) return removeFromCart(cartDetailId);
 
@@ -506,7 +721,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         comboName,
         comboOriginalPrice,
         comboDiscount,
-        bookDetailId: (mainBook as any).bookDetailId || mainBook.id,
+        bookDetailId: (mainBook as any).bookDetailId || mainBook.id, // Sử dụng bookDetailId nếu có, không thì dùng id
       };
 
       // Thêm từng sách trong combo vào backend (để backend xử lý)
@@ -863,252 +1078,3 @@ export function useCart() {
   if (!context) throw new Error("useCart must be used within a CartProvider");
   return context;
 }
-// "use client";
-
-// import { Book } from "@/components/BookCard";
-// import { jwtDecode } from "jwt-decode";
-// import React, { createContext, useContext, useState, useEffect } from "react";
-
-// // Optional: nếu muốn vẫn lưu BookCopy, tạo interface nhẹ
-// export interface BookCopy {
-//   id: number;
-//   supplyPrice: number;
-//   salePrice?: number;
-//   stock?: number;
-// }
-
-// // Cart item
-// export interface CartItem {
-//   cartDetailId: number;
-//   bookId: number;
-//   title: string;
-//   image?: string;
-//   quantity: number;
-//   price: number;
-//   amount: number;
-//   bookCopy?: BookCopy; // optional, nếu Book không có bookCopies
-// }
-
-// // JWT payload
-// interface JwtPayload {
-//   sub: string;
-//   id: number;
-//   name?: string;
-// }
-
-// // Context type
-// interface CartContextType {
-//   cartItems: CartItem[];
-//   addToCart: (book: Book, quantity?: number) => Promise<void>;
-//   removeFromCart: (cartDetailId: number) => Promise<void>;
-//   updateQuantity: (cartDetailId: number, quantity: number) => Promise<void>;
-//   clearCart: () => Promise<void>;
-//   totalItems: number;
-//   totalPrice: number;
-// }
-
-// const CartContext = createContext<CartContextType | undefined>(undefined);
-
-// export function CartProvider({ children }: { children: React.ReactNode }) {
-//   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-//   const [userId, setUserId] = useState<number | null>(null);
-//   const [token, setToken] = useState<string | null>(null);
-
-//   const BASE_URL = "http://localhost:8080";
-
-//   useEffect(() => {
-//     const t = localStorage.getItem("jwtToken");
-//     if (!t) return;
-//     setToken(t);
-//     try {
-//       const decoded = jwtDecode<JwtPayload>(t);
-//       if (decoded.id) setUserId(decoded.id);
-//     } catch (err) {
-//       console.error("Invalid token", err);
-//     }
-//   }, []);
-
-//   // Lấy giỏ hàng từ backend
-//   const fetchCart = async () => {
-//     if (!userId || !token) return;
-//     try {
-//       const res = await fetch(
-//         `${BASE_URL}/v1/user/${userId}/relationships/cartDetail`,
-//         {
-//           headers: { Authorization: `Bearer ${token}` },
-//         }
-//       );
-//       const data = await res.json();
-
-//       const items: CartItem[] = await Promise.all(
-//         data.data.map(async (item: any) => {
-//           const bookRes = await fetch(
-//             `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
-//             { headers: { Authorization: `Bearer ${token}` } }
-//           );
-//           const bookData = await bookRes.json();
-
-//           const copy: BookCopy = {
-//             id: bookData.data.id,
-//             supplyPrice: bookData.data.attributes.supplyPrice,
-//             salePrice: bookData.data.attributes.salePrice,
-//             stock: bookData.data.attributes.stock,
-//           };
-
-//           return {
-//             cartDetailId: Number(item.id),
-//             bookId: Number(bookData.data.id),
-//             title: bookData.data.attributes.title ?? "Không có tên",
-//             image: bookData.data.attributes.image,
-//             quantity: Number(item.attributes.quantity ?? 1),
-//             price: copy.salePrice ?? copy.supplyPrice ?? 0,
-//             amount:
-//               (copy.salePrice ?? copy.supplyPrice ?? 0) *
-//               (item.attributes.quantity ?? 1),
-//             bookCopy: copy,
-//           };
-//         })
-//       );
-
-//       setCartItems(items);
-//     } catch (err) {
-//       console.error("Failed to fetch cart", err);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchCart();
-//   }, [userId, token]);
-
-//   const addToCart = async (book: Book, quantity = 1) => {
-//     if (!token || !userId) return;
-
-//     const bookCopy = book.bookCoppy?.[0]; // an toàn
-//     const price = bookCopy?.supplyPrice ?? book.price ?? 0;
-//     const bookDetailId = bookCopy?.id ?? book.bookDetailId;
-
-//     try {
-//       const body = {
-//         data: {
-//           type: "cartDetail",
-//           attributes: {
-//             userId,
-//             bookDetailId,
-//             quantity,
-//             price,
-//             amount: price * quantity,
-//             enabled: true,
-//           },
-//         },
-//       };
-
-//       const res = await fetch(`${BASE_URL}/v1/cartDetail/create`, {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//           Authorization: `Bearer ${token}`,
-//         },
-//         body: JSON.stringify(body),
-//       });
-
-//       const data = await res.json();
-
-//       const newItem: CartItem = {
-//         cartDetailId: Number(data.data.id),
-//         bookId: book.id,
-//         title: book.title,
-//         image: book.image ?? "/images/placeholder-book.png",
-//         quantity,
-//         price,
-//         amount: price * quantity,
-//         bookCopy: bookCopy,
-//       };
-
-//       setCartItems((prev) => [...prev, newItem]);
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   const removeFromCart = async (cartDetailId: number) => {
-//     if (!token || !userId) return;
-//     try {
-//       await fetch(`${BASE_URL}/v1/cartDetail/${cartDetailId}`, {
-//         method: "DELETE",
-//         headers: { Authorization: `Bearer ${token}` },
-//       });
-//       setCartItems((prev) =>
-//         prev.filter((i) => i.cartDetailId !== cartDetailId)
-//       );
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   const updateQuantity = async (cartDetailId: number, quantity: number) => {
-//     if (!token || !userId) return;
-//     if (quantity <= 0) return removeFromCart(cartDetailId);
-
-//     try {
-//       await fetch(`${BASE_URL}/v1/cartDetail/update`, {
-//         method: "PUT",
-//         headers: {
-//           "Content-Type": "application/json",
-//           Authorization: `Bearer ${token}`,
-//         },
-//         body: JSON.stringify({
-//           data: { id: cartDetailId, attributes: { quantity } },
-//         }),
-//       });
-
-//       setCartItems((prev) =>
-//         prev.map((i) =>
-//           i.cartDetailId === cartDetailId
-//             ? { ...i, quantity, amount: i.price * quantity }
-//             : i
-//         )
-//       );
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   const clearCart = async () => {
-//     for (const item of cartItems) {
-//       try {
-//         await fetch(`${BASE_URL}/v1/cartDetail/${item.cartDetailId}`, {
-//           method: "DELETE",
-//           headers: { Authorization: `Bearer ${token}` },
-//         });
-//       } catch (err) {
-//         console.error(err);
-//       }
-//     }
-//     setCartItems([]);
-//   };
-
-//   const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-//   const totalPrice = cartItems.reduce((sum, i) => sum + i.amount, 0);
-
-//   return (
-//     <CartContext.Provider
-//       value={{
-//         cartItems,
-//         addToCart,
-//         removeFromCart,
-//         updateQuantity,
-//         clearCart,
-//         totalItems,
-//         totalPrice,
-//       }}
-//     >
-//       {children}
-//     </CartContext.Provider>
-//   );
-// }
-
-// export function useCart() {
-//   const context = useContext(CartContext);
-//   if (!context) throw new Error("useCart must be used within a CartProvider");
-//   return context;
-// }

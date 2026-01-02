@@ -497,8 +497,24 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     setQuantity(v);
   };
 
-  const handleAddToCart = () => addToCart(book, quantity);
+  const handleAddToCart = () => {
+    // Kiểm tra đăng nhập
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      router.push("/dang-nhap");
+      return;
+    }
+    addToCart(book, quantity);
+  };
+
   const handleBuyNow = async () => {
+    // Kiểm tra đăng nhập
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      router.push("/dang-nhap");
+      return;
+    }
+
     try {
       // 1) Tạo hóa đơn
       const receiptId = await createReceipt();

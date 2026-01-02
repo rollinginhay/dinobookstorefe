@@ -9,6 +9,7 @@ import { PromotionProvider } from "@/contexts/PromotionContext";
 import FloatingWidgets from "@/components/FloatingWidgets";
 import Footer from "@/components/Footer";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
+import ClearAuthOnMount from "@/components/ClearAuthOnMount";
 // import AIChatbox from "@/components/AIChatbox";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ClearAuthOnMount />
         <AuthSessionProvider>
           <CartProvider>
             <FavoriteProvider>

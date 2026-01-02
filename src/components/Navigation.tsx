@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useCart } from "@/contexts/CartContext";
+import { useFavorite } from "@/contexts/FavoriteContext";
 
 export default function Navigation() {
   const { totalItems } = useCart();
@@ -13,6 +14,9 @@ export default function Navigation() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userFullName, setUserFullName] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+
+  const { favorites } = useFavorite();
+  const totalFavorites = favorites.length;
 
   // 👇 Lấy thông tin từ localStorage sau khi login
   useEffect(() => {
@@ -146,7 +150,14 @@ export default function Navigation() {
                   d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                 />
               </svg>
+
+              {totalFavorites > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                  {totalFavorites > 9 ? "9+" : totalFavorites}
+                </span>
+              )}
             </Link>
+
             <Link
               href="/gio-hang"
               className="relative p-3 text-gray-700 hover:text-red-600 rounded-xl transition-all hover:bg-red-50 group"
