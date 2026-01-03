@@ -1,8 +1,8 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { BillService } from "@/service/bill.service";
+import {useParams, useRouter} from "next/navigation";
+import {useEffect, useState} from "react";
+import {BillService} from "@/service/bill.service";
 
 type OrderStatus =
   | "PENDING"

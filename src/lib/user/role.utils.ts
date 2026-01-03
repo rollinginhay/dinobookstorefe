@@ -1,4 +1,4 @@
-import { Role } from "@/components/user/user.types";
+import {Role} from "@/components/user/user.types";
 
 // ===================== ROLE CONSTANTS =====================
 export const ROLE_NAMES = {

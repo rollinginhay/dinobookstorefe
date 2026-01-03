@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import Link from "next/link";
-import DatePicker, { registerLocale } from "react-datepicker";
-import { vi } from "date-fns/locale";
+import DatePicker, {registerLocale} from "react-datepicker";
+import {vi} from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
-import { BillService } from "@/service/bill.service";
+import {BillService} from "@/service/bill.service";
 
 registerLocale("vi", vi);
 

@@ -1,4 +1,4 @@
-import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES_TREE} from "@/lib/routes";
 import {serializeBook, serializeReceipt} from "@/lib/serializers";
@@ -14,18 +14,18 @@ export function useReceipt(
     const queryClient = useQueryClient();
 
 
-    // const receiptQuery = useQuery({
-    //     queryKey: ["receipts", {page, limit, enabled, keyword: keyword ?? ""}],
-    //     queryFn: async () => {
-    //         const res = await api.get(routeMap.getMultiple, {params: {q: keyword, e: enabled, page, limit}});
-    //         try {
-    //             return jsonApi.deserialise(res.data);
-    //         } catch {
-    //             // If server returns plain array/object, return as-is
-    //             return (res.data as unknown);
-    //         }
-    //     },
-    // });
+    const receiptQuery = useQuery({
+        queryKey: ["receipts", {page, limit, enabled, keyword: keyword ?? ""}],
+        queryFn: async () => {
+            const res = await api.get(routeMap.getMultiple, {params: {q: keyword, e: enabled, page, limit}});
+            try {
+                return jsonApi.deserialise(res.data);
+            } catch {
+                // If server returns plain array/object, return as-is
+                return (res.data as unknown);
+            }
+        },
+    });
 
 
     const receiptDelete = useMutation({
@@ -82,7 +82,7 @@ export function useReceipt(
     });
 
     return {
-        // receiptQuery,
+        receiptQuery,
         receiptDelete,
         receiptCreate,
         receiptUpdate,

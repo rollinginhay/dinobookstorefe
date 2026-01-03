@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { deleteVoucher } from "@/lib/voucher/voucher.api";
-import { toast } from "sonner";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {deleteVoucher} from "@/lib/voucher/voucher.api";
+import {toast} from "sonner";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 
 type Props = {

@@ -1,6 +1,6 @@
 import VoucherForm from "@/components/voucher/VoucherForm";
 import DeleteVoucherButton from "@/components/voucher/DeleteVoucherButton";
-import { fetchVoucherById } from "@/lib/voucher/voucher.api";
+import {fetchVoucherById} from "@/lib/voucher/voucher.api";
 
 type Props = {
   params: Promise<{ id: string }>;

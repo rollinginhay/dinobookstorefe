@@ -1,7 +1,7 @@
-import { api, jsonApi } from "@/lib/api";
-import { API_ROUTES } from "@/lib/routes";
-import { Role } from "@/components/user/user.types";
-import { filterUniqueRoles } from "./role.utils";
+import {api, jsonApi} from "@/lib/api";
+import {API_ROUTES} from "@/lib/routes";
+import {Role} from "@/components/user/user.types";
+import {filterUniqueRoles} from "./role.utils";
 
 export async function fetchRoles(): Promise<Role[]> {
   const res = await api.get(API_ROUTES.GET_ROLES);

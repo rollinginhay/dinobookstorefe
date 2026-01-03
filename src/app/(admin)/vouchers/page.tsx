@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import Link from "next/link";
 import VoucherTable from "@/components/voucher/VoucherTable";
-import { fetchVouchers } from "@/lib/voucher/voucher.api";
-import { mapVoucherList } from "@/lib/voucher/voucher.mapper";
-import { getVoucherStatus, VoucherStatus } from "@/lib/voucher/voucher.utils";
-import { toast } from "sonner";
+import {fetchVouchers} from "@/lib/voucher/voucher.api";
+import {mapVoucherList} from "@/lib/voucher/voucher.mapper";
+import {getVoucherStatus, VoucherStatus} from "@/lib/voucher/voucher.utils";
+import {toast} from "sonner";
 
 const PAGE_SIZE = 5;
 

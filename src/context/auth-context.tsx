@@ -1,17 +1,10 @@
 "use client";
 
 import React, {createContext, useContext, useEffect, useMemo, useState} from 'react';
-import { login as loginApi } from '@/lib/auth/auth.api';
-import { toast } from 'sonner';
-import { Role } from '@/components/user/user.types';
-import {
-    hasRole as checkRole,
-    isAdmin,
-    isManager,
-    isStaff,
-    isUser,
-    isGuest,
-} from '@/lib/user/role.utils';
+import {login as loginApi} from '@/lib/auth/auth.api';
+import {toast} from 'sonner';
+import {Role} from '@/components/user/user.types';
+import {hasRole as checkRole, isAdmin, isGuest, isManager, isStaff, isUser,} from '@/lib/user/role.utils';
 
 interface User {
     id?: string;
@@ -46,7 +39,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({children}: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -80,8 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Login with email and password
     const loginWithCredentials = async (email: string, password: string) => {
         try {
-            const response = await loginApi({ email, password });
-            
+            const response = await loginApi({email, password});
+
             // Save token and user info
             localStorage.setItem(TOKEN_KEY, response.jwtToken);
             localStorage.setItem(USER_KEY, JSON.stringify({
@@ -93,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 createdAt: response.createdAt,
                 updatedAt: response.updatedAt,
             }));
-            
+
             setToken(response.jwtToken);
             setUser({
                 id: response.userId,
@@ -104,12 +97,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 createdAt: response.createdAt,
                 updatedAt: response.updatedAt,
             });
-            
+
             toast.success('Đăng nhập thành công!');
         } catch (error: any) {
             console.error('Login error:', error);
             let errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
-            
+
             if (error?.response?.status === 401) {
                 errorMessage = 'Email hoặc mật khẩu không đúng. Vui lòng thử lại.';
             } else if (error?.response?.data?.message) {
@@ -125,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else if (error?.message) {
                 errorMessage = error.message;
             }
-            
+
             toast.error(errorMessage);
             throw error;
         }

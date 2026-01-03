@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import {useRouter} from "next/navigation";
 import React, {useState} from "react";
 import {Dropdown} from "../ui/dropdown/Dropdown";
 import {DropdownItem} from "../ui/dropdown/DropdownItem";

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import {useState} from "react";
 import DiscountTable from "@/components/discount/DiscountTable";
 
 export default function VoucherClientPage({ data }: { data: any[] }) {

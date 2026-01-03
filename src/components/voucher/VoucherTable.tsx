@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Voucher } from "./voucher.types";
-import { getVoucherStatus } from "@/lib/voucher/voucher.utils";
+import {Voucher} from "./voucher.types";
+import {getVoucherStatus} from "@/lib/voucher/voucher.utils";
 
 function generateCode(id: string | number) {
   return `VCH${String(id).padStart(5, "0")}`;

@@ -1,4 +1,4 @@
-import { User, Role } from "@/components/user/user.types";
+import {Role, User} from "@/components/user/user.types";
 
 export function mapUserList(raw: any[]): User[] {
   if (!Array.isArray(raw)) {

@@ -1,5 +1,5 @@
-import { api, jsonApi } from "@/lib/api";
-import { API_ROUTES } from "@/lib/routes";
+import {api, jsonApi} from "@/lib/api";
+import {API_ROUTES} from "@/lib/routes";
 
 export async function fetchUsers() {
   const res = await api.get(API_ROUTES.GET_USERS);

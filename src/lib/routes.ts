@@ -92,6 +92,7 @@ export const API_ROUTES = {
     // ===================== AUTH =====================
     POST_AUTH_LOGIN: "/v1/auth/login",
     POST_AUTH_REGISTER: "/v1/auth/register",
+    GET_ACTIVE_CAMPAIGNS: "/v1/activecampaigns"
 } as const;
 
 
@@ -141,6 +142,7 @@ export const API_ROUTES_TREE = {
         delete: API_ROUTES.DELETE_BOOK_DETAIL_DELETE
     },
     campaign: {
+        getActive: API_ROUTES.GET_ACTIVE_CAMPAIGNS,
         getMultiple: API_ROUTES.GET_CAMPAIGNS,
         getOne: API_ROUTES.GET_CAMPAIGN_BY_ID,
         create: API_ROUTES.POST_CAMPAIGN_CREATE,

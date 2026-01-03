@@ -35,14 +35,14 @@
 'use client';
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/context/auth-context";
+import {useQuery} from "@tanstack/react-query";
+import {useAuth} from "@/context/auth-context";
 
 import UserAddressCard from "@/components/user-profile/UserAddressCard";
 import UserInfoCard from "@/components/user-profile/UserInfoCard";
 import UserMetaCard from "@/components/user-profile/UserMetaCard";
 
-import { fetchUserById } from "@/lib/user/user.api";
+import {fetchUserById} from "@/lib/user/user.api";
 
 export default function Profile() {
   const { user: currentUser } = useAuth();

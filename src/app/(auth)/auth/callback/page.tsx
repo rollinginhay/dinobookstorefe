@@ -49,6 +49,7 @@ export default function AuthCallbackPage() {
                 // Store auth data in localStorage
                 localStorage.setItem('auth_token', authData.jwtToken);
                 localStorage.setItem('auth_user', JSON.stringify({
+                    id: authData.userId,
                     email: authData.email,
                     username: authData.username,
                     oauthId: authData.oauthId,
@@ -57,7 +58,7 @@ export default function AuthCallbackPage() {
                     updatedAt: authData.updatedAt,
                 }));
 
-                console.log('✅ Authentication successful, redirecting to home...');
+                console.log('Authentication successful');
 
                 // Redirect to home page
                 router.push('/');
@@ -79,7 +80,8 @@ export default function AuthCallbackPage() {
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
                     <div className="text-center">
-                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                        <div
+                            className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                             <svg
                                 className="h-6 w-6 text-red-600"
                                 fill="none"

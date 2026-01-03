@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { User } from "./user.types";
-import { getRoleDisplayName, getRoleColorClasses } from "@/lib/user/role.utils";
+import {User} from "./user.types";
+import {getRoleColorClasses, getRoleDisplayName} from "@/lib/user/role.utils";
 
 type UserTableProps = {
   data: User[];

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import UserTable from "@/components/user/UserTable";
-import { fetchUsers } from "@/lib/user/user.api";
-import { mapUserList } from "@/lib/user/user.mapper";
-import { toast } from "sonner";
+import {fetchUsers} from "@/lib/user/user.api";
+import {mapUserList} from "@/lib/user/user.mapper";
+import {toast} from "sonner";
 
 const PAGE_SIZE = 10;
 

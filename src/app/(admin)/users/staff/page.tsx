@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import {useEffect, useRef, useState} from "react";
+import {usePathname, useRouter} from "next/navigation";
 import UserTable from "@/components/user/UserTable";
-import { fetchUsers } from "@/lib/user/user.api";
-import { mapUserList } from "@/lib/user/user.mapper";
-import { toast } from "sonner";
+import {fetchUsers} from "@/lib/user/user.api";
+import {mapUserList} from "@/lib/user/user.mapper";
+import {toast} from "sonner";
 
 const PAGE_SIZE = 10;
 

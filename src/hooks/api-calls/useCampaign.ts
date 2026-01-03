@@ -14,7 +14,7 @@ export function useCampaign(
     const campaignQuery = useQuery({
         queryKey: ["campaigns", {page, limit, enabled, keyword: keyword ?? ""}],
         queryFn: async () => {
-            const res = await api.get(routeMap.getMultiple, {params: {q: keyword, e: enabled, page, limit}});
+            const res = await api.get(routeMap.getActive, {params: {q: keyword, e: enabled, page, limit}});
             try {
                 return jsonApi.deserialise(res.data);
             } catch {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import {useEffect, useState} from "react";
+import {useParams} from "next/navigation";
 import UserForm from "@/components/user/UserForm";
-import { fetchUserById } from "@/lib/user/user.api";
-import { mapUser } from "@/lib/user/user.mapper";
-import { toast } from "sonner";
+import {fetchUserById} from "@/lib/user/user.api";
+import {mapUser} from "@/lib/user/user.mapper";
+import {toast} from "sonner";
 
 export default function EditStaffPage() {
   const params = useParams();

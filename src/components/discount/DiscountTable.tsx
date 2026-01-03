@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { Discount } from "./discount.types";
-import { formatDateForInput } from "@/lib/discount/discount.utils";
+import {Discount} from "./discount.types";
 
 function generateCode(id: string | number) {
   return `CAM${String(id).padStart(5, "0")}`;

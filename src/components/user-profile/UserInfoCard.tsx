@@ -190,15 +190,15 @@
 // }
 'use client';
 
-import React, { useState } from "react";
-import { useModal } from "@/hooks/useModal";
-import { Modal } from "../ui/modal";
+import React, {useState} from "react";
+import {useModal} from "@/hooks/useModal";
+import {Modal} from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import { updateUser } from "@/lib/user/user.api";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import {updateUser} from "@/lib/user/user.api";
+import {toast} from "sonner";
+import {useRouter} from "next/navigation";
 
 export default function UserInfoCard({ user }: { user: any }) {
   const { isOpen, openModal, closeModal } = useModal();

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import Link from "next/link";
 import DiscountTable from "@/components/discount/DiscountTable";
-import { fetchDiscounts } from "@/lib/discount/discount.api";
-import { mapDiscountList } from "@/lib/discount/discount.mapper";
-import { getCampaignStatus, CampaignStatus } from "@/lib/discount/discount.utils";
+import {fetchDiscounts} from "@/lib/discount/discount.api";
+import {mapDiscountList} from "@/lib/discount/discount.mapper";
+import {CampaignStatus, getCampaignStatus} from "@/lib/discount/discount.utils";
 
 const PAGE_SIZE = 5;
 

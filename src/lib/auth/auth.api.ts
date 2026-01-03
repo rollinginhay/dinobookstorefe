@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_ROUTES } from "@/lib/routes";
+import {API_ROUTES} from "@/lib/routes";
 
 // Auth API không dùng JSON:API format, dùng axios instance riêng
 const authApi = axios.create({

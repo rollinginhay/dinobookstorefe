@@ -1,6 +1,5 @@
 import DiscountForm from "@/components/discount/DiscountForm";
-import DeleteDiscountButton from "@/components/discount/DeleteDiscountButton";
-import { fetchDiscountById } from "@/lib/discount/discount.api";
+import {fetchDiscountById} from "@/lib/discount/discount.api";
 
 type Props = {
   params: Promise<{ id: string }>;

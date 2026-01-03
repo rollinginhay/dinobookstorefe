@@ -11,7 +11,7 @@ import {deserializeUsers, serializeReceipt, serializeUser} from "@/lib/serialize
 import {useCampaign} from "@/hooks/api-calls/useCampaign";
 import {useReceipt} from "@/hooks/api-calls/useReceipt";
 import {useUser} from "@/hooks/api-calls/useUser";
-import {isUser as checkIsUser} from "@/lib/user/role.utils";
+import {useAuth} from "@/context/auth-context";
 
 // ===============================
 // DEMO VOUCHER LIST (POS PANEL)
@@ -20,20 +20,15 @@ import {isUser as checkIsUser} from "@/lib/user/role.utils";
 // chuẩn hoá tất cả voucher lấy từ localStorage để POS không crash
 const normalizeVoucher = (v: any) => ({
     id: v.id,
-    type: v.type === "MONEY" ? "FIXED" : v.type,
+    type: v.type,
     minTotal: v.minTotal || v.minOrder || 0,
     value: v.value || v.discount || 0,
     maxDiscount: v.maxDiscount || v.discount || v.value || 0,
-    label:
-        v.label ||
-        (v.type === "PERCENT"
-            ? `${v.discount || v.value}%`
-            : `${(v.discount || v.value).toLocaleString()}đ`),
-    description:
-        v.description ||
-        `Giảm ${(v.discount || v.value).toLocaleString()}${
-            v.type === "PERCENT" ? "%" : "đ"
-        }`,
+    label: v.label,
+    description: v.description,
+    startDate: v.startDate,
+    endDate: v.endDate,
+    campaignDetails: v.campaignDetails
 });
 
 function extractBookDetails(books: any[]) {
@@ -73,43 +68,18 @@ function extractBookDetails(books: any[]) {
 
 function convertCampaigns(campaigns: any[]) {
     return campaigns.map((c) => {
-        // Campaign có thể là: PERCENTAGE_DISCOUNT, PERCENTAGE_RECEIPT, PERCENTAGE_PRODUCT, FLAT_DISCOUNT
-        const isPercent = c.campaignType === "PERCENTAGE_DISCOUNT" 
-            || c.campaignType === "PERCENTAGE_RECEIPT" 
-            || c.campaignType === "PERCENTAGE_PRODUCT";
-
-        const value = isPercent
-            ? Number(c.percentage ?? 0)
-            : Number(c.maxDiscount ?? 0);
-
-        // Xác định loại campaign để hiển thị
-        let campaignLabel = "";
-        if (c.campaignType === "PERCENTAGE_RECEIPT") {
-            campaignLabel = "Giảm toàn đơn hàng";
-        } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
-            campaignLabel = "Giảm sản phẩm";
-        } else if (c.campaignType === "PERCENTAGE_DISCOUNT") {
-            campaignLabel = "Giảm %";
-        } else {
-            campaignLabel = "Giảm cố định";
-        }
-
         return {
             id: c.id,
-            label: isPercent
-                ? `${value}%`
-                : `${value.toLocaleString()}đ`,
-            description: c.name ?? "",
-            minTotal: Number(c.minTotal ?? 0),
-            type: isPercent ? "PERCENT" : "FIXED",
-            value,
-            maxDiscount: Number(c.maxDiscount ?? 0),
-            campaignType: c.campaignType, // Giữ lại để biết loại campaign
-            campaignLabel: campaignLabel, // Label để hiển thị
+            label: c.percentage,
+            description: c.name,
+            minTotal: c.minTotal,
+            type: c.campaignType,
+            value: c.percentage,
+            maxDiscount: c.maxDiscount,
+            campaignDetails: c.campaignDetails,
         };
     });
 }
-
 
 // {
 //     id: "VC000004",
@@ -131,7 +101,6 @@ const createEmptyOrder = () => ({
         customerName: "", ///if null on commit, is autofilled
         customerPhone: "",
         customerAddress: "",
-        employee: null, //use current authenticated user
         hasShipping: false,
         shippingService: null,
         shippingId: null,
@@ -147,7 +116,8 @@ const createEmptyOrder = () => ({
         paymentDetail: {
             id: 0,
             paymentType: "CASH",
-        }
+        },
+        employee: null
     },
 });
 
@@ -155,11 +125,11 @@ const createEmptyOrder = () => ({
 export default function POS() {
     const router = useRouter();
 
-
-    // 1) Tạo state rỗng trước
     const [orders, setOrders] = useState<any[]>([]);
     const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
 
+    //authenticated employee
+    const {user} = useAuth();
 
     const {bookQuery} = useBook(0, 500, true);
     const {campaignQuery} = useCampaign(0, 50, true);
@@ -213,11 +183,9 @@ export default function POS() {
         return bookDetails;
     }, [bookQuery.dataUpdatedAt]);
 
-    // Campaigns (đợt khuyến mãi + giảm giá toàn đơn hàng)
-    const CAMPAIGNS = useMemo(() => {
+    const VOUCHERS = useMemo(() => {
         if (!campaignQuery.isSuccess) return [];
         const campaigns = convertCampaigns(campaignQuery.data.data);
-        // Lọc chỉ lấy campaign đang active (có thể thêm logic check thời gian hiệu lực)
         return campaigns;
     }, [campaignQuery.dataUpdatedAt]);
 
@@ -251,15 +219,16 @@ export default function POS() {
     //         image: "https://cdn-icons-png.flaticon.com/512/892/892781.png",
     //     },
     // ];
-    const [vouchersFromLocalStorage, setVouchersFromLocalStorage] = useState<any[]>([]);
 
-    useEffect(() => {
-        const saved = localStorage.getItem("vouchers");
-        if (!saved) return;
+    // const [vouchersFromLocalStorage, setVouchersFromLocalStorage] = useState<any[]>([]);
 
-        const raw = JSON.parse(saved);
-        setVouchersFromLocalStorage(raw.map((v: any) => normalizeVoucher(v)));
-    }, []);
+    // useEffect(() => {
+    //     const saved = localStorage.getItem("vouchers");
+    //     if (!saved) return;
+    //
+    //     const raw = JSON.parse(saved);
+    //     setVouchersFromLocalStorage(raw.map((v: any) => normalizeVoucher(v)));
+    // }, []);
 
     const updateOrder = (newData: any) => {
         setOrders((prev) =>
@@ -360,13 +329,17 @@ export default function POS() {
                     : e
             );
         } else {
+            const prodVouchers = VOUCHERS.filter(v => v.type === "PERCENTAGE_PRODUCT");
+            const applicable = prodVouchers.filter((v) => v.campaignDetails.data.some((e: any) => e.bookDetailId === product.id));
+
             updatedItems = [
                 ...current,
                 {
                     id: Date.now(),
                     bookCopy: product,
                     quantity: 1,
-                    pricePerUnit: product.salePrice
+                    pricePerUnit: applicable.length > 0 ? product.salePrice * (100 - applicable[0].value) / 100 : product.salePrice,
+                    originalPrice: product.salePrice
                 }
             ];
         }
@@ -423,7 +396,7 @@ export default function POS() {
     const calcDiscountFromVoucher = (voucher: any, total: number) => {
         if (total < voucher.minTotal) return 0;
 
-        if (voucher.type === "PERCENT") {
+        if (voucher.type === "PERCENTAGE_RECEIPT") {
             const raw = (total * voucher.value) / 100;
             return Math.min(raw, voucher.maxDiscount ?? raw);
         }
@@ -436,30 +409,27 @@ export default function POS() {
     };
 
 
-    const applyCampaign = (id: string | number) => {
-        // Gộp Campaigns từ API và từ localStorage (nếu có)
-        const allCampaigns = [
-            ...CAMPAIGNS.map((v) => normalizeVoucher(v)),
-            ...vouchersFromLocalStorage.map((v) => normalizeVoucher(v)), // Giữ lại để tương thích với localStorage cũ
+    const applyVoucherByCode = (id: string) => {
+        if (VOUCHERS.length === 0) return;
+        const allVouchers = [
+            ...VOUCHERS.map((v) => normalizeVoucher(v)),
+            // ...vouchersFromLocalStorage.map((v) => normalizeVoucher(v)),
         ];
 
-        const campaign = allCampaigns.find((v) => v.id === id || String(v.id) === String(id));
-        if (!campaign) {
-            alert("Đợt khuyến mãi không hợp lệ.");
+
+        const voucher = allVouchers.find((v) => v.id === id);
+        if (!voucher) {
+            alert("Mã giảm giá không hợp lệ.");
             return;
         }
 
-        const discountAmount = calcDiscountFromVoucher(campaign, subTotal);
-        if (discountAmount <= 0) {
-            alert(`Đơn hàng chưa đạt đơn tối thiểu ${campaign.minTotal.toLocaleString()}đ`);
+        const discount = calcDiscountFromVoucher(voucher, subTotal);
+        if (discount <= 0) {
+            alert(`Đơn hàng chưa đạt đơn tối thiểu ${voucher.minTotal.toLocaleString()}đ`);
             return;
         }
 
-        updateOrder({
-            voucherCode: String(campaign.id), // Lưu campaign ID
-            discountAmount: discountAmount, 
-            discount: discountAmount
-        });
+        updateOrder({voucherCode: voucher.id, discountAmount: discount, discount});
         setVoucherInput("");
     };
 
@@ -568,48 +538,55 @@ export default function POS() {
                                     </tr>
                                 )}
 
-                                {activeOrder.relationships.receiptDetails.map((item: any, index: number) => (
-                                    <tr key={item.bookCopy.id}>
+                                {activeOrder.relationships.receiptDetails.map((receiptDetail: any, index: number) => (
+                                    <tr key={receiptDetail.bookCopy.id}>
                                         <td className="text-center">{index + 1}</td>
 
                                         <td className="text-center">
                                             <img
-                                                src={item.bookCopy.imageUrl}
+                                                src={receiptDetail.bookCopy.imageUrl}
                                                 className="w-16 h-16 object-cover mx-auto rounded"
-                                                alt={item.bookCopy.title}
+                                                alt={receiptDetail.bookCopy.title}
                                             />
                                         </td>
 
                                         <td>
                                             <div className="flex flex-col justify-center">
-                                                <span className="font-semibold">{item.bookCopy.title}</span>
+                                                <span className="font-semibold">{receiptDetail.bookCopy.title}</span>
                                                 <span className="text-gray-500 text-xs mt-1">
-                            Đơn giá:{" "}
+                                                    Đơn giá:{" "}
                                                     <b className="text-red-500">
-                              {item.pricePerUnit.toLocaleString()}đ
-                            </b>
-                          </span>
+                                                        {receiptDetail.pricePerUnit.toLocaleString()}đ
+                                                    </b>
+                                                    {receiptDetail.pricePerUnit < receiptDetail.originalPrice && (
+                                                        <>
+                                                            <span className="line-through">
+                                                                {" "}
+                                                                {receiptDetail.originalPrice.toLocaleString()}đ
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </span>
                                             </div>
                                         </td>
-
                                         <td className="text-center">
                                             <div className="inline-flex gap-2 items-center">
                                                 <button
                                                     type="button"
                                                     className="w-8 h-8 border border-gray-300 rounded-md text-sm"
-                                                    onClick={() => changeQty(item.bookCopy.id, -1)}
+                                                    onClick={() => changeQty(receiptDetail.bookCopy.id, -1)}
                                                 >
                                                     -
                                                 </button>
 
                                                 <span className="w-10 text-center font-medium">
-                            {item.quantity}
+                            {receiptDetail.quantity}
                           </span>
 
                                                 <button
                                                     type="button"
                                                     className="w-8 h-8 border border-gray-300 rounded-md text-sm"
-                                                    onClick={() => changeQty(item.bookCopy.id, +1)}
+                                                    onClick={() => changeQty(receiptDetail.bookCopy.id, +1)}
                                                 >
                                                     +
                                                 </button>
@@ -617,14 +594,14 @@ export default function POS() {
                                         </td>
 
                                         <td className="text-center font-semibold text-blue-600">
-                                            {(item.quantity * item.pricePerUnit).toLocaleString()}đ
+                                            {(receiptDetail.quantity * receiptDetail.pricePerUnit).toLocaleString()}đ
                                         </td>
 
                                         <td className="text-center">
                                             <button
                                                 type="button"
                                                 className="text-red-500 text-lg"
-                                                onClick={() => removeItem(item.bookCopy.id)}
+                                                onClick={() => removeItem(receiptDetail.bookCopy.id)}
                                                 title="Xóa sản phẩm"
                                             >
                                                 🗑
@@ -813,55 +790,48 @@ export default function POS() {
                                 {/*</button>*/}
                             </div>
 
-                            {/* DANH SÁCH CAMPAIGN */}
+                            {/* DANH SÁCH VOUCHER DEMO */}
                             <div className="space-y-3 max-h-[260px] overflow-y-auto custom-scrollbar">
-                                {CAMPAIGNS.map((v) => {
-                                    const isApplied = activeOrder.voucherCode === String(v.id);
-                                    return (
-                                        <button
-                                            key={v.id}
-                                            type="button"
-                                            onClick={() => applyCampaign(v.id)}
-                                            className={`w-full flex border rounded-lg px-3 py-3 text-left items-center gap-3 ${
-                                                isApplied
-                                                    ? "border-[var(--sidebar-primary)] bg-[var(--sidebar-primary-soft)]"
-                                                    : "border-gray-200 bg-white hover:bg-gray-50"
-                                            }`}
-                                        >
-                                            <div className="flex-1">
-                                                <div className="font-semibold text-sm">
-                                                    {v.description}
-                                                    {v.campaignLabel && (
-                                                        <span className="text-xs text-gray-400 ml-1">
-                                                            ({v.campaignLabel})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    {v.minTotal > 0 && (
-                                                        <>Đơn tối thiểu {v.minTotal.toLocaleString("vi-VN")}đ</>
-                                                    )}
-                                                    {v.minTotal === 0 && (
-                                                        <>Áp dụng cho mọi đơn hàng</>
-                                                    )}
-                                                </div>
-                                                {v.maxDiscount > 0 && v.type === "PERCENT" && (
-                                                    <div className="text-[11px] text-gray-400 mt-1">
-                                                        Tối đa {v.maxDiscount.toLocaleString("vi-VN")}đ
+                                {VOUCHERS
+                                    .filter(v => v.type === "PERCENTAGE_RECEIPT")
+                                    .map((v) => {
+                                        const isApplied = activeOrder.voucherCode === v.id;
+                                        return (
+                                            <button
+                                                key={v.id}
+                                                type="button"
+                                                onClick={() => applyVoucherByCode(v.id)}
+                                                className={`w-full flex border rounded-lg px-3 py-3 text-left items-center gap-3 ${
+                                                    isApplied
+                                                        ? "border-[var(--sidebar-primary)] bg-[var(--sidebar-primary-soft)]"
+                                                        : "border-gray-200 bg-white hover:bg-gray-50"
+                                                }`}
+                                            >
+                                                <div className="flex-1">
+                                                    <div className="font-semibold text-sm">
+                                                        {v.id}
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col items-center justify-between h-full text-center min-w-[48px]">
-                                                <span className="text-xs text-gray-500 uppercase">
-                                                    Đợt KM
-                                                </span>
-                                                <span className="text-base font-semibold text-[var(--sidebar-primary)]">
-                                                    {v.label}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {v.description}
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-400 mt-1">
+                                                        Đơn tối thiểu{" "}
+                                                        {v.minTotal.toLocaleString("vi-VN")}đ
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    className="flex flex-col items-center justify-between h-full text-center min-w-[48px]">
+                        <span className="text-xs text-gray-500 uppercase">
+                          Mã giảm giá
+                        </span>
+                                                    <span
+                                                        className="text-base font-semibold text-[var(--sidebar-primary)]">
+                          {v.label}
+                        </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                             </div>
                         </div>
 
@@ -920,7 +890,9 @@ export default function POS() {
                                 order.id = 0;
                                 order.attributes.discount = order.discount;
                                 order.attributes.discountAmount = order.discountAmount;
-
+                                order.relationships.employee = {
+                                    id: user!.id
+                                }
                                 console.log(order);
                                 console.log(serializeReceipt(order));
                                 const saved = await receiptCreate.mutateAsync(order);
@@ -996,7 +968,7 @@ export default function POS() {
                             setShowCustomerPopup(false);
                         }}
                         customers={USERS.filter(u =>
-                            checkIsUser(u.roles)
+                            u.roles.some(r => r.name === "ROLE_USER")
                         )}
                         onSave={(data) => {
                             console.log(data);
@@ -1029,5 +1001,6 @@ export default function POS() {
                 )
             }
         </div>
-    );
+    )
+        ;
 }
