@@ -854,8 +854,10 @@ setHasShipping(detectedHasShipping);
                                   />
                                 </td>
 
-                                <td className="px-3 py-2 align-middle whitespace-nowrap">
-                                  <span>{item.name}</span>
+                                <td className="px-3 py-2 align-middle">
+                                  <div className="flex items-center h-full">
+                                    <span>{item.name}</span>
+                                  </div>
                                 </td>
 
                                 <td className="px-3 py-2 text-center">

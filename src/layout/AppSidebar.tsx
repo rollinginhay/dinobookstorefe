@@ -37,17 +37,8 @@ const allNavItems: NavItem[] = [
   {
   name: "Giảm giá",
   icon: <TagIcon className="w-5 h-5" />,
-  subItems: [
-    {
-      name: "Đợt giảm giá",
-      path: "/voucher", // 👈 TRỎ TỚI THỨ BẠN ĐANG LÀM
-    },
-    {
-      name: "Phiếu giảm giá",
-      path: "/vouchers", // 👈 để trống / fix cứng sau
-    },
-  ],
-},
+  path: "/voucher", // 👈 Chỉ có đợt giảm giá
+  },
   {
     name: "Quản lý sách",
     icon: <CartIcon />,
@@ -64,9 +55,8 @@ const allNavItems: NavItem[] = [
     name: "Người dùng",
     icon: <UserCircleIcon />,
     subItems: [
-      { name: "Danh sách user", path: "/users" },
-      { name: "Nhân viên", path: "/users/staff" },
-      { name: "Phân quyền", path: "/users/roles" },
+      { name: "Quản lý khách hàng", path: "/users" },
+      { name: "Quản lý nhân viên", path: "/users/staff" },
     ],
   },
 //   {
@@ -153,12 +143,17 @@ const AppSidebar: React.FC = () => {
     const {isExpanded, isMobileOpen, isHovered, setIsHovered} = useSidebar();
     const pathname = usePathname();
     const router = useRouter();
-    const { logout, isAdmin, isStaff } = useAuth();
+    const { logout, isAdmin, isManager, isStaff } = useAuth();
 
     // Filter menu items dựa trên role
     const getFilteredNavItems = (): NavItem[] => {
         // ROLE_ADMIN: thấy tất cả
         if (isAdmin()) {
+            return allNavItems;
+        }
+        
+        // ROLE_MANAGER: thấy menu quản lý
+        if (isManager()) {
             return allNavItems;
         }
         

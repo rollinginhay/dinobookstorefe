@@ -15,6 +15,8 @@ export default function BillList() {
     const [filteredBills, setFilteredBills] = useState<any[]>([]);
     // 🔍 CHỖ NÀY NÈ — THÊM STATE PHÂN TRANG
     const [currentPage, setCurrentPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const itemsPerPage = 10;
     // Khi dữ liệu load xong → tự động lọc và hiển thị
     useEffect(() => {
@@ -36,14 +38,26 @@ export default function BillList() {
 
     // Load API
     useEffect(() => {
-        BillService.getList().then((data) => {
-            const sorted = [...data].sort(
-                (a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
-            );
+        setLoading(true);
+        setError(null);
+        BillService.getList()
+            .then((data) => {
+                const sorted = [...data].sort(
+                    (a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime()
+                );
 
-            setBills(sorted);
-            setFilteredBills(sorted);
-        });
+                setBills(sorted);
+                setFilteredBills(sorted);
+            })
+            .catch((error) => {
+                console.error("Error loading bills:", error);
+                setError("Không thể tải danh sách hóa đơn. Vui lòng thử lại sau.");
+                setBills([]);
+                setFilteredBills([]);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     }, []); // 👈 load 1 lần duy nhất
 
 
@@ -251,7 +265,28 @@ export default function BillList() {
                 ))}
             </div>
 
+            {/* LOADING STATE */}
+            {loading && (
+                <div className="card p-6 text-center">
+                    <p className="text-gray-500">Đang tải dữ liệu...</p>
+                </div>
+            )}
+
+            {/* ERROR STATE */}
+            {error && !loading && (
+                <div className="card p-6 text-center">
+                    <p className="text-red-500 mb-4">{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="btn btn-primary"
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            )}
+
             {/* TABLE */}
+            {!loading && !error && (
             <div className="card p-0 overflow-x-auto">
                 <table className="table min-w-[900px]">
                     <thead>
@@ -277,7 +312,7 @@ export default function BillList() {
                             <td>{bill.customerPhone}</td>
 
                             <td className="text-red-500">
-                                {bill.totalAmount.toLocaleString()} đ
+                                {(bill.totalAmount || 0).toLocaleString()} đ
                             </td>
 
                             <td>{renderStatusBadge(bill.status)}</td>
@@ -343,6 +378,7 @@ export default function BillList() {
                     </button>
                 </div>
             </div>
+            )}
         </div>
     );
 }

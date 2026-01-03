@@ -26,9 +26,6 @@ export default async function EditVoucherPage({ params }: Props) {
   return (
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-end mb-4">
-          <DeleteDiscountButton id={id} campaignName={campaignName} />
-        </div>
         <DiscountForm mode="edit" initialData={discount} />
       </div>
     </div>

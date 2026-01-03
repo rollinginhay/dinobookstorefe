@@ -23,6 +23,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
   const [status, setStatus] = useState<CampaignStatus>("UPCOMING");
   const [showConfirm, setShowConfirm] = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [showEnabledConfirm, setShowEnabledConfirm] = useState(false);
+  const [pendingEnabledValue, setPendingEnabledValue] = useState<boolean | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Parse initialData từ API
@@ -238,11 +240,25 @@ export default function DiscountForm({ mode, initialData }: Props) {
         toast.error("Phần trăm giảm giá phải từ 1% đến 100%");
         return false;
       }
+      // Bắt buộc có maxDiscount khi giảm %
+      if (!formData.maxDiscount || formData.maxDiscount <= 0) {
+        toast.error("Vui lòng nhập giảm tối đa (VNĐ)");
+        return false;
+      }
     } else if (formData.campaignType === "FLAT_DISCOUNT") {
       if (!formData.maxDiscount || formData.maxDiscount <= 0) {
         toast.error("Số tiền giảm giá phải lớn hơn 0");
         return false;
       }
+    }
+
+    // Validate: PERCENTAGE_PRODUCT bắt buộc phải chọn sản phẩm
+    if (formData.campaignType === "PERCENTAGE_PRODUCT") {
+      // TODO: Validate selectedProducts khi có API
+      // if (!selectedProducts || selectedProducts.length === 0) {
+      //   toast.error("Vui lòng chọn ít nhất một sản phẩm để áp dụng giảm giá");
+      //   return false;
+      // }
     }
 
     if (formData.minTotal < 0) {
@@ -270,6 +286,18 @@ export default function DiscountForm({ mode, initialData }: Props) {
     setShowConfirm(true);
   };
 
+  const handleConfirmEnabledChange = () => {
+    if (pendingEnabledValue !== null) {
+      setFormData(prev => ({
+        ...prev,
+        enabled: pendingEnabledValue
+      }));
+      setHasChanges(true);
+      setPendingEnabledValue(null);
+    }
+    setShowEnabledConfirm(false);
+  };
+
   const handleConfirmSubmit = async () => {
     setLoading(true);
     setShowConfirm(false);
@@ -289,7 +317,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
       // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
       if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
         payloadData.percentage = formData.percentage;
-        payloadData.maxDiscount = null;
+        payloadData.maxDiscount = formData.maxDiscount; // Giữ maxDiscount cho giảm %
       } else if (formData.campaignType === "FLAT_DISCOUNT") {
         payloadData.maxDiscount = formData.maxDiscount;
         payloadData.percentage = null;
@@ -337,7 +365,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
     }
   };
 
-  // Xác định các field có được disable không
+    // Xác định các field có được disable không
   const isFieldDisabled = (fieldName: string): boolean => {
     if (mode === "create") return false;
     return !canEditField(fieldName, status);
@@ -414,9 +442,9 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="PERCENTAGE_PRODUCT">Giảm phần trăm theo sản phẩm (SALE ĐỢT / SALE COMBO)</option>
-              <option value="PERCENTAGE_DISCOUNT">Giảm theo phần trăm (%)</option>
-              <option value="FLAT_DISCOUNT">Giảm theo số tiền cố định (đ)</option>
+              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm (sale đợt / combo)</option>
+              <option value="PERCENTAGE_DISCOUNT">Giảm % toàn đơn</option>
+              <option value="FLAT_DISCOUNT">Giảm tiền cố định theo đơn</option>
             </select>
             {isFieldDisabled("campaignType") && (
               <p className="text-xs text-amber-600 mt-1">
@@ -427,40 +455,88 @@ export default function DiscountForm({ mode, initialData }: Props) {
 
           {/* Giá trị giảm */}
           {(formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phần trăm giảm giá (%) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  name="percentage"
-                  type="text"
-                  inputMode="decimal"
-                  required
-                  value={formData.percentage !== null && formData.percentage !== undefined ? formData.percentage : ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "" || value === null || value === undefined) {
-                      setFormData(prev => ({ ...prev, percentage: null }));
-                    } else {
-                      const num = parseFloat(value);
-                      if (!isNaN(num) && num >= 0 && num <= 100) {
-                        setFormData(prev => ({ ...prev, percentage: num }));
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phần trăm giảm giá (%) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    name="percentage"
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    value={formData.percentage !== null && formData.percentage !== undefined ? formData.percentage : ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setFormData(prev => ({ ...prev, percentage: null }));
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num) && num >= 0 && num <= 100) {
+                          setFormData(prev => ({ ...prev, percentage: num }));
+                        }
                       }
-                    }
-                  }}
-                  disabled={isFormReadOnly}
-                  className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="Ví dụ: 10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  %
-                </span>
+                    }}
+                    disabled={isFieldDisabled("percentage") || isFormReadOnly}
+                    className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="Ví dụ: 10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    %
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Nhập số phần trăm từ 1% đến 100%
+                </p>
+                {isFieldDisabled("percentage") && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Phần trăm giảm giá không thể thay đổi khi đợt giảm giá đang diễn ra
+                  </p>
+                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Nhập số phần trăm từ 1% đến 100%
-              </p>
-            </div>
+              
+              {/* Giảm tối đa (VNĐ) - BẮT BUỘC với giảm % */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Giảm tối đa (VNĐ) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    name="maxDiscount"
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={formData.maxDiscount !== null && formData.maxDiscount !== undefined ? formData.maxDiscount : ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setFormData(prev => ({ ...prev, maxDiscount: null }));
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num) && num >= 0) {
+                          setFormData(prev => ({ ...prev, maxDiscount: num }));
+                        }
+                      }
+                    }}
+                    disabled={isFieldDisabled("maxDiscount") || isFormReadOnly}
+                    className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="Ví dụ: 50000"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    đ
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Số tiền giảm tối đa khi áp dụng phần trăm (ví dụ: 50,000đ)
+                </p>
+                {isFieldDisabled("maxDiscount") && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Giảm tối đa không thể thay đổi khi đợt giảm giá đang diễn ra
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
           {formData.campaignType === "FLAT_DISCOUNT" && (
@@ -531,7 +607,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Đơn hàng phải đạt giá trị này mới được áp dụng giảm giá (để 0 nếu không yêu cầu)
+              Đơn hàng phải đạt giá trị này mới được áp dụng giảm giá. <span className="font-medium">Nhập 0 nếu không yêu cầu giá trị tối thiểu</span>
             </p>
           </div>
 
@@ -596,69 +672,70 @@ export default function DiscountForm({ mode, initialData }: Props) {
             </p>
           </div>
 
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ghi chú
-            </label>
-            <textarea
-              name="note"
-              value={formData.note}
-              onChange={handleChange}
-              disabled={isFormReadOnly}
-              rows={3}
-              className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
-              placeholder="Thêm ghi chú về đợt giảm giá này (tùy chọn)"
-            />
-          </div>
-
-          {/* Thông tin số lượng và đã dùng (chỉ hiển thị khi edit) */}
-          {mode === "edit" && (
-            <div className="grid grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Số lượng voucher
-                </label>
-                <p className="text-lg font-semibold text-gray-900">
-                  {campaignDetails.length}
+          {/* Chọn sản phẩm áp dụng - chỉ cho SALE ĐỢT / SALE COMBO */}
+          {formData.campaignType === "PERCENTAGE_PRODUCT" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Chọn sản phẩm áp dụng <span className="text-red-500">*</span>
+              </label>
+              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <p className="text-sm text-gray-600 mb-3">
+                  Chọn các sản phẩm sẽ được áp dụng giảm giá trong đợt này.
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Tổng số mã giảm giá đã tạo
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Tính năng chọn sản phẩm đang được phát triển. Vui lòng chọn sản phẩm sau khi tạo đợt giảm giá.
+                  </p>
+                  {/* TODO: Thêm UI chọn sản phẩm khi có API */}
+                  {/* 
+                  <ProductSelector
+                    selectedProducts={selectedProducts}
+                    onSelect={setSelectedProducts}
+                    disabled={isFieldDisabled("products") || isFormReadOnly}
+                  />
+                  */}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Đã sử dụng
-                </label>
-                <p className="text-lg font-semibold text-gray-900">
-                  0
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Số mã đã được sử dụng
-                </p>
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Bạn có thể quản lý danh sách sản phẩm sau khi tạo đợt giảm giá
+              </p>
             </div>
           )}
 
-          {/* Trạng thái kích hoạt */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <input
-              name="enabled"
-              type="checkbox"
-              checked={formData.enabled}
-              onChange={handleChange}
-              disabled={isFormReadOnly}
-              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
+          {/* Trạng thái kích hoạt - chỉ hiển thị khi sửa */}
+          {mode === "edit" && (
             <div>
-              <label className="text-sm font-medium text-gray-700 cursor-pointer">
-                Kích hoạt đợt giảm giá
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Trạng thái đợt giảm giá
               </label>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newValue = !formData.enabled;
+                    setPendingEnabledValue(newValue);
+                    setShowEnabledConfirm(true);
+                  }}
+                  disabled={isFormReadOnly}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    formData.enabled ? "bg-blue-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      formData.enabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm font-medium text-gray-700">
+                  {formData.enabled ? "Đang hoạt động" : "Vô hiệu hóa"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
                 Tắt để vô hiệu hóa đợt giảm giá này
               </p>
             </div>
-          </div>
+          )}
 
           {/* Buttons */}
           <div className="flex justify-between items-center pt-4 border-t">
@@ -764,6 +841,45 @@ export default function DiscountForm({ mode, initialData }: Props) {
           confirmButtonColor="blue"
           loading={false}
         />
+
+        {/* Enabled Status Change Confirm Dialog - chỉ hiển thị khi sửa */}
+        {mode === "edit" && (
+          <ConfirmDialog
+            isOpen={showEnabledConfirm}
+            onClose={() => {
+              setShowEnabledConfirm(false);
+              setPendingEnabledValue(null);
+            }}
+            onConfirm={handleConfirmEnabledChange}
+            title="Xác nhận thay đổi trạng thái đợt giảm giá"
+            message={
+              <div className="space-y-2">
+                <p className="font-medium">
+                  Bạn có chắc muốn {pendingEnabledValue ? "kích hoạt" : "vô hiệu hóa"} đợt giảm giá này?
+                </p>
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1 text-sm">
+                  <p className="font-medium text-blue-800">Lưu ý:</p>
+                  <ul className="list-disc list-inside space-y-1 text-blue-700">
+                    {pendingEnabledValue ? (
+                      <>
+                        <li>Đợt giảm giá sẽ được kích hoạt và có thể áp dụng ngay</li>
+                        <li>Khách hàng sẽ có thể sử dụng đợt giảm giá này</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>Đợt giảm giá sẽ bị vô hiệu hóa và không thể áp dụng</li>
+                        <li>Khách hàng sẽ không thể sử dụng đợt giảm giá này</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            }
+            confirmText="Xác nhận"
+            cancelText="Hủy"
+            confirmButtonColor={pendingEnabledValue ? "green" : "red"}
+          />
+        )}
       </div>
     </div>
   );

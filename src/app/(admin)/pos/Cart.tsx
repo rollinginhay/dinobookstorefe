@@ -80,12 +80,12 @@ export default function Cart({ items, onItemsChange }: CartProps) {
 
           {/* PRODUCT INFO */}
           <td className="p-3 align-middle">
-            <div className="flex flex-col justify-center h-full">
+            <div className="flex flex-col justify-center h-full gap-1">
               <div className="font-semibold text-[16px] leading-tight">
                 {item.name}
               </div>
 
-              <div className="text-sm text-gray-500 mt-1">
+              <div className="text-sm text-gray-500">
                 Mã SP: <span className="font-medium">SPCT00X</span>
               </div>
 

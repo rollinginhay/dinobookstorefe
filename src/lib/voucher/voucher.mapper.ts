@@ -7,7 +7,7 @@ export function mapVoucherList(raw: any[]) {
     // Hỗ trợ cả format JSON:API (có attributes) và format thường
     const a = item.attributes || item;
     const id = item.id || a.id;
-    
+
     // Campaign có campaignType, map sang voucherType để tương thích
     const campaignType = a.campaignType || a.voucherType || "";
     const voucherType = a.voucherType || campaignType || "";

@@ -2,7 +2,12 @@ import Link from "next/link";
 import { User } from "./user.types";
 import { getRoleDisplayName, getRoleColorClasses } from "@/lib/user/role.utils";
 
-export default function UserTable({ data }: { data: User[] }) {
+type UserTableProps = {
+  data: User[];
+  basePath?: string; // Đường dẫn cơ sở cho link edit, mặc định là "/users"
+};
+
+export default function UserTable({ data, basePath = "/users" }: UserTableProps) {
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       <table className="w-full border-collapse">
@@ -67,7 +72,7 @@ export default function UserTable({ data }: { data: User[] }) {
 
               <td className="px-4 py-3 text-center">
                 <Link
-                  href={`/users/${user.id}`}
+                  href={`${basePath}/${user.id}`}
                   className="inline-flex items-center justify-center text-orange-500 hover:text-orange-600 transition-colors"
                   title="Chỉnh sửa"
                 >

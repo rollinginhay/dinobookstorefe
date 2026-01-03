@@ -32,8 +32,16 @@ export default function UsersPage() {
       
       const mapped = mapUserList(res);
       console.log("Mapped users:", mapped);
-      setData(mapped);
-      setFilteredData(mapped);
+      // Chỉ hiển thị khách hàng (ROLE_USER), lọc bỏ quản trị viên (ROLE_ADMIN) và quản lý (ROLE_MANAGER)
+      const customers = mapped.filter(user => {
+        const roleNames = user.roles?.map(r => r.name) || [];
+        // Chỉ hiển thị nếu có ROLE_USER và không có ROLE_ADMIN hoặc ROLE_MANAGER
+        return roleNames.includes("ROLE_USER") && 
+               !roleNames.includes("ROLE_ADMIN") && 
+               !roleNames.includes("ROLE_MANAGER");
+      });
+      setData(customers);
+      setFilteredData(customers);
     } catch (err: any) {
       console.error("Error fetching users:", err);
       
@@ -103,9 +111,9 @@ export default function UsersPage() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-lg font-semibold">Quản lý người dùng</h1>
+          <h1 className="text-lg font-semibold">Quản lý khách hàng</h1>
           <p className="text-sm text-gray-500">
-            Quản lý tài khoản người dùng trong hệ thống
+            Quản lý tài khoản khách hàng trong hệ thống
           </p>
         </div>
       </div>

@@ -2,17 +2,9 @@
 
 import UserForm from "@/components/user/UserForm";
 
-export default function NewUserPage() {
+export default function NewStaffPage() {
   return <UserForm mode="create" />;
 }
-
-
-
-
-
-
-
-
 
 
 

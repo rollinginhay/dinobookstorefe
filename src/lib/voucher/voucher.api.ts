@@ -27,16 +27,16 @@ export async function fetchVouchers() {
   if (res.data && res.data.data && Array.isArray(res.data.data)) {
     campaigns = res.data.data;
   } else {
-    // Nếu không có data.data, thử deserialize
-    try {
-      const deserialized = jsonApi.deserialise(res.data);
-      if (Array.isArray(deserialized)) {
+  // Nếu không có data.data, thử deserialize
+  try {
+    const deserialized = jsonApi.deserialise(res.data);
+    if (Array.isArray(deserialized)) {
         campaigns = deserialized;
       } else if (deserialized && Array.isArray(deserialized.data)) {
         campaigns = deserialized.data;
-      }
-    } catch (e) {
-      console.warn("Failed to deserialize, using raw data:", e);
+    }
+  } catch (e) {
+    console.warn("Failed to deserialize, using raw data:", e);
     }
   }
   
@@ -55,14 +55,14 @@ export async function fetchVoucherById(id: string | number) {
   if (res.data && res.data.data) {
     campaign = res.data.data;
   } else {
-    // Nếu không có data.data, thử deserialize
-    try {
-      const deserialized = jsonApi.deserialise(res.data);
+  // Nếu không có data.data, thử deserialize
+  try {
+    const deserialized = jsonApi.deserialise(res.data);
       campaign = deserialized?.data || deserialized;
-    } catch (e) {
-      console.warn("Failed to deserialize, using raw data:", e);
+  } catch (e) {
+    console.warn("Failed to deserialize, using raw data:", e);
       campaign = res.data;
-    }
+  }
   }
   
   // Kiểm tra xem campaign này có phải là voucher campaign không

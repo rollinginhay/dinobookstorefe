@@ -14,6 +14,7 @@ export async function fetchUsers() {
     if (res.data.included && Array.isArray(res.data.included)) {
       included = res.data.included;
     }
+    console.log(`fetchUsers: Loaded ${users.length} users with ${included.length} included resources`);
   } else {
     // Nếu không có data.data, thử deserialize
     try {
@@ -26,16 +27,21 @@ export async function fetchUsers() {
           included = Array.isArray(deserialized.included) ? deserialized.included : [];
         }
       }
+      console.log(`fetchUsers: Deserialized ${users.length} users with ${included.length} included resources`);
     } catch (e) {
       console.warn("Failed to deserialize, using raw data:", e);
+      console.warn("Raw response data:", res.data);
     }
   }
   
   // Gắn included data vào mỗi user để mapper có thể sử dụng
-  return users.map((user: any) => ({
+  const result = users.map((user: any) => ({
     ...user,
     included: included,
   }));
+  
+  console.log(`fetchUsers: Returning ${result.length} users`);
+  return result;
 }
 
 export async function fetchUserById(id: string | number) {
@@ -92,11 +98,14 @@ export async function updateUser(data: any) {
   if (!data.id) {
     throw new Error("User ID is required for update");
   }
+  console.log("updateUser - Input data:", data);
   const serialized = jsonApi.serialise("user", data);
+  console.log("updateUser - Serialized payload:", JSON.stringify(serialized, null, 2));
   const res = await api.put(
     API_ROUTES.PUT_USER_UPDATE,
     serialized
   );
+  console.log("updateUser - Response:", res.data);
   return res.data;
 }
 

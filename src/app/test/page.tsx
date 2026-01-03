@@ -3,7 +3,7 @@ import React from "react";
 
 function loginWithGoogle() {
     const popup = window.open(
-        `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorize/google`,
+        `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`,
         "oauth2Login",
         "width=600,height=700"
     );

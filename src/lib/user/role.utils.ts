@@ -3,6 +3,7 @@ import { Role } from "@/components/user/user.types";
 // ===================== ROLE CONSTANTS =====================
 export const ROLE_NAMES = {
   ADMIN: "ROLE_ADMIN",
+  MANAGER: "ROLE_MANAGER",
   EMPLOYEE: "ROLE_EMPLOYEE",
   USER: "ROLE_USER",
 } as const;
@@ -54,8 +55,15 @@ export function getAllUserRoles(roles: Role[]): string[] {
 
   const allRoles = new Set<string>(roleNames);
 
-  // Nếu có ROLE_ADMIN, tự động có ROLE_EMPLOYEE và ROLE_USER
+  // Nếu có ROLE_ADMIN, tự động có ROLE_MANAGER, ROLE_EMPLOYEE và ROLE_USER
   if (roleNames.includes(ROLE_NAMES.ADMIN)) {
+    allRoles.add(ROLE_NAMES.MANAGER);
+    allRoles.add(ROLE_NAMES.EMPLOYEE);
+    allRoles.add(ROLE_NAMES.USER);
+  }
+
+  // Nếu có ROLE_MANAGER, tự động có ROLE_EMPLOYEE và ROLE_USER
+  if (roleNames.includes(ROLE_NAMES.MANAGER)) {
     allRoles.add(ROLE_NAMES.EMPLOYEE);
     allRoles.add(ROLE_NAMES.USER);
   }
@@ -81,6 +89,13 @@ export function hasRole(roles: Role[], roleName: string): boolean {
  */
 export function isAdmin(roles: Role[]): boolean {
   return hasRole(roles, ROLE_NAMES.ADMIN);
+}
+
+/**
+ * Kiểm tra user có phải là Manager (Quản lý) không
+ */
+export function isManager(roles: Role[]): boolean {
+  return hasRole(roles, ROLE_NAMES.MANAGER);
 }
 
 /**
@@ -169,28 +184,28 @@ export function canApplyVoucher(roles: Role[] | null | undefined): boolean {
  * Quản lý đơn hàng, Quản lý khách hàng, Hỗ trợ khách hàng
  */
 export function canUsePOS(roles: Role[] | null | undefined): boolean {
-  // Staff và Admin có thể dùng POS
-  return roles ? (isStaff(roles) || isAdmin(roles)) : false;
+  // Staff, Manager và Admin có thể dùng POS
+  return roles ? (isStaff(roles) || isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canCreateInvoice(roles: Role[] | null | undefined): boolean {
-  // Staff và Admin có thể tạo hóa đơn
-  return roles ? (isStaff(roles) || isAdmin(roles)) : false;
+  // Staff, Manager và Admin có thể tạo hóa đơn
+  return roles ? (isStaff(roles) || isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canManageOrders(roles: Role[] | null | undefined): boolean {
-  // Staff và Admin có thể quản lý đơn hàng
-  return roles ? (isStaff(roles) || isAdmin(roles)) : false;
+  // Staff, Manager và Admin có thể quản lý đơn hàng
+  return roles ? (isStaff(roles) || isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canManageCustomers(roles: Role[] | null | undefined): boolean {
-  // Staff và Admin có thể quản lý khách hàng
-  return roles ? (isStaff(roles) || isAdmin(roles)) : false;
+  // Staff, Manager và Admin có thể quản lý khách hàng
+  return roles ? (isStaff(roles) || isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canSupportCustomers(roles: Role[] | null | undefined): boolean {
-  // Staff và Admin có thể hỗ trợ khách hàng
-  return roles ? (isStaff(roles) || isAdmin(roles)) : false;
+  // Staff, Manager và Admin có thể hỗ trợ khách hàng
+  return roles ? (isStaff(roles) || isManager(roles) || isAdmin(roles)) : false;
 }
 
 /**
@@ -209,13 +224,13 @@ export function canManageProductAttributes(roles: Role[] | null | undefined): bo
 }
 
 export function canManageStaff(roles: Role[] | null | undefined): boolean {
-  // Chỉ Admin có thể quản lý nhân viên
-  return roles ? isAdmin(roles) : false;
+  // Manager và Admin có thể quản lý nhân viên
+  return roles ? (isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canManageUsers(roles: Role[] | null | undefined): boolean {
-  // Chỉ Admin có thể quản lý người dùng
-  return roles ? isAdmin(roles) : false;
+  // Manager và Admin có thể quản lý người dùng
+  return roles ? (isManager(roles) || isAdmin(roles)) : false;
 }
 
 export function canManagePermissions(roles: Role[] | null | undefined): boolean {

@@ -27,6 +27,7 @@ export default function ConfirmDialog({
   loading = false,
   loadingText = "Đang xử lý...",
 }: ConfirmDialogProps) {
+  console.log("ConfirmDialog render:", { isOpen, loading, onConfirm: typeof onConfirm });
   if (!isOpen) return null;
 
   const buttonColors = {
@@ -63,7 +64,29 @@ export default function ConfirmDialog({
             {cancelText}
           </button>
           <button
-            onClick={onConfirm}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log("=== ConfirmDialog: Confirm button clicked ===");
+              console.log("loading:", loading);
+              console.log("onConfirm function:", onConfirm);
+              console.log("onConfirm type:", typeof onConfirm);
+              if (loading) {
+                console.warn("Button is disabled due to loading state");
+                return;
+              }
+              if (!onConfirm) {
+                console.error("onConfirm is not defined!");
+                return;
+              }
+              try {
+                console.log("Calling onConfirm...");
+                onConfirm();
+                console.log("onConfirm called successfully");
+              } catch (error) {
+                console.error("Error calling onConfirm:", error);
+              }
+            }}
             disabled={loading}
             className={`px-5 py-2.5 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium ${buttonColors[confirmButtonColor]}`}
           >
