@@ -1015,6 +1015,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             comboName: comboMeta.comboName,
             comboOriginalPrice: comboMeta.comboOriginalPrice,
             comboDiscount: comboMeta.comboDiscount,
+            bookDetailId: firstItem.bookDetailId || firstItem.id, // Đảm bảo có bookDetailId hợp lệ
           };
           result.push(comboItem);
           processedComboIds.add(comboMeta.comboId);

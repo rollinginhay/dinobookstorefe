@@ -428,16 +428,6 @@ export default function GioHang() {
                   className="bg-white rounded-lg shadow-sm p-6"
                 >
                   <div className="flex items-start gap-4">
-                    {/* Image */}
-                    <Link href={`/san-pham/${item.id}`}>
-                      <div className="aspect-[3/4] w-24 rounded-lg overflow-hidden relative cursor-pointer flex-shrink-0">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      </div>
-                    </Link>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.cartDetailId)}

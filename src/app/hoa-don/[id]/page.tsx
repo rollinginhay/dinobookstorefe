@@ -33,9 +33,43 @@ export default function HoaDon() {
         console.log("📦 Receipt relationships:", receipt.relationships);
 
         // Tách included theo type
-        const receiptDetails = included.filter((x) => x.type === "receiptDetail");
-        const bookDetails = included.filter((x) => x.type === "bookDetail");
+        let receiptDetails = included.filter((x) => x.type === "receiptDetail");
+        let bookDetails = included.filter((x) => x.type === "bookDetail");
         const books = included.filter((x) => x.type === "book");
+
+        // Nếu receiptDetails không có relationships, thử fetch từ relationships endpoint
+        if (receiptDetails.length > 0 && !receiptDetails[0].relationships?.bookDetail && !receiptDetails[0].relationships?.bookCopy) {
+          try {
+            console.log("🔍 Fetching receiptDetails từ relationships endpoint");
+            const receiptDetailsRes = await fetch(
+              `http://localhost:8080/v1/receipt/${receiptId}/relationships/receiptDetail?e=true`
+            );
+            if (receiptDetailsRes.ok) {
+              const receiptDetailsJson = await receiptDetailsRes.json();
+              const receiptDetailsFromRel = receiptDetailsJson.data || [];
+              const receiptDetailsIncluded = receiptDetailsJson.included || [];
+              
+              // Merge receiptDetails với relationships đầy đủ
+              receiptDetails = receiptDetails.map((rd: any) => {
+                const rdFromRel = receiptDetailsFromRel.find((r: any) => String(r.id) === String(rd.id));
+                if (rdFromRel && rdFromRel.relationships) {
+                  return { ...rd, relationships: { ...rd.relationships, ...rdFromRel.relationships } };
+                }
+                return rd;
+              });
+              
+              // Thêm bookDetails từ included nếu có
+              const bookDetailsFromRel = receiptDetailsIncluded.filter((x: any) => x.type === "bookDetail");
+              if (bookDetailsFromRel.length > 0) {
+                bookDetails.push(...bookDetailsFromRel);
+              }
+              
+              console.log("🔍 ReceiptDetails sau khi fetch từ relationships:", receiptDetails);
+            }
+          } catch (err) {
+            console.error("Lỗi fetch receiptDetails từ relationships:", err);
+          }
+        }
 
         console.log("📦 ReceiptDetails count:", receiptDetails.length);
         console.log("📦 ReceiptDetails:", receiptDetails);
@@ -58,6 +92,9 @@ export default function HoaDon() {
           ? JSON.parse(receiptComboMetadataStr) 
           : [];
         
+        console.log("📦 Combo metadata từ localStorage:", receiptComboMetadata);
+        console.log("📦 ReceiptDetails để map:", receiptDetails);
+        
         // Map receiptDetailIds với combo (nếu chưa có thì map bằng bookDetailIds)
         const receiptDetailIdToComboMap: Record<string, any> = {};
         const processedReceiptDetailIds = new Set<string>();
@@ -71,8 +108,16 @@ export default function HoaDon() {
             });
           } else {
             // Chưa có receiptDetailIds, map bằng bookDetailIds
+            // Theo ERD: receipt_detail có book_copy_id (FK đến book_detail.id)
             receiptDetails.forEach((rd: any) => {
-              const bookDetailId = String(rd.relationships?.bookDetail?.data?.id);
+              // Lấy bookDetailId từ relationships (bookCopy hoặc bookDetail) hoặc attributes
+              const bookDetailId = String(
+                rd.relationships?.bookCopy?.data?.id || 
+                rd.relationships?.bookDetail?.data?.id ||
+                rd.attributes?.bookCopy ||
+                rd.attributes?.bookDetailId
+              );
+              
               if (combo.bookDetailIds.includes(bookDetailId) && !processedReceiptDetailIds.has(rd.id)) {
                 receiptDetailIdToComboMap[rd.id] = combo;
                 processedReceiptDetailIds.add(rd.id);
@@ -94,25 +139,48 @@ export default function HoaDon() {
         // Lấy danh sách sản phẩm (bao gồm cả combo)
         const productList = await Promise.all(
           receiptDetails.map(async (rd: any) => {
-            const bookDetailId = rd.relationships?.bookDetail?.data?.id;
-            const bd = bookDetails.find((x) => x.id === bookDetailId);
+            // Lấy bookDetailId từ relationships (bookDetail hoặc bookCopy) hoặc attributes của receiptDetail
+            // Backend có thể dùng bookCopy thay vì bookDetail
+            let bookDetailId = rd.relationships?.bookDetail?.data?.id 
+              || rd.relationships?.bookCopy?.data?.id
+              || rd.attributes?.bookDetailId
+              || rd.attributes?.bookCopy;
+            
+            // Nếu không có trong relationships hoặc attributes, thử fetch receiptDetail riêng để lấy relationship
+            if (!bookDetailId && rd.id) {
+              try {
+                console.log("🔍 Fetching receiptDetail để lấy bookDetail/bookCopy relationship:", rd.id);
+                const receiptDetailRes = await fetch(
+                  `http://localhost:8080/v1/receiptDetail/${rd.id}?e=true`
+                );
+                if (receiptDetailRes.ok) {
+                  const receiptDetailJson = await receiptDetailRes.json();
+                  bookDetailId = receiptDetailJson.data?.relationships?.bookDetail?.data?.id 
+                    || receiptDetailJson.data?.relationships?.bookCopy?.data?.id
+                    || receiptDetailJson.data?.attributes?.bookDetailId
+                    || receiptDetailJson.data?.attributes?.bookCopy;
+                  console.log("🔍 BookDetailId từ receiptDetail fetch:", bookDetailId);
+                }
+              } catch (err) {
+                console.error("Lỗi fetch receiptDetail:", err);
+              }
+            }
+            
+            const bd = bookDetails.find((x) => String(x.id) === String(bookDetailId));
             
             console.log("🔍 ReceiptDetail:", rd);
             console.log("🔍 BookDetailId:", bookDetailId);
             console.log("🔍 BookDetail từ included:", bd);
             
-            // Nếu không có book trong included, fetch từ API
+            // Tìm book trong included trước
             let book = null;
-            const bookId = bd?.relationships?.book?.data?.id;
+            const bookIdFromDetail = bd?.relationships?.book?.data?.id;
             
-            console.log("🔍 BookId từ bookDetail relationships:", bookId);
-            
-            if (bookId) {
-              book = books.find((x) => x.id === bookId);
-              console.log("🔍 Book từ included:", book);
+            if (bookIdFromDetail) {
+              book = books.find((x) => String(x.id) === String(bookIdFromDetail));
             }
             
-            // Nếu vẫn không có book, thử fetch book trực tiếp từ bookDetailId
+            // Nếu không có book trong included, thử fetch book trực tiếp từ bookDetailId
             // (vì book và bookDetail có thể có cùng ID)
             if (!book && bookDetailId) {
               try {
@@ -122,23 +190,28 @@ export default function HoaDon() {
                 );
                 if (bookRes.ok) {
                   const bookJson = await bookRes.json();
+                  const bookData = bookJson.data;
+                  
                   // Kiểm tra xem book này có bookCopies chứa bookDetailId không
-                  const bookCopies = bookJson.data?.relationships?.bookCopies?.data || [];
+                  const bookCopies = bookData?.relationships?.bookCopies?.data || [];
                   const hasThisBookDetail = bookCopies.some(
-                    (bc: any) => bc.id === String(bookDetailId)
+                    (bc: any) => String(bc.id) === String(bookDetailId)
                   );
                   
-                  if (hasThisBookDetail) {
-                    book = bookJson.data;
+                  // Hoặc nếu book ID trùng với bookDetailId (cùng ID)
+                  const isSameId = String(bookData?.id) === String(bookDetailId);
+                  
+                  if (hasThisBookDetail || isSameId) {
+                    book = bookData;
                     console.log("🔍 Book tìm thấy từ bookDetailId:", book);
                   } else {
-                    // Nếu không match, thử tìm trong included
+                    // Thử tìm bookDetail trong included của book response
                     const included = bookJson.included || [];
                     const bookDetailInIncluded = included.find(
-                      (x: any) => x.type === "bookDetail" && x.id === String(bookDetailId)
+                      (x: any) => x.type === "bookDetail" && String(x.id) === String(bookDetailId)
                     );
                     if (bookDetailInIncluded) {
-                      book = bookJson.data;
+                      book = bookData;
                       console.log("🔍 Book tìm thấy từ included:", book);
                     }
                   }
@@ -148,7 +221,7 @@ export default function HoaDon() {
               }
             }
             
-            // Nếu vẫn không có, thử fetch bookDetail và tìm book từ relationships ngược lại
+            // Nếu vẫn không có, thử fetch bookDetail và tìm book từ relationships
             if (!book && bookDetailId) {
               try {
                 console.log("🔍 Fetching bookDetail để tìm book:", bookDetailId);
@@ -159,7 +232,7 @@ export default function HoaDon() {
                   const bookDetailJson = await bookDetailRes.json();
                   const bookDetailIncluded = bookDetailJson.included || [];
                   
-                  // Tìm book trong included
+                  // Tìm book trong included của bookDetail response
                   const bookFromDetail = bookDetailIncluded.find(
                     (x: any) => x.type === "book"
                   );
@@ -171,12 +244,22 @@ export default function HoaDon() {
                     // Nếu có relationship đến book, fetch book
                     const bookIdFromRel = bookDetailJson.data.relationships.book.data.id;
                     const bookRes = await fetch(
-                      `http://localhost:8080/v1/book/${bookIdFromRel}`
+                      `http://localhost:8080/v1/book/${bookIdFromRel}?e=true`
                     );
                     if (bookRes.ok) {
                       const bookJson = await bookRes.json();
                       book = bookJson.data;
                       console.log("🔍 Book từ relationships:", book);
+                    }
+                  } else {
+                    // Nếu không có relationship, thử fetch book với cùng ID
+                    const bookRes = await fetch(
+                      `http://localhost:8080/v1/book/${bookDetailId}?e=true`
+                    );
+                    if (bookRes.ok) {
+                      const bookJson = await bookRes.json();
+                      book = bookJson.data;
+                      console.log("🔍 Book từ cùng ID:", book);
                     }
                   }
                 }
@@ -319,93 +402,128 @@ export default function HoaDon() {
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Hóa Đơn</h1>
-              <p className="text-gray-500 mt-2">
-                Mã đơn hàng: <span className="font-semibold">{orderCode}</span>
-              </p>
-              <p className="text-gray-500">
-                Ngày: {new Date(createdAt).toLocaleString("vi-VN")}
-              </p>
+        <div className="bg-white rounded-lg shadow-lg border-2 border-red-100 overflow-hidden mb-6">
+          {/* Header với gradient đỏ nhạt */}
+          <div className="bg-gradient-to-r from-red-50 via-rose-50 to-red-50 border-b-2 border-red-200 p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent mb-2">
+                  Hóa Đơn
+                </h1>
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 text-sm">Mã đơn hàng:</span>
+                    <span className="font-bold text-red-600 text-lg">
+                      {orderCode}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 text-sm">Ngày:</span>
+                    <span className="font-semibold text-gray-700">
+                      {new Date(createdAt).toLocaleString("vi-VN")}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Thông tin khách hàng */}
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-gray-800">
-                Thông tin khách hàng
-              </h2>
-              <div className="space-y-2 text-gray-700">
-                {info.customerCode && (
-                  <p>
-                    <b>Mã KH:</b> {info.customerCode}
-                  </p>
-                )}
-                <p>
-                  <b>Tên khách hàng:</b> {info.fullName}
-                </p>
-                <p>
-                  <b>Số điện thoại:</b> {info.phone}
-                </p>
-                <p>
-                  <b>Email:</b> {info.email}
-                </p>
-                <p>
-                  <b>Địa chỉ:</b> {info.address}
-                </p>
-              </div>
-            </div>
-
-            {/* Thông tin đơn hàng */}
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-gray-800">
-                Thông tin đơn hàng
-              </h2>
-              <div className="space-y-2 text-gray-700">
-                <p>
-                  <b>Mã đơn hàng:</b> {orderCode}
-                </p>
-                <p>
-                  <b>Loại đơn hàng:</b> {orderType === "ONLINE" ? "Trực tuyến" : orderType === "POS" ? "Tại cửa hàng" : orderType}
-                </p>
-                <p>
-                  <b>Phương thức thanh toán:</b>{" "}
-                  {info.paymentMethod === "CASH" || info.paymentMethod === "COD"
-                    ? "Tiền mặt"
-                    : info.paymentMethod === "VNPAY"
-                    ? "VNPay"
-                    : info.paymentMethod === "MOMO"
-                    ? "MoMo"
-                    : info.paymentMethod}
-                </p>
-                <p>
-                  <b>Tổng tiền hàng:</b> {calculatedSubTotal.toLocaleString("vi-VN")} đ
-                </p>
-                <p>
-                  <b>Phí ship:</b>{" "}
-                  {shipping === 0 ? (
-                    <span className="text-green-600">Miễn phí</span>
-                  ) : (
-                    `${shipping.toLocaleString("vi-VN")} đ`
+          <div className="p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Thông tin khách hàng */}
+              <div className="bg-gradient-to-br from-red-50/30 to-rose-50/30 rounded-xl p-6 border border-red-100">
+                <h2 className="text-xl font-bold mb-4 text-red-700 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Thông tin khách hàng
+                </h2>
+                <div className="space-y-3 text-gray-700">
+                  {info.customerCode && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800 min-w-[120px]">Mã KH:</span>
+                      <span className="text-red-600 font-bold">{info.customerCode}</span>
+                    </div>
                   )}
-                </p>
-                {voucherDiscount > 0 && (
-                  <p>
-                    <b>Giảm giá:</b> -{voucherDiscount.toLocaleString("vi-VN")} đ
-                  </p>
-                )}
-                <p>
-                  <b>Thành tiền:</b>{" "}
-                  <span className="text-red-600 font-bold">
-                    {calculatedFinalTotal.toLocaleString("vi-VN")} đ
-                  </span>
-                </p>
-                <p>
-                  <b>Ghi chú đơn hàng:</b> {note}
-                </p>
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[120px]">Tên khách hàng:</span>
+                    <span className="text-gray-700">{info.fullName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[120px]">Số điện thoại:</span>
+                    <span className="text-gray-700">{info.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[120px]">Email:</span>
+                    <span className="text-gray-700">{info.email}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[120px]">Địa chỉ:</span>
+                    <span className="text-gray-700">{info.address}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông tin đơn hàng */}
+              <div className="bg-gradient-to-br from-red-50/30 to-rose-50/30 rounded-xl p-6 border border-red-100">
+                <h2 className="text-xl font-bold mb-4 text-red-700 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Thông tin đơn hàng
+                </h2>
+                <div className="space-y-3 text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Mã đơn hàng:</span>
+                    <span className="text-red-600 font-bold">{orderCode}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Loại đơn hàng:</span>
+                    <span className="text-red-600 font-semibold">
+                      {orderType === "ONLINE" ? "Trực tuyến" : orderType === "POS" ? "Tại cửa hàng" : orderType}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Phương thức thanh toán:</span>
+                    <span className="text-red-600 font-semibold">
+                      {info.paymentMethod === "CASH" || info.paymentMethod === "COD"
+                        ? "Tiền mặt"
+                        : info.paymentMethod === "VNPAY"
+                        ? "VNPay"
+                        : info.paymentMethod === "MOMO"
+                        ? "MoMo"
+                        : info.paymentMethod}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Tổng tiền hàng:</span>
+                    <span className="text-gray-700 font-semibold">{calculatedSubTotal.toLocaleString("vi-VN")} ₫</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Phí ship:</span>
+                    {shipping === 0 ? (
+                      <span className="text-green-600 font-semibold">Miễn phí</span>
+                    ) : (
+                      <span className="text-gray-700">{shipping.toLocaleString("vi-VN")} ₫</span>
+                    )}
+                  </div>
+                  {voucherDiscount > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800 min-w-[160px]">Giảm giá:</span>
+                      <span className="text-red-600 font-semibold">-{voucherDiscount.toLocaleString("vi-VN")} ₫</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-2 border-t-2 border-red-200">
+                    <span className="font-bold text-gray-800 min-w-[160px] text-lg">Thành tiền:</span>
+                    <span className="text-red-500 font-bold text-2xl">
+                      {calculatedFinalTotal.toLocaleString("vi-VN")} ₫
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2 pt-2">
+                    <span className="font-semibold text-gray-800 min-w-[160px]">Ghi chú đơn hàng:</span>
+                    <span className="text-gray-600 italic">{note}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -421,88 +539,174 @@ export default function HoaDon() {
               Chưa có sản phẩm nào trong đơn.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto rounded-lg border-2 border-red-100 shadow-lg">
+              <table className="w-full border-collapse bg-white">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">STT</th>
-                    <th className="text-left py-3 px-4">Ảnh</th>
-                    <th className="text-left py-3 px-4">Tên sản phẩm</th>
-                    <th className="text-right py-3 px-4">Giá</th>
-                    <th className="text-right py-3 px-4">Số lượng</th>
-                    <th className="text-right py-3 px-4">Thành tiền</th>
+                  <tr className="border-b-2 border-red-300 bg-gradient-to-r from-red-50 via-rose-50 to-red-50">
+                    <th className="text-left py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">STT</th>
+                    <th className="text-left py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">Ảnh</th>
+                    <th className="text-left py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">Tên sản phẩm</th>
+                    <th className="text-right py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">Giá</th>
+                    <th className="text-right py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">Số lượng</th>
+                    <th className="text-right py-4 px-6 font-bold text-red-700 text-sm uppercase tracking-wide">Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item: any, index: number) => {
                     if (item.isCombo && item.items && item.items.length > 0) {
-                      // Hiển thị combo đơn giản
+                      // Hiển thị combo với giao diện đẹp hơn
                       return (
                         <React.Fragment key={item.id}>
-                          {/* Dòng combo - không có ảnh */}
-                          <tr className="border-b bg-blue-50">
-                            <td className="py-3 px-4">{index + 1}</td>
-                            <td className="py-3 px-4"></td>
-                            <td className="py-3 px-4 font-medium">
-                              <div className="font-bold text-blue-700">
-                                {item.comboName || "Combo sách"}
+                          {/* Dòng combo header với design đẹp hơn */}
+                          <tr className="border-b-2 border-red-300 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all shadow-sm">
+                            <td className="py-5 px-4 align-top" rowSpan={item.items.length + 1}>
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="font-bold text-red-600 text-xl">{index + 1}</span>
+                                <span className="bg-gradient-to-r from-red-400 to-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+                                  COMBO
+                                </span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-right">
-                              {item.comboPrice.toLocaleString("vi-VN")} đ
+                            <td className="py-5 px-4" colSpan={2}>
+                              <div className="flex items-center gap-4">
+                                <div className="w-20 h-24 bg-gradient-to-br from-red-300 to-rose-500 rounded-xl flex items-center justify-center shadow-lg border-2 border-red-200">
+                                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="font-semibold text-gray-800 text-base">
+                                      {item.comboName || "Combo sách"}
+                                    </span>
+                                  </div>
+                                  {item.comboDiscount && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-red-600 font-semibold text-sm">
+                                        -{item.comboDiscount}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-3 px-4 text-right">{item.quantity}</td>
-                            <td className="py-3 px-4 text-right font-semibold">
-                              {item.totalPrice.toLocaleString("vi-VN")} đ
+                            <td className="py-5 px-4 text-right align-top">
+                              <div className="flex flex-col items-end gap-1">
+                                {item.comboOriginalPrice && item.comboOriginalPrice > item.comboPrice && (
+                                  <span className="text-xs text-gray-400 line-through">
+                                    {item.comboOriginalPrice.toLocaleString("vi-VN")} ₫
+                                  </span>
+                                )}
+                                <span className="font-bold text-red-500 text-lg">
+                                  {item.comboPrice.toLocaleString("vi-VN")} ₫
+                                </span>
+                                <span className="text-xs text-gray-500">/combo</span>
+                              </div>
+                            </td>
+                            <td className="py-5 px-4 text-right align-top">
+                              <span className="font-bold text-red-600 text-lg">
+                                {item.items.length * item.quantity}
+                              </span>
+                            </td>
+                            <td className="py-5 px-4 text-right align-top">
+                              <span className="font-bold text-red-500 text-xl">
+                                {item.totalPrice.toLocaleString("vi-VN")} ₫
+                              </span>
                             </td>
                           </tr>
-                          {/* Các dòng sách trong combo */}
+                          {/* Các dòng sách trong combo với design đẹp */}
                           {item.items.map((comboItem: any, comboIdx: number) => (
                             <tr
                               key={`${item.id}-${comboItem.id || comboIdx}`}
-                              className="border-b"
+                              className="border-b border-red-100 bg-gradient-to-r from-red-50/30 to-rose-50/30 hover:from-red-50 hover:to-rose-50 transition-all"
                             >
-                              <td className="py-3 px-4"></td>
-                              <td className="py-3 px-4">
-                                <img
-                                  src={comboItem.image}
-                                  alt={comboItem.title}
-                                  className="w-16 h-20 object-cover rounded"
-                                />
+                              <td className="py-4 px-4">
+                                <div className="flex items-center gap-3 pl-8">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <div className="w-0.5 h-8 bg-gradient-to-b from-red-300 to-transparent"></div>
+                                    <div className="w-3 h-3 rounded-full bg-red-300 border-2 border-white shadow-sm"></div>
+                                  </div>
+                                  <img
+                                    src={comboItem.image}
+                                    alt={comboItem.title}
+                                    className="w-16 h-20 object-cover rounded-lg shadow-md border-2 border-red-100 hover:border-red-300 transition-all"
+                                  />
+                                </div>
                               </td>
-                              <td className="py-3 px-4 font-medium">{comboItem.title}</td>
-                              <td className="py-3 px-4 text-right">
-                                {(comboItem.price || 0).toLocaleString("vi-VN")} đ
+                              <td className="py-4 px-4">
+                                <div className="pl-4">
+                                  <div className="font-medium text-gray-800 text-sm">
+                                    {comboItem.title}
+                                  </div>
+                                  <div className="text-xs text-red-500 mt-1 font-semibold">
+                                    ✓ Trong combo
+                                  </div>
+                                </div>
                               </td>
-                              <td className="py-3 px-4 text-right">{comboItem.quantity || 1}</td>
-                              <td className="py-3 px-4 text-right font-semibold">
-                                {((comboItem.price || 0) * (comboItem.quantity || 1)).toLocaleString("vi-VN")} đ
+                              <td className="py-4 px-4 text-right">
+                                <span className="text-gray-600 text-sm">
+                                  {(comboItem.price || 0).toLocaleString("vi-VN")} ₫
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 text-right">
+                                <span className="text-gray-600">{comboItem.quantity || 1}</span>
+                              </td>
+                              <td className="py-4 px-4 text-right">
+                                <span className="text-gray-700 font-medium">
+                                  {((comboItem.price || 0) * (comboItem.quantity || 1)).toLocaleString("vi-VN")} ₫
+                                </span>
                               </td>
                             </tr>
                           ))}
                         </React.Fragment>
                       );
                     } else {
-                      // Hiển thị sản phẩm đơn lẻ
+                      // Hiển thị sản phẩm đơn lẻ với design đẹp và đồng nhất với combo
                       return (
-                    <tr key={item.id} className="border-b">
-                      <td className="py-3 px-4">{index + 1}</td>
-                      <td className="py-3 px-4">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-16 h-20 object-cover rounded"
-                        />
-                      </td>
-                      <td className="py-3 px-4 font-medium">{item.title}</td>
-                      <td className="py-3 px-4 text-right">
-                        {item.price.toLocaleString("vi-VN")} đ
-                      </td>
-                      <td className="py-3 px-4 text-right">{item.quantity}</td>
-                      <td className="py-3 px-4 text-right font-semibold">
-                        {(item.price * item.quantity).toLocaleString("vi-VN")} đ
-                      </td>
-                    </tr>
+                        <tr 
+                          key={item.id} 
+                          className="border-b-2 border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all duration-200"
+                        >
+                          <td className="py-5 px-6">
+                            <div className="flex items-center justify-center">
+                              <span className="font-bold text-red-600 text-xl">
+                                {index + 1}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-5 px-6">
+                            <div className="flex items-center">
+                              <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-20 h-24 object-cover rounded-xl shadow-lg border-2 border-red-100 hover:border-red-300 transition-all"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-5 px-6">
+                            <span className="font-semibold text-gray-800 text-base">
+                              {item.title}
+                            </span>
+                          </td>
+                          <td className="py-5 px-6 text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="font-bold text-red-600 text-base">
+                                {item.price.toLocaleString("vi-VN")} ₫
+                              </span>
+                              <span className="text-xs text-gray-500">/quyển</span>
+                            </div>
+                          </td>
+                          <td className="py-5 px-6 text-right">
+                            <span className="font-bold text-red-600 text-lg">
+                              {item.quantity}
+                            </span>
+                          </td>
+                          <td className="py-5 px-6 text-right">
+                            <span className="font-bold text-red-600 text-lg">
+                              {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                            </span>
+                          </td>
+                        </tr>
                       );
                     }
                   })}
