@@ -15,22 +15,38 @@ export function ProtectedRoute({
                                    requiredRole,
                                    fallback
                                }: ProtectedRouteProps) {
-    const {isAuthenticated, isLoading, hasRole, logout} = useAuth();
+    const {isAuthenticated, isLoading, hasRole, logout, user} = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
+        // Don't do anything while loading - wait for user to be loaded
+        if (isLoading) {
+            return;
+        }
+        
+        // If not authenticated, redirect to login (don't clear localStorage here)
+        if (!isAuthenticated) {
             router.push('/login');
             return;
         }
+        
+        // Only check role if user is loaded (user !== null)
+        // This prevents logout() being called when user hasn't loaded yet after F5
+        if (!user) {
+            return;
+        }
+        
+        // Check role only after user is loaded
         const hasRequiredRole = hasRole('ROLE_ADMIN') || hasRole('ROLE_EMPLOYEE');
 
         if (!hasRequiredRole) {
+            // Only logout if user is authenticated and loaded but doesn't have required role
+            // This means they logged in but don't have permission
             logout();
             router.push('/login');
             return;
         }
-    }, [isAuthenticated, isLoading, router]);
+    }, [isAuthenticated, isLoading, user, hasRole, logout, router]);
 
     // Loading state
     if (isLoading) {
