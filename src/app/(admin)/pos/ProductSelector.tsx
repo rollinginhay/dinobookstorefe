@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useMemo} from "react";
 
 interface ProductSelectorProps {
     onClose: () => void;
@@ -15,25 +15,66 @@ export default function ProductSelector({
                                         }: ProductSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
-        title: ""
+        bookFormat: "", // Loại bìa
+        priceRange: "", // Khoảng giá
+        author: "", // Tác giả
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 9;
 
-    // ❌ ĐÃ BỎ selectedProduct & qty
-    // const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-    // const [qty, setQty] = useState(1);
+    // Lấy danh sách unique values cho filters
+    const uniqueBookFormats = useMemo(() => {
+        const formats = new Set<string>();
+        products.forEach(p => {
+            if (p.bookFormat) formats.add(p.bookFormat);
+        });
+        return Array.from(formats).sort();
+    }, [products]);
 
-    const filteredProducts = products.filter((p) => {
-        const keyword = searchTerm.toLowerCase();
-        const matchSearch =
-            p.title.toLowerCase().includes(keyword);
+    const uniqueAuthors = useMemo(() => {
+        const authors = new Set<string>();
+        products.forEach(p => {
+            if (p.author) authors.add(p.author);
+        });
+        return Array.from(authors).sort();
+    }, [products]);
 
-        // const matchCode =
-        //     !filters.code ||
-        //     p.code.toLowerCase().includes(filters.code.toLowerCase());
-        return (
-            matchSearch
-        );
-    });
+    // Filter products
+    const filteredProducts = useMemo(() => {
+        return products.filter((p) => {
+            const keyword = searchTerm.toLowerCase();
+            const matchSearch = !keyword || p.title.toLowerCase().includes(keyword);
+            
+            const matchFormat = !filters.bookFormat || p.bookFormat === filters.bookFormat;
+            
+            const matchAuthor = !filters.author || (p.author && p.author.toLowerCase().includes(filters.author.toLowerCase()));
+            
+            const matchPriceRange = !filters.priceRange || (() => {
+                const price = p.salePrice || 0;
+                switch (filters.priceRange) {
+                    case "under100k":
+                        return price < 100000;
+                    case "100k-200k":
+                        return price >= 100000 && price < 200000;
+                    case "200k-300k":
+                        return price >= 200000 && price < 300000;
+                    case "over300k":
+                        return price >= 300000;
+                    default:
+                        return true;
+                }
+            })();
+            
+            return matchSearch && matchFormat && matchAuthor && matchPriceRange;
+        });
+    }, [products, searchTerm, filters]);
+
+    // Pagination
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    const paginatedProducts = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredProducts, currentPage, itemsPerPage]);
 
     const handleChangeFilter = (key: string, value: string) => {
         setFilters((prev) => ({...prev, [key]: value}));
@@ -134,47 +175,162 @@ export default function ProductSelector({
                     placeholder="Tìm kiếm sản phẩm theo tên..."
                     className="w-full border px-4 py-2 rounded-md mb-4"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1); // Reset về trang 1 khi search
+                    }}
                 />
 
-                {/* PRODUCT LIST */}
-                <div className="grid grid-cols-3 gap-4 max-h-[360px] overflow-y-auto">
-                    {filteredProducts.map((item) => (
-                        <div
-                            key={item.id}
-                            className="border rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
-                            onClick={() => {
-                                onSelect({...item, quantity: 1});
-                                onClose();
+                {/* BỘ LỌC */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                    {/* Loại bìa */}
+                    <div>
+                        <label className="text-sm font-medium block mb-1">
+                            Loại bìa
+                        </label>
+                        <select
+                            className="w-full border px-3 py-2 rounded-md"
+                            value={filters.bookFormat}
+                            onChange={(e) => {
+                                setFilters(prev => ({...prev, bookFormat: e.target.value}));
+                                setCurrentPage(1);
                             }}
                         >
-                            <img
-                                src={item.imageUrl}
-                                alt={item.title}
-                                className="w-20 h-20 mx-auto mb-3"
-                            />
-                            <div className="text-center font-semibold">{item.title}</div>
-                            {/*<div className="text-center text-sm text-gray-500">*/}
-                            {/*    Mã: {item.code}*/}
-                            {/*</div>*/}
-                            {/*<div className="text-center text-sm text-gray-500">*/}
-                            {/*    Size: {item.size} • Màu: {item.color}*/}
-                            {/*</div>*/}
-                            <div className="text-center text-blue-600 font-bold mt-1">
-                                {item.salePrice.toLocaleString()}đ
-                            </div>
-                        </div>
-                    ))}
+                            <option value="">Tất cả</option>
+                            {uniqueBookFormats.map(format => (
+                                <option key={format} value={format}>{format}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Khoảng giá */}
+                    <div>
+                        <label className="text-sm font-medium block mb-1">
+                            Khoảng giá
+                        </label>
+                        <select
+                            className="w-full border px-3 py-2 rounded-md"
+                            value={filters.priceRange}
+                            onChange={(e) => {
+                                setFilters(prev => ({...prev, priceRange: e.target.value}));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <option value="">Tất cả</option>
+                            <option value="under100k">Dưới 100.000đ</option>
+                            <option value="100k-200k">100.000đ - 200.000đ</option>
+                            <option value="200k-300k">200.000đ - 300.000đ</option>
+                            <option value="over300k">Trên 300.000đ</option>
+                        </select>
+                    </div>
+
+                    {/* Tác giả */}
+                    <div>
+                        <label className="text-sm font-medium block mb-1">
+                            Tác giả
+                        </label>
+                        <input
+                            type="text"
+                            className="w-full border px-3 py-2 rounded-md"
+                            value={filters.author}
+                            onChange={(e) => {
+                                setFilters(prev => ({...prev, author: e.target.value}));
+                                setCurrentPage(1);
+                            }}
+                            placeholder="Tìm theo tác giả..."
+                        />
+                    </div>
                 </div>
 
-                {/* Paging fake */}
-                <div className="flex justify-end mt-4">
-                    <select className="border rounded-md px-2 py-1">
-                        <option>6 / page</option>
-                        <option>12 / page</option>
-                        <option>24 / page</option>
-                    </select>
+                {/* PRODUCT LIST */}
+                <div className="grid grid-cols-3 gap-4 max-h-[450px] overflow-y-auto mb-4">
+                    {paginatedProducts.length > 0 ? (
+                        paginatedProducts.map((item) => (
+                            <div
+                                key={item.id}
+                                className="border rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
+                                onClick={() => {
+                                    onSelect({...item, quantity: 1});
+                                    onClose();
+                                }}
+                            >
+                                <img
+                                    src={item.imageUrl}
+                                    alt={item.title}
+                                    className="w-20 h-20 mx-auto mb-3 object-cover"
+                                />
+                                <div className="text-center font-semibold text-sm">{item.title}</div>
+                                {item.bookFormat && (
+                                    <div className="text-center text-xs text-gray-500 mt-1">
+                                        {item.bookFormat}
+                                    </div>
+                                )}
+                                <div className="text-center text-blue-600 font-bold mt-1">
+                                    {item.salePrice.toLocaleString()}đ
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-3 text-center py-8 text-gray-500">
+                            Không tìm thấy sản phẩm nào
+                        </div>
+                    )}
                 </div>
+
+                {/* PAGINATION */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <div className="text-sm text-gray-600">
+                            Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} / {filteredProducts.length} sản phẩm
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                className="px-3 py-1 border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                            >
+                                ‹ Trước
+                            </button>
+                            <div className="flex gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(page => {
+                                        // Hiển thị trang đầu, cuối, và các trang xung quanh trang hiện tại
+                                        if (totalPages <= 7) return true;
+                                        if (page === 1 || page === totalPages) return true;
+                                        if (Math.abs(page - currentPage) <= 1) return true;
+                                        return false;
+                                    })
+                                    .map((page, index, array) => {
+                                        // Thêm dấu ... nếu có khoảng trống
+                                        const prevPage = array[index - 1];
+                                        const showEllipsis = prevPage && page - prevPage > 1;
+                                        return (
+                                            <div key={page} className="flex items-center gap-1">
+                                                {showEllipsis && <span className="px-2">...</span>}
+                                                <button
+                                                    className={`px-3 py-1 border rounded-md ${
+                                                        currentPage === page
+                                                            ? "bg-blue-600 text-white border-blue-600"
+                                                            : "hover:bg-gray-50"
+                                                    }`}
+                                                    onClick={() => setCurrentPage(page)}
+                                                >
+                                                    {page}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                            <button
+                                className="px-3 py-1 border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Sau ›
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

@@ -487,7 +487,7 @@ export default function BillDetailPage() {
 
   const [status, setStatus] = useState<OrderStatus>("PENDING");
   const [orderType, setOrderType] = useState<OrderType>("UNKNOWN");
-  const [paymentType] = useState<PaymentType>("CASH"); // tạm mock, vì BE chưa có field
+  const [paymentType, setPaymentType] = useState<PaymentType>("CASH");
   const [hasShipping, setHasShipping] = useState<boolean>(false);
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -539,13 +539,37 @@ export default function BillDetailPage() {
 
         setStatus(res.status as OrderStatus);
         // Service đã chuyển "DIRECT" → "POS" rồi, nên chỉ cần kiểm tra "POS" hoặc "ONLINE"
-        setOrderType(
+        const detectedOrderType =
           res.orderType === "POS"
             ? "POS"
             : res.orderType === "ONLINE"
             ? "ONLINE"
-            : "UNKNOWN"
-        );
+            : "UNKNOWN";
+        setOrderType(detectedOrderType);
+
+        // Xác định phương thức thanh toán: ưu tiên lấy từ paymentHistory, nếu không có thì mới dựa vào orderType
+        if (payments && payments.length > 0) {
+          // Lấy paymentType từ paymentDetail đầu tiên
+          const firstPayment = payments[0];
+          const paymentTypeFromHistory = firstPayment.paymentType as PaymentType;
+          if (paymentTypeFromHistory && ["CASH", "TRANSFER", "COD"].includes(paymentTypeFromHistory)) {
+            setPaymentType(paymentTypeFromHistory);
+          } else {
+            // Fallback: dựa trên loại đơn hàng
+            if (detectedOrderType === "ONLINE") {
+              setPaymentType("COD");
+            } else if (detectedOrderType === "POS") {
+              setPaymentType("CASH");
+            }
+          }
+        } else {
+          // Không có payment history → dựa trên loại đơn hàng
+          if (detectedOrderType === "ONLINE") {
+            setPaymentType("COD");
+          } else if (detectedOrderType === "POS") {
+            setPaymentType("CASH");
+          }
+        }
 
         let detectedHasShipping = res.hasShipping;
 
@@ -925,7 +949,9 @@ setHasShipping(detectedHasShipping);
                               ? "Tiền mặt"
                               : paymentType === "TRANSFER"
                               ? "Chuyển khoản"
-                              : "Thanh toán khi nhận hàng (COD)"}
+                              : paymentType === "COD"
+                              ? "COD"
+                              : "Tiền mặt"}
                           </span>
                         </div>
 
@@ -937,25 +963,15 @@ setHasShipping(detectedHasShipping);
                           </span>
                         </div>
 
-                        {/* Ưu đãi (đợt giảm giá) - chỉ hiển thị khi có dùng */}
-                        {discount > 0 && (
-                          <div className="flex justify-between border-b pb-2">
-                            <span className="text-gray-600">Ưu đãi:</span>
-                            <span className="font-semibold text-red-600">
-                              -{discount.toLocaleString("vi-VN")} đ
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Voucher - chỉ hiển thị khi có dùng */}
-                        {voucher > 0 && (
-                          <div className="flex justify-between border-b pb-2">
-                            <span className="text-gray-600">Voucher:</span>
-                            <span className="font-semibold text-red-600">
-                              -{voucher.toLocaleString("vi-VN")} đ
-                            </span>
-                          </div>
-                        )}
+                        {/* Giảm giá (tổng discount + voucher) - luôn hiển thị */}
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-gray-600">Giảm giá:</span>
+                          <span className="font-semibold text-red-600">
+                            {(discount + voucher) > 0 
+                              ? `-${(discount + voucher).toLocaleString("vi-VN")} đ`
+                              : "0 đ"}
+                          </span>
+                        </div>
 
                         <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Phí ship:</span>
@@ -1028,77 +1044,6 @@ setHasShipping(detectedHasShipping);
                         </div>
                       </div>
                     </div>
-                </div>
-
-                {/* LỊCH SỬ THANH TOÁN */}
-                <div className="border rounded-lg bg-white p-5 shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4">Lịch sử thanh toán</h3>
-
-                  <div className="overflow-x-auto">
-                    <table className="table w-full text-sm border">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="border px-3 py-2">STT</th>
-                          <th className="border px-3 py-2">Phương thức</th>
-                          <th className="border px-3 py-2">Số tiền</th>
-                          <th className="border px-3 py-2">Thời gian</th>
-                          <th className="border px-3 py-2">Ghi chú</th>
-                          <th className="border px-3 py-2">Mã giao dịch</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paymentHistory.length > 0 ? (
-                          paymentHistory.map((p, idx) => {
-                            // Nếu chỉ có 1 payment, dùng finalTotal (tổng tiền đã tính đúng) để đảm bảo khớp với tổng tiền
-                            // Nếu có nhiều payment, dùng số tiền từ payment detail
-                            const displayAmount = paymentHistory.length === 1 
-                              ? finalTotal 
-                              : p.amount;
-                            
-                            return (
-                            <tr key={p.id}>
-                              <td className="border px-3 py-2 text-center">
-                                {idx + 1}
-                              </td>
-                              <td className="border px-3 py-2">
-                                {p.paymentType === "CASH"
-                                  ? "Tiền mặt"
-                                  : p.paymentType === "TRANSFER"
-                                  ? "Chuyển khoản"
-                                  : p.paymentType === "COD"
-                                  ? "Thanh toán khi nhận hàng (COD)"
-                                  : p.paymentType}
-                              </td>
-                              <td className="border px-3 py-2 font-medium">
-                                {displayAmount.toLocaleString("vi-VN")} đ
-                              </td>
-                              <td className="border px-3 py-2">
-                                {p.createdAt
-                                  ? new Date(p.createdAt).toLocaleString("vi-VN")
-                                  : "-"}
-                              </td>
-                              <td className="border px-3 py-2">
-                                {p.note || "-"}
-                              </td>
-                              <td className="border px-3 py-2">
-                                {p.providerId || "-"}
-                              </td>
-                            </tr>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td
-                              className="border px-3 py-3 text-center text-gray-500"
-                              colSpan={6}
-                            >
-                              Chưa có lịch sử thanh toán.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
 
             {/*    /!* HÓA ĐƠN *!/*/}

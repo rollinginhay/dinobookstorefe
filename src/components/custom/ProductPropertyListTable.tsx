@@ -7,6 +7,8 @@ import {API_ROUTES_TREE} from "@/lib/routes";
 import Button from "@/components/ui/button/Button";
 import ProductPropertyForm from "@/components/custom/ProductPropertyForm";
 import {getDisplayDate} from "@/lib/formatters";
+import {ChevronDownIcon} from "@/icons";
+import Input from "@/components/form/input/InputField";
 
 
 const ProductPropertyListTable = ({property}) => {
@@ -23,13 +25,16 @@ const ProductPropertyListTable = ({property}) => {
     const [inputValue, setInputValue] = useState(page + 1); //page smart input state
     const [searchInput, setSearchInput] = useState("");
     const [keyword, setKeyword] = useState("");
-    const [enabled, setEnabled] = useState(true);
+    const [enabled, setEnabled] = useState<boolean | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
 
 
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
-    const {propertyQuery, propertyDelete} = useBookProperty(selectedProperty.value, page, limit, enabled, keyword);
+    const {propertyQuery, propertyDelete} = useBookProperty(selectedProperty.value, page, limit, enabled ?? true, keyword);
 
     const formRef: any = useRef(null);
 
@@ -51,10 +56,31 @@ const ProductPropertyListTable = ({property}) => {
         setInputValue(page + 1);
     }, [page]);
 
-    if (propertyQuery.isLoading) return <p className="p-6">Loading...</p>;
+    if (propertyQuery.isLoading) return <p className="p-6">Đang tải...</p>;
     const resBody = propertyQuery.data;
-    const items: any[] = resBody?.data;
+    let items: any[] = resBody?.data || [];
     const meta = resBody?.meta;
+    
+    // Apply filters
+    if (enabled !== null) {
+        items = items.filter(item => item.enabled === enabled);
+    }
+    if (startDate) {
+        items = items.filter(item => {
+            const itemDate = new Date(item.createdAt);
+            const filterStartDate = new Date(startDate);
+            filterStartDate.setHours(0, 0, 0, 0);
+            return itemDate >= filterStartDate;
+        });
+    }
+    if (endDate) {
+        items = items.filter(item => {
+            const itemDate = new Date(item.createdAt);
+            const filterEndDate = new Date(endDate);
+            filterEndDate.setHours(23, 59, 59, 999);
+            return itemDate <= filterEndDate;
+        });
+    }
 
 
     const handleCategoryChange = (p: string) => {
@@ -87,12 +113,12 @@ const ProductPropertyListTable = ({property}) => {
     //     });
     // };
 
-    // const paginatedProducts = () => {
-    //     const start = (page - 1) * perPage;
-    //     return sortedProducts().slice(start, start + perPage);
-    // };
-
-    const totalPages = meta.totalPages;
+    // Pagination cho filtered items
+    const totalFilteredPages = Math.ceil(items.length / limit);
+    const startIndex = page * limit;
+    const endIndex = startIndex + limit;
+    const paginatedItems = items.slice(startIndex, endIndex);
+    const totalPages = totalFilteredPages > 0 ? totalFilteredPages : (meta?.totalPages || 1);
 
     const goToPage = (n: number) => {
         if (n >= 0 && n <= totalPages - 1) setPage(n);
@@ -139,15 +165,69 @@ const ProductPropertyListTable = ({property}) => {
 
 
                 <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-                    <div className="flex gap-3 sm:justify-between">
-                        <div className="relative flex-1 sm:flex-auto" hidden={!!property}>
-                            <PropertyFilterDropdown
-                                selectedCategory={selectedProperty.value}
-                                categories={properties}
-                                onCategoryChange={handleCategoryChange}
-                            ></PropertyFilterDropdown>
-                        </div>
-                        <div className="flex gap-3">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex gap-3 sm:justify-between items-center">
+                            <div className="flex gap-3 items-center">
+                                <div className="relative flex-1 sm:flex-auto" hidden={!!property}>
+                                    <PropertyFilterDropdown
+                                        selectedCategory={selectedProperty.value}
+                                        categories={properties}
+                                        onCategoryChange={handleCategoryChange}
+                                    ></PropertyFilterDropdown>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className="inline-flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 16 16"
+                                        fill="none"
+                                    >
+                                        <path
+                                            d="M2 4H14M4 8H12M6 12H10"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    {showFilters ? "Ẩn bộ lọc" : "Hiển thị bộ lọc"}
+                                </Button>
+                                <div className="relative flex-1 sm:flex-auto">
+                <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                  <svg
+                      className="fill-current"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M3.04199 9.37336937363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z"
+                        fill=""
+                    />
+                  </svg>
+                </span>
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm kiếm..."
+                                        value={searchInput}
+                                        onChange={(e) => setSearchInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleSearchSubmit();
+                                            }
+                                        }}
+                                        className="shadow-sm focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-none sm:w-[300px] sm:min-w-[300px] dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                                    />
+                                </div>
+                            </div>
                             <Button
                                 className="bg-brand-500 shadow-sm hover inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
                                 onClick={() => {
@@ -170,44 +250,90 @@ const ProductPropertyListTable = ({property}) => {
                                         strokeLinejoin="round"
                                     />
                                 </svg>
-                                Add
+                                Thêm mới
                             </Button>
                         </div>
-                    </div>
-                </div>
-                <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-                    <div className="flex gap-3 sm:justify-between">
-                        <div className="relative flex-1 sm:flex-auto">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <svg
-                  className="fill-current"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg">
-                <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M3.04199 9.37336937363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z"
-                    fill=""
-                />
-              </svg>
-            </span>
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        handleSearchSubmit();
-                                    }
-                                }}
-                                className="shadow-sm focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-none sm:w-[300px] sm:min-w-[300px] dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                            />
-                        </div>
+                        
+                        {showFilters && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-gray-200 dark:border-gray-800">
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                        Trạng thái
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={enabled === null ? "" : enabled ? "true" : "false"}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setEnabled(value === "" ? null : value === "true");
+                                                setPage(0);
+                                            }}
+                                            className="h-10 w-full appearance-none rounded-lg border border-gray-300 
+                                              bg-transparent px-3 py-2 pr-8 text-sm shadow-sm
+                                              placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden 
+                                              focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 
+                                              dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 
+                                              dark:focus:border-brand-800"
+                                        >
+                                            <option value="">Tất cả</option>
+                                            <option value="true">Đang hoạt động</option>
+                                            <option value="false">Ngừng hoạt động</option>
+                                        </select>
+                                        <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-2 top-1/2 dark:text-gray-400">
+                                            <ChevronDownIcon />
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                        Từ ngày
+                                    </label>
+                                    <Input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => {
+                                            setStartDate(e.target.value);
+                                            setPage(0);
+                                        }}
+                                        className="h-10"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                        Đến ngày
+                                    </label>
+                                    <Input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => {
+                                            setEndDate(e.target.value);
+                                            setPage(0);
+                                        }}
+                                        className="h-10"
+                                        min={startDate || undefined}
+                                    />
+                                </div>
+                                
+                                {(enabled !== null || startDate || endDate) && (
+                                    <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setEnabled(null);
+                                                setStartDate("");
+                                                setEndDate("");
+                                                setPage(0);
+                                            }}
+                                        >
+                                            Xóa bộ lọc
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -221,7 +347,7 @@ const ProductPropertyListTable = ({property}) => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        No.
+                                        STT
                                     </p>
                                     <span className="flex flex-col gap-0.5">
                     <svg
@@ -267,7 +393,7 @@ const ProductPropertyListTable = ({property}) => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Name
+                                        Tên
                                     </p>
                                     <span className="flex flex-col gap-0.5">
                     <svg
@@ -313,7 +439,7 @@ const ProductPropertyListTable = ({property}) => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Created At
+                                        Ngày tạo
                                     </p>
                                     <span className="flex flex-col gap-0.5">
                     <svg
@@ -359,7 +485,7 @@ const ProductPropertyListTable = ({property}) => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Status
+                                        Trạng thái
                                     </p>
                                     <span className="flex flex-col gap-0.5">
                     <svg
@@ -400,7 +526,7 @@ const ProductPropertyListTable = ({property}) => {
                                 </div>
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Action
+                                Hành động
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                                 <div className="relative">
@@ -410,7 +536,7 @@ const ProductPropertyListTable = ({property}) => {
                         </tr>
                         </thead>
                         <tbody className="divide-x divide-y divide-gray-200 dark:divide-gray-800">
-                        {items.map((e, i) => (
+                        {paginatedItems.map((e, i) => (
                             <tr
                                 key={e.id}
                                 className="transition hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -433,7 +559,7 @@ const ProductPropertyListTable = ({property}) => {
                                 {/*        </td>*/}
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {i + 1}
+                                        {startIndex + i + 1}
                                     </p>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
@@ -454,7 +580,7 @@ const ProductPropertyListTable = ({property}) => {
                               : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-500"
                       }`}
                   >
-                    {e.enabled ? "Active" : "Disabled"}
+                    {e.enabled ? "Đang hoạt động" : "Ngừng hoạt động"}
                   </span>
                                 </td>
                                 <td className="px-5 py-4 whitespace-nowrap">
@@ -483,7 +609,7 @@ const ProductPropertyListTable = ({property}) => {
 
                     {/* LEFT — LIMIT INPUT */}
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700 dark:text-gray-400">Rows:</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-400">Số dòng:</span>
                         <input
                             type="number"
                             min={1}
@@ -507,7 +633,7 @@ const ProductPropertyListTable = ({property}) => {
                     {/* CENTER — PAGE INDICATOR */}
                     <div className="flex-1 flex justify-center">
     <span className="text-sm font-medium text-gray-700 dark:text-gray-400">
-      Page {page + 1} of {totalPages}
+      Trang {page + 1} / {totalPages}
     </span>
                     </div>
 

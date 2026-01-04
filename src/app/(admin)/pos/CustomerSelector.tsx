@@ -38,8 +38,6 @@ export default function CustomerSelector({
         const keyword = searchTerm.toLowerCase();
         return (
             c.personName.toLowerCase().includes(keyword) ||
-            c.email
-                .toLowerCase().includes(keyword) ||
             c.phoneNumber.toLowerCase().includes(keyword)
         );
     });
@@ -89,7 +87,6 @@ export default function CustomerSelector({
                         <thead className="bg-gray-100">
                         <tr>
                             <th className="p-3">STT</th>
-                            <th className="p-3">Email</th>
                             <th className="p-3">Họ tên</th>
                             <th className="p-3">Số điện thoại</th>
                             <th className="p-3">Thao tác</th>
@@ -100,7 +97,6 @@ export default function CustomerSelector({
                         {filteredCustomers.map((c, index) => (
                             <tr key={c.id} className="border-t">
                                 <td className="p-3">{index + 1}</td>
-                                <td className="p-3">{c.email}</td>
                                 <td className="p-3 font-medium">{c.personName}</td>
                                 <td className="p-3">{c.phoneNumber}</td>
                                 <td className="p-3">

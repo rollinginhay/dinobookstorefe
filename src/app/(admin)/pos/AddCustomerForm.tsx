@@ -55,17 +55,6 @@ export default function AddCustomerForm({
                         />
                     </div>
 
-                    {/* Email */}
-                    <div>
-                        <label className="font-medium">Email</label>
-                        <input
-                            name="email"
-                            type="email"
-                            placeholder="abc@gmail.com"
-                            className="w-full border px-3 py-2 rounded-md mt-1"
-                        />
-                    </div>
-
                     {/* Phone */}
                     <div>
                         <label className="font-medium">Số điện thoại</label>

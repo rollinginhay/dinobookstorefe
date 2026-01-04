@@ -4,7 +4,27 @@ import Image from "next/image";
 import {getDisplayDate} from "@/lib/formatters";
 import Link from "@/components/ui/links/Link";
 
-export default function ProductInfoCard({book}) {
+export default function ProductInfoCard({book, bookCopies = []}) {
+    // Debug: Kiểm tra cấu trúc book object
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+        console.log("Book object structure:", {
+            id: book.id,
+            published: book.published,
+            attributes: book.attributes,
+            hasAttributesPublished: !!book.attributes?.published,
+            hasTopLevelPublished: !!book.published
+        });
+    }
+    
+    // Tính tổng tồn kho từ tất cả các bookCopies
+    const totalStock = bookCopies.reduce((sum, copy) => {
+        const stock = parseInt(copy.stock) || 0;
+        return sum + stock;
+    }, 0);
+
+    // Lấy danh sách ISBN (có thể có nhiều ISBN nếu có nhiều copy)
+    const isbns = bookCopies.map(copy => copy.isbn).filter(Boolean);
+
     return (
         <>
             <div
@@ -39,15 +59,17 @@ export default function ProductInfoCard({book}) {
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-7 2xl:gap-x-32">
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Tác giả</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mã sách</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                            {book.creators.data.map(e => e.name).join(", ")}
+                                            {"B" + book.id}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ấn bản</p>
-                                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">{book.edition}</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Tác giả</p>
+                                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                                            {book.creators.data.map(e => e.name).join(", ")}
+                                        </p>
                                     </div>
 
                                     <div>
@@ -65,9 +87,19 @@ export default function ProductInfoCard({book}) {
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Thời gian xuất bản</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngày xuất bản</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                            {getDisplayDate(book.published)}
+                                            {(() => {
+                                                // Kiểm tra cả book.published và book.attributes?.published
+                                                const published = book.published || book.attributes?.published;
+                                                if (!published) return "-";
+                                                try {
+                                                    return getDisplayDate(published);
+                                                } catch (e) {
+                                                    console.error("Error formatting date:", published, e);
+                                                    return "-";
+                                                }
+                                            })()}
                                         </p>
                                     </div>
 
@@ -77,6 +109,14 @@ export default function ProductInfoCard({book}) {
                                             {book.series.data?.name}
                                         </p>
                                     </div>
+
+                                    <div>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">ISBN</p>
+                                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                                            {isbns.length > 0 ? isbns.join(", ") : "Chưa có ISBN"}
+                                        </p>
+                                    </div>
+
 
                                     {/* BLURB — full width row */}
                                     <div className="col-span-full">
@@ -108,7 +148,7 @@ export default function ProductInfoCard({book}) {
                                         fill=""
                                     />
                                 </svg>
-                                Edit
+                                Chỉnh sửa
                             </Link>
                         </div>
                     </div>

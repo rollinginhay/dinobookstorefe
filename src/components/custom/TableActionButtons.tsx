@@ -53,7 +53,7 @@ export default function TableActionButtons({
                     className="rounded bg-blue-500 px-3 py-1 text-sm font-medium text-white hover:bg-blue-600 transition"
                     onClick={() => router.push(viewLink)}
                 >
-                    View
+                    Xem
                 </button>
             )}
 
@@ -64,7 +64,7 @@ export default function TableActionButtons({
                     className="rounded bg-emerald-500 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-600 transition"
                     onClick={onEdit}
                 >
-                    Edit
+                    Sửa
                 </button>
             )}
 
@@ -75,7 +75,7 @@ export default function TableActionButtons({
                     className="rounded bg-red-500 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 transition"
                     onClick={() => setShowConfirm(true)}
                 >
-                    Delete
+                    Xóa
                 </button>
             )}
 
@@ -84,14 +84,14 @@ export default function TableActionButtons({
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-lg p-6 w-80">
                         <p className="text-sm text-gray-700 mb-4">
-                            Are you sure you want to delete this item?
+                            Bạn có chắc chắn muốn xóa mục này?
                         </p>
                         <div className="flex justify-end space-x-2">
                             <button
                                 onClick={() => setShowConfirm(false)}
                                 className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300 transition"
                             >
-                                Cancel
+                                Hủy
                             </button>
                             <button
                                 onClick={handleDelete}
@@ -102,7 +102,7 @@ export default function TableActionButtons({
                                         : "bg-red-500 hover:bg-red-600"
                                 } transition`}
                             >
-                                {isDeleting ? "Deleting..." : "Confirm"}
+                                {isDeleting ? "Đang xóa..." : "Xác nhận"}
                             </button>
                         </div>
                     </div>

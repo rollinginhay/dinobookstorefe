@@ -34,6 +34,7 @@
     "kitsu-core": "^11.1.0",
     "next": "16.0.7",
     "prismjs": "^1.30.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",
     "react-datepicker": "^8.10.0",

@@ -26,7 +26,7 @@ export default function SelectCreatable({
                                             onChange,
                                             onCreateOption,
 
-                                            placeholder = "Select…",
+                                            placeholder = "Chọn…",
                                             className = "",
                                         }: SelectCreatableProps) {
     const [createInput, setCreateInput] = useState("");
@@ -54,9 +54,9 @@ export default function SelectCreatable({
                 <input
                     value={createInput}
                     onChange={(e) => setCreateInput(e.target.value)}
-                    placeholder="Create new item…"
+                    placeholder="Tạo mục mới…"
                     className="w-full rounded border px-3 py-2 text-sm"
-                    aria-label="Create new item"
+                    aria-label="Tạo mục mới"
                 />
 
                 <button

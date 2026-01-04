@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function ProductPage() {
     return (
         <div>
-            <PageBreadcrumb pageTitle="Publishers"/>
+            <PageBreadcrumb pageTitle="Nhà xuất bản"/>
             <ProductPropertyListTable property={"publisher"}/>
         </div>
     );

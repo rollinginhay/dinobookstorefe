@@ -16,6 +16,7 @@ import {useParams, useRouter} from "next/navigation";
 import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
 import {getDateForInput, todayDateString} from "@/lib/formatters";
 import {deserializeBook} from "@/lib/serializers";
+import {ChevronDownIcon} from "@/icons";
 
 //explicitly client impprt to prevent hydration errors
 const MultiSelectCreatable = dynamic(
@@ -45,7 +46,7 @@ export default function BookForm() {
             title: "",
             edition: "",
             language: "",
-            published: todayDateString(),
+            published: "",
             imageUrl: "",
             blurb: "",
         },
@@ -58,6 +59,16 @@ export default function BookForm() {
     });
     const hasInit = useRef(false);
     const imageChanged = useRef(false);
+    const [errors, setErrors] = useState({
+        title: "",
+        edition: "",
+        language: "",
+        published: "",
+        genres: "",
+        creators: "",
+        publisher: "",
+        imageUrl: ""
+    });
 
     useEffect(() => {
         if (!bookId) return;
@@ -86,7 +97,7 @@ export default function BookForm() {
         creatorQuery.isLoading ||
         publisherQuery.isLoading ||
         seriesQuery.isLoading) {
-        return <p className="p-6">Loading...</p>;
+        return <p className="p-6">Đang tải...</p>;
     }
 
 
@@ -110,6 +121,85 @@ export default function BookForm() {
 
     async function handleSubmit(e) {
         e.preventDefault();
+        
+        // Validate tất cả các trường
+        const newErrors = {
+            title: "",
+            edition: "",
+            language: "",
+            published: "",
+            genres: "",
+            creators: "",
+            publisher: "",
+            imageUrl: ""
+        };
+        
+        let hasError = false;
+        
+        // Validate Tiêu đề
+        if (!formData.attributes.title || formData.attributes.title.trim() === "") {
+            newErrors.title = "Vui lòng nhập tiêu đề sách";
+            hasError = true;
+        }
+        
+        // Validate Phiên bản
+        if (!formData.attributes.edition || formData.attributes.edition.trim() === "") {
+            newErrors.edition = "Vui lòng nhập phiên bản";
+            hasError = true;
+        }
+        
+        // Validate Ngôn ngữ
+        if (!formData.attributes.language || formData.attributes.language.trim() === "") {
+            newErrors.language = "Vui lòng chọn ngôn ngữ";
+            hasError = true;
+        }
+        
+        // Validate Ngày xuất bản
+        if (!formData.attributes.published || formData.attributes.published.trim() === "") {
+            newErrors.published = "Vui lòng chọn ngày xuất bản";
+            hasError = true;
+        } else {
+            // Validate ngày xuất bản không được quá ngày hiện tại
+            const publishedDate = new Date(formData.attributes.published);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999); // Set to end of today for comparison
+            
+            if (publishedDate > today) {
+                newErrors.published = "Ngày xuất bản không được quá ngày hiện tại";
+                hasError = true;
+            }
+        }
+        
+        // Validate Thể loại
+        if (!formData.relationships.genres || formData.relationships.genres.length === 0) {
+            newErrors.genres = "Vui lòng chọn ít nhất một thể loại";
+            hasError = true;
+        }
+        
+        // Validate Tác giả
+        if (!formData.relationships.creators || formData.relationships.creators.length === 0) {
+            newErrors.creators = "Vui lòng chọn ít nhất một tác giả";
+            hasError = true;
+        }
+        
+        // Validate Nhà xuất bản
+        if (!formData.relationships.publisher) {
+            newErrors.publisher = "Vui lòng chọn nhà xuất bản";
+            hasError = true;
+        }
+        
+        // Validate Ảnh bìa sách (chỉ validate nếu đang tạo mới, không phải edit)
+        if (!bookId && !formData.attributes.imageUrl && !imageFile) {
+            newErrors.imageUrl = "Vui lòng chọn ảnh bìa sách";
+            hasError = true;
+        }
+        
+        setErrors(newErrors);
+        
+        if (hasError) {
+            return;
+        }
+        
         let updated = formData;
         if (imageFile && imageChanged.current) {
             const imageUrl = await uploadToCloudinary(imageFile);
@@ -123,6 +213,22 @@ export default function BookForm() {
             };
             console.log(updated);
         }
+        
+        // Convert published date from YYYY-MM-DD to LocalDateTime format (YYYY-MM-DDTHH:mm:ss)
+        if (updated.attributes.published) {
+            const dateStr = updated.attributes.published;
+            // If it's already in YYYY-MM-DD format, convert to LocalDateTime
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                updated = {
+                    ...updated,
+                    attributes: {
+                        ...updated.attributes,
+                        published: `${dateStr}T00:00:00`
+                    }
+                };
+            }
+        }
+        
         const res = await bookCreate.mutateAsync(updated);
         console.log(res);
         const id = res.data.id;
@@ -149,6 +255,30 @@ export default function BookForm() {
 
     return (
   <div className="space-y-6">
+    <div className="mb-4">
+      <Button
+        variant="outline"
+        onClick={() => router.push("/books")}
+        className="inline-flex items-center gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path
+            d="M10 12L6 8L10 4"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Quay lại
+      </Button>
+    </div>
     <Form onSubmit={handleSubmit}>
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         
@@ -168,10 +298,17 @@ export default function BookForm() {
               <Input
                 placeholder="Nhập tiêu đề sách"
                 value={formData.attributes.title}
-                onChange={(e) =>
-                  updateFormData("attributes.title", e.target.value)
-                }
+                onChange={(e) => {
+                  updateFormData("attributes.title", e.target.value);
+                  if (e.target.value.trim()) {
+                    setErrors(prev => ({ ...prev, title: "" }));
+                  }
+                }}
+                className={errors.title ? "border-red-500 focus:border-red-500" : ""}
               />
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-500">{errors.title}</p>
+              )}
             </div>
 
             <div>
@@ -179,32 +316,70 @@ export default function BookForm() {
               <Input
                 placeholder="Phiên bản"
                 value={formData.attributes.edition}
-                onChange={(e) =>
-                  updateFormData("attributes.edition", e.target.value)
-                }
+                onChange={(e) => {
+                  updateFormData("attributes.edition", e.target.value);
+                  if (e.target.value.trim()) {
+                    setErrors(prev => ({ ...prev, edition: "" }));
+                  }
+                }}
+                className={errors.edition ? "border-red-500 focus:border-red-500" : ""}
               />
+              {errors.edition && (
+                <p className="mt-1 text-sm text-red-500">{errors.edition}</p>
+              )}
             </div>
 
             <div>
               <Label>Ngôn ngữ</Label>
-              <Input
-                placeholder="Ngôn ngữ"
-                value={formData.attributes.language}
-                onChange={(e) =>
-                  updateFormData("attributes.language", e.target.value)
-                }
-              />
+              <div className="relative">
+                <select
+                  value={formData.attributes.language}
+                  onChange={(e) => {
+                    updateFormData("attributes.language", e.target.value);
+                    if (e.target.value) {
+                      setErrors(prev => ({ ...prev, language: "" }));
+                    }
+                  }}
+                  className={`h-11 w-full appearance-none rounded-lg border px-4 py-2.5 pr-11 text-sm shadow-theme-xs 
+                    bg-transparent placeholder:text-gray-400 focus:outline-hidden 
+                    focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 
+                    ${
+                      errors.language
+                        ? "border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500"
+                        : "border-gray-300 focus:border-brand-300 dark:border-gray-700 dark:focus:border-brand-800"
+                    }`}
+                >
+                  <option value="">Chọn ngôn ngữ</option>
+                  <option value="Tiếng Việt">Tiếng Việt</option>
+                  <option value="Tiếng Anh">Tiếng Anh</option>
+                  <option value="Khác">Khác</option>
+                </select>
+                <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+                  <ChevronDownIcon />
+                </span>
+              </div>
+              {errors.language && (
+                <p className="mt-1 text-sm text-red-500">{errors.language}</p>
+              )}
             </div>
 
             <div>
               <Label>Ngày xuất bản</Label>
               <Input
                 type="date"
+                max={todayDateString()}
                 value={getDateForInput(formData.attributes.published)}
-                onChange={(e) =>
-                  updateFormData("attributes.published", e.target.value)
-                }
+                onChange={(e) => {
+                  updateFormData("attributes.published", e.target.value);
+                  if (e.target.value) {
+                    setErrors(prev => ({ ...prev, published: "" }));
+                  }
+                }}
+                className={errors.published ? "border-red-500 focus:border-red-500" : ""}
               />
+              {errors.published && (
+                <p className="mt-1 text-sm text-red-500">{errors.published}</p>
+              )}
             </div>
 
             <div>
@@ -213,11 +388,17 @@ export default function BookForm() {
                 property="genre"
                 options={genreQuery.data.data}
                 selectedValues={formData.relationships.genres}
-                onChange={(vals) =>
-                  updateFormData("relationships.genres", vals)
-                }
+                onChange={(vals) => {
+                  updateFormData("relationships.genres", vals);
+                  if (vals && vals.length > 0) {
+                    setErrors(prev => ({ ...prev, genres: "" }));
+                  }
+                }}
                 onCreateOption={handleCreateOption}
               />
+              {errors.genres && (
+                <p className="mt-1 text-sm text-red-500">{errors.genres}</p>
+              )}
             </div>
 
             <div>
@@ -226,11 +407,17 @@ export default function BookForm() {
                 property="creators"
                 options={creatorQuery.data.data}
                 selectedValues={formData.relationships.creators}
-                onChange={(vals) =>
-                  updateFormData("relationships.creators", vals)
-                }
+                onChange={(vals) => {
+                  updateFormData("relationships.creators", vals);
+                  if (vals && vals.length > 0) {
+                    setErrors(prev => ({ ...prev, creators: "" }));
+                  }
+                }}
                 onCreateOption={handleCreateOption}
               />
+              {errors.creators && (
+                <p className="mt-1 text-sm text-red-500">{errors.creators}</p>
+              )}
             </div>
 
             <div>
@@ -239,11 +426,17 @@ export default function BookForm() {
                 property="publishers"
                 options={publisherQuery.data.data}
                 value={formData.relationships.publisher}
-                onChange={(val) =>
-                  updateFormData("relationships.publisher", val)
-                }
+                onChange={(val) => {
+                  updateFormData("relationships.publisher", val);
+                  if (val) {
+                    setErrors(prev => ({ ...prev, publisher: "" }));
+                  }
+                }}
                 onCreateOption={handleCreateOption}
               />
+              {errors.publisher && (
+                <p className="mt-1 text-sm text-red-500">{errors.publisher}</p>
+              )}
             </div>
 
             <div>
@@ -277,6 +470,9 @@ export default function BookForm() {
                 onFileChange={(file) => {
                   setImageFile(file);
                   imageChanged.current = true;
+                  if (file) {
+                    setErrors(prev => ({ ...prev, imageUrl: "" }));
+                  }
                 }}
                 existingImageUrl={
                   formData.attributes.imageUrl
@@ -285,6 +481,9 @@ export default function BookForm() {
                 }
                 rows={6}
               />
+              {errors.imageUrl && (
+                <p className="mt-1 text-sm text-red-500">{errors.imageUrl}</p>
+              )}
             </div>
 
           </div>

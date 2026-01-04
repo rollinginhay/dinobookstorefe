@@ -26,7 +26,7 @@ export default function MultiSelectCreatable<T extends BaseProperty>({
                                                                          selectedValues,
                                                                          onChange,
                                                                          onCreateOption,
-                                                                         placeholder = "Select…",
+                                                                         placeholder = "Chọn…",
                                                                          className = "",
                                                                      }: MultiSelectCreatableProps<T>) {
 
@@ -65,16 +65,16 @@ export default function MultiSelectCreatable<T extends BaseProperty>({
                 <input
                     value={createInput}
                     onChange={(e) => setCreateInput(e.target.value)}
-                    placeholder="Create new item…"
+                    placeholder="Tạo mục mới…"
                     className="w-full rounded border px-3 py-2 text-sm"
-                    aria-label="Create new item"
+                    aria-label="Tạo mục mới"
                 />
 
                 <button
                     onClick={handleCreate}
                     disabled={!createInput.trim() || isCreating}
                     className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Add new item"
+                    aria-label="Thêm mục mới"
                     type="button"
                 >
                     {isCreating ? (

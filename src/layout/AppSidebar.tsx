@@ -32,14 +32,8 @@ const allNavItems: NavItem[] = [
   { name: "Bán hàng tại quầy", icon: <CartIcon />, path: "/pos" },
   { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
   {
-  name: "Giảm giá",
-  icon: <TagIcon className="w-5 h-5" />,
-  path: "/voucher", // 👈 Chỉ có đợt giảm giá
-  },
-  {
     name: "Quản lý sách",
     icon: <CartIcon />,
-    new: true,
     subItems: [
             {name: "Sách", path: "/books"},
             {name: "Nhà xuất bản", path: "/publishers"},
@@ -47,6 +41,11 @@ const allNavItems: NavItem[] = [
             {name: "Tác giả", path: "/creators"},
             {name: "Bộ sách", path: "/series"},
         ],
+  },
+  {
+  name: "Giảm giá",
+  icon: <TagIcon className="w-5 h-5" />,
+  path: "/voucher", // 👈 Chỉ có đợt giảm giá
   },
   {
     name: "Người dùng",
