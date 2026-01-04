@@ -1,8 +1,9 @@
 "use client";
 
 import {useAuth} from '@/context/auth-context';
-import {useRouter} from 'next/navigation';
+import {usePathname, useRouter} from 'next/navigation';
 import {useEffect} from 'react';
+import {FullscreenBlocker} from "@/components/custom/FullScreenBlocker";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -17,25 +18,44 @@ export function ProtectedRoute({
                                }: ProtectedRouteProps) {
     const {isAuthenticated, isLoading, hasRole, logout, user} = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
+
+    const PUBLIC_ROUTES = [
+        "/login",
+        "/auth/callback",
+    ];
+
+    const isPublicRoute = PUBLIC_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    const shouldBlockUI =
+        !isPublicRoute &&
+        !isLoading &&
+        !isAuthenticated &&
+        localStorage.getItem("auth_user") === null; //additional stored user check to circumvent auth hydration race condition for isAuthenticated
 
     useEffect(() => {
         // Don't do anything while loading - wait for user to be loaded
         if (isLoading) {
             return;
         }
-        
+
+        //skip checks if public route
+        if (isPublicRoute) return;
+
         // If not authenticated, redirect to login (don't clear localStorage here)
         if (!isAuthenticated) {
             router.push('/login');
             return;
         }
-        
+
         // Only check role if user is loaded (user !== null)
         // This prevents logout() being called when user hasn't loaded yet after F5
         if (!user) {
             return;
         }
-        
+
         // Check role only after user is loaded
         const hasRequiredRole = hasRole('ROLE_ADMIN') || hasRole('ROLE_EMPLOYEE');
 
@@ -47,6 +67,7 @@ export function ProtectedRoute({
             return;
         }
     }, [isAuthenticated, isLoading, user, hasRole, logout, router]);
+
 
     // Loading state
     if (isLoading) {
@@ -61,11 +82,6 @@ export function ProtectedRoute({
                 </div>
             )
         );
-    }
-
-    // Not authenticated
-    if (!isAuthenticated) {
-        return null;
     }
 
     // Check role if required
@@ -97,5 +113,8 @@ export function ProtectedRoute({
         );
     }
 
-    return <>{children}</>;
+    //blocks the view of the renderUI if unauthenticated
+    return <>
+        {shouldBlockUI && <FullscreenBlocker></FullscreenBlocker>}
+        {children}</>;
 }

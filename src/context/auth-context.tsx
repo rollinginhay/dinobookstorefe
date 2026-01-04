@@ -31,6 +31,7 @@ interface AuthContextType {
     isStaff: () => boolean;
     isUser: () => boolean;
     isGuest: () => boolean;
+    rolesReady: boolean | undefined;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -155,6 +156,8 @@ export function AuthProvider({children}: { children: React.ReactNode }) {
     const checkIsUser = () => isUser(userRoles);
     const checkIsGuest = () => isGuest(userRoles);
 
+    const rolesReady = !!user?.roles?.length; //checks readiness of data loaded from localStorage
+
     const value: AuthContextType = {
         user,
         token,
@@ -170,6 +173,7 @@ export function AuthProvider({children}: { children: React.ReactNode }) {
         isStaff: checkIsStaff,
         isUser: checkIsUser,
         isGuest: checkIsGuest,
+        rolesReady
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,7 @@ import {ThemeProvider} from "@/context/ThemeContext";
 import {AppProviders} from "@/lib/providers";
 import {Toaster} from "sonner";
 import {AuthProvider} from "@/context/auth-context";
+import {ProtectedRoute} from "@/components/custom/ProtectedRoute";
 
 const inter = Inter({
     subsets: ["latin"],
@@ -25,8 +26,10 @@ export default function RootLayout({
             <SidebarProvider>
                 <AuthProvider>
                     <AppProviders>
-                        {children}
-                        <Toaster richColors={true} position="top-right"/>
+                        <ProtectedRoute>
+                            {children}
+                            <Toaster richColors={true} position="top-right"/>
+                        </ProtectedRoute>
                     </AppProviders>
                 </AuthProvider>
             </SidebarProvider>

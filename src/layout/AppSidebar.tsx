@@ -28,33 +28,33 @@ type NavItem = {
 
 // Tất cả menu items (chưa filter theo role)
 const allNavItems: NavItem[] = [
-    { name: "Thống kê", icon: <PieChartIcon />, path: "/" },
-  { name: "Bán hàng tại quầy", icon: <CartIcon />, path: "/pos" },
-  { name: "Danh sách hóa đơn", icon: <TableIcon />, path: "/bill" },
-  {
-    name: "Quản lý sách",
-    icon: <CartIcon />,
-    subItems: [
+    {name: "Thống kê", icon: <PieChartIcon/>, path: "/"},
+    {name: "Bán hàng tại quầy", icon: <CartIcon/>, path: "/pos"},
+    {name: "Danh sách hóa đơn", icon: <TableIcon/>, path: "/bill"},
+    {
+        name: "Quản lý sách",
+        icon: <CartIcon/>,
+        subItems: [
             {name: "Sách", path: "/books"},
             {name: "Nhà xuất bản", path: "/publishers"},
             {name: "Thể loại", path: "/genres"},
             {name: "Tác giả", path: "/creators"},
             {name: "Bộ sách", path: "/series"},
         ],
-  },
-  {
-  name: "Giảm giá",
-  icon: <TagIcon className="w-5 h-5" />,
-  path: "/voucher", // 👈 Chỉ có đợt giảm giá
-  },
-  {
-    name: "Người dùng",
-    icon: <UserCircleIcon />,
-    subItems: [
-      { name: "Quản lý khách hàng", path: "/users" },
-      { name: "Quản lý nhân viên", path: "/users/staff" },
-    ],
-  },
+    },
+    {
+        name: "Giảm giá",
+        icon: <TagIcon className="w-5 h-5"/>,
+        path: "/voucher", // 👈 Chỉ có đợt giảm giá
+    },
+    {
+        name: "Người dùng",
+        icon: <UserCircleIcon/>,
+        subItems: [
+            {name: "Quản lý khách hàng", path: "/users"},
+            {name: "Quản lý nhân viên", path: "/users/staff"},
+        ],
+    },
 //   {
 //     name: "Biểu mẫu",
 //     icon: <ListIcon />,
@@ -66,7 +66,7 @@ const allNavItems: NavItem[] = [
 ];
 
 // const othersItems: NavItem[] = [
-    
+
 //     {
 //         icon: <BoxCubeIcon/>,
 //         name: "UI Elements",
@@ -139,27 +139,32 @@ const AppSidebar: React.FC = () => {
     const {isExpanded, isMobileOpen, isHovered, setIsHovered} = useSidebar();
     const pathname = usePathname();
     const router = useRouter();
-    const { logout, isAdmin, isManager, isStaff } = useAuth();
+    const {logout, isAdmin, isManager, isStaff, isLoading, rolesReady} = useAuth();
 
     // Filter menu items dựa trên role
     const getFilteredNavItems = (): NavItem[] => {
+        // Wait for roles to be loaded
+        if (!rolesReady) {
+            return [];
+        }
+
         // ROLE_ADMIN: thấy tất cả
         if (isAdmin()) {
             return allNavItems;
         }
-        
+
         // ROLE_MANAGER: thấy menu quản lý
         if (isManager()) {
             return allNavItems;
         }
-        
+
         // ROLE_EMPLOYEE (staff): chỉ thấy Bán hàng tại quầy và Danh sách hóa đơn
         if (isStaff()) {
-            return allNavItems.filter(item => 
+            return allNavItems.filter(item =>
                 item.path === "/pos" || item.path === "/bill"
             );
         }
-        
+
         // ROLE_USER: không thấy sidebar này (trả về empty array)
         return [];
     };
@@ -378,8 +383,6 @@ const AppSidebar: React.FC = () => {
         });
     };
 
-    
-
     return (
         <aside
             className={`fixed  flex flex-col xl:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-full transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
@@ -483,7 +486,7 @@ const AppSidebar: React.FC = () => {
                 </nav>
                 {/*{isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}*/}
             </div>
-            
+
             {/* Logout Button */}
             <div className="mt-auto pb-6 border-t border-gray-200 dark:border-gray-800 pt-4">
                 <button

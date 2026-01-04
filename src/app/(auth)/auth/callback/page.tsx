@@ -60,8 +60,9 @@ export default function AuthCallbackPage() {
 
                 console.log('Authentication successful');
 
-                // Redirect to home page
-                router.push('/');
+                // Do not use router redirect
+                // Force full page reload to ensure auth context reloads
+                window.location.href = '/';
             } catch (parseError) {
                 console.error('Failed to parse auth data:', parseError);
                 setError('Failed to process authentication data');
