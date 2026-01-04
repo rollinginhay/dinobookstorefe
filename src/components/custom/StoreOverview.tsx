@@ -106,7 +106,9 @@ export default function StoreOverview() {
                 </ReceiptMetrics>
             </div>
             <div className="col-span-12">
-                <SalesAndRevenueChart/>
+                <SalesAndRevenueChart
+                    paidReceipts={paidReceipts}
+                />
             </div>
         </>
     )
