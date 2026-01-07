@@ -6,7 +6,7 @@ interface ReceiptMetricsProps {
     authorizedOrders: number;
 }
 
-export default function ReceiptMetrics({authorizedOrders, inTransitOrders, paidOrders}: ReceiptMetricsProps) {
+export default function ReceiptOverview({authorizedOrders, inTransitOrders, paidOrders}: ReceiptMetricsProps) {
     return (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

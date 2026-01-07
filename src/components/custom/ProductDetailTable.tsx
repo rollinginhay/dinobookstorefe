@@ -5,7 +5,7 @@ import Button from "@/components/ui/button/Button";
 import {getYear} from "@/lib/formatters";
 import ProductInfoCard from "@/components/custom/ProductInfoCard";
 import {useBookSingle} from "@/hooks/api-calls/useBookSingle";
-import {useParams} from "next/navigation";
+import {useParams, useRouter} from "next/navigation";
 import {useBookDetail} from "@/hooks/api-calls/useBookDetail";
 import {useModal} from "@/hooks/useModal";
 import {Modal} from "@/components/ui/modal";
@@ -14,7 +14,6 @@ import Input from "@/components/form/input/InputField";
 import Form from "@/components/form/Form";
 import {deserializeBook} from "@/lib/serializers";
 import {BaseProperty} from "@/components/custom/MultiSelectCreatable";
-import {useRouter} from "next/navigation";
 import {ChevronDownIcon} from "@/icons";
 
 

@@ -33,12 +33,12 @@ const normalizeVoucher = (v: any) => ({
 
 function extractBookDetails(books: any[]) {
     return books.flatMap((book) => {
-        // top-level fields (your data shape)
+        // top-level fields
         const bookId = String(book.id ?? "");
         const title = book.title ?? "";
         const imageUrl = book.imageUrl ?? "";
 
-        // bookCopies structure: { data: [...] }
+        // bookCopies structure:
         const copies = Array.isArray(book.bookCopies?.data)
             ? book.bookCopies.data
             : [];

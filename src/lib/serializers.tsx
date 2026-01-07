@@ -313,6 +313,18 @@ export function serializeReceipt(receipt: any) {
     return {data, included};
 }
 
+export function deserializeReceipt(receipt: any) {
+    return {
+        ...receipt,
+        employee: receipt.employee?.data || null,
+        paymentDetail: receipt.paymentDetail?.data || null,
+        receiptDetails: receipt.receiptDetails?.data?.map((detail: any) => ({
+            ...detail,
+            bookDetail: detail.bookDetail?.data || null
+        })) || []
+    };
+}
+
 export function deserializeUsers(rawUsers: any[]) {
     return rawUsers.map(u => ({
         id: u.id,
@@ -347,7 +359,7 @@ export function serializeUser(user: any) {
 
     const idOrZero = (val: any): string => normalizeId(val) ?? "0";
 
-    const attrs = { ...user };
+    const attrs = {...user};
     delete attrs.id;    // remove id from attributes
     delete attrs.type;  // safety, if passed accidentally
 
