@@ -44,11 +44,11 @@ export default function ProductSelector({
         return products.filter((p) => {
             const keyword = searchTerm.toLowerCase();
             const matchSearch = !keyword || p.title.toLowerCase().includes(keyword);
-            
+
             const matchFormat = !filters.bookFormat || p.bookFormat === filters.bookFormat;
-            
+
             const matchAuthor = !filters.author || (p.author && p.author.toLowerCase().includes(filters.author.toLowerCase()));
-            
+
             const matchPriceRange = !filters.priceRange || (() => {
                 const price = p.salePrice || 0;
                 switch (filters.priceRange) {
@@ -64,7 +64,7 @@ export default function ProductSelector({
                         return true;
                 }
             })();
-            
+
             return matchSearch && matchFormat && matchAuthor && matchPriceRange;
         });
     }, [products, searchTerm, filters]);
@@ -268,6 +268,10 @@ export default function ProductSelector({
                                 <div className="text-center text-blue-600 font-bold mt-1">
                                     {item.salePrice.toLocaleString()}đ
                                 </div>
+                                <div className="text-center text-xs gray-500 mt-1 font-semibold">
+                                    {"Còn: " + item.stock}
+                                </div>
+
                             </div>
                         ))
                     ) : (
@@ -281,7 +285,9 @@ export default function ProductSelector({
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                         <div className="text-sm text-gray-600">
-                            Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} / {filteredProducts.length} sản phẩm
+                            Hiển
+                            thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} / {filteredProducts.length} sản
+                            phẩm
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -292,7 +298,7 @@ export default function ProductSelector({
                                 ‹ Trước
                             </button>
                             <div className="flex gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                {Array.from({length: totalPages}, (_, i) => i + 1)
                                     .filter(page => {
                                         // Hiển thị trang đầu, cuối, và các trang xung quanh trang hiện tại
                                         if (totalPages <= 7) return true;

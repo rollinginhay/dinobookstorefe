@@ -12,6 +12,7 @@ import {useCampaign} from "@/hooks/api-calls/useCampaign";
 import {useReceipt} from "@/hooks/api-calls/useReceipt";
 import {useUser} from "@/hooks/api-calls/useUser";
 import {useAuth} from "@/context/auth-context";
+import {toast} from "sonner";
 
 // ===============================
 // DEMO VOUCHER LIST (POS PANEL)
@@ -45,7 +46,7 @@ function extractBookDetails(books: any[]) {
 
         return copies.map((bc: any) => ({
             bookId,
-            title: title + (bc.bookFormat ? ` - ${bc.bookFormat}` : ""),
+            title: title,
             imageUrl,
             id: String(bc.id ?? ""),
 
@@ -147,6 +148,7 @@ export default function POS() {
             const parsed = JSON.parse(saved);
             setOrders(parsed);
             setActiveOrderId(parsed[0]?.id || null); // chọn hoá đơn đầu tiên
+            setActiveOrderId(parsed[0]?.id || null); // chọn hoá đơn đầu tiên
         } else {
             // nếu lần đầu mở POS → tạo hóa đơn mới
             const newOrder = createEmptyOrder();
@@ -233,13 +235,13 @@ export default function POS() {
     const handleEditShipping = () => {
         const fullAddress = activeOrder.attributes.customerAddress || "";
         const parts = fullAddress.split(",").map(p => p.trim());
-        
+
         // Parse địa chỉ (giả định format: "địa chỉ chi tiết, phường/xã, quận/huyện, tỉnh/thành phố")
         let detailAddr = ""; // Để trống địa chỉ chi tiết
         let wardName = "";
         let districtName = "";
         let provinceName = "";
-        
+
         if (parts.length >= 4) {
             wardName = parts[1];
             districtName = parts[2];
@@ -250,14 +252,14 @@ export default function POS() {
         } else if (parts.length === 2) {
             provinceName = parts[1];
         }
-        
+
         // Tìm province code
-        const province = provinces.find(p => 
-            p.name === provinceName || 
+        const province = provinces.find(p =>
+            p.name === provinceName ||
             p.name.toLowerCase().includes(provinceName.toLowerCase()) ||
             provinceName.toLowerCase().includes(p.name.toLowerCase())
         );
-        
+
         setEditShippingData({
             name: activeOrder.attributes.customerName || "",
             phone: activeOrder.attributes.customerPhone || "",
@@ -269,7 +271,7 @@ export default function POS() {
             wardCode: "",
             wardName: wardName,
         });
-        
+
         // Load districts nếu có province
         if (province) {
             fetch(`https://provinces.open-api.vn/api/p/${province.code}?depth=2`)
@@ -277,37 +279,37 @@ export default function POS() {
                 .then((data) => {
                     const districtsList = data.districts || [];
                     setDistricts(districtsList);
-                    
+
                     // Tìm district
                     if (districtName) {
-                        const district = districtsList.find((d: any) => 
-                            d.name === districtName || 
+                        const district = districtsList.find((d: any) =>
+                            d.name === districtName ||
                             d.name.toLowerCase().includes(districtName.toLowerCase()) ||
                             districtName.toLowerCase().includes(d.name.toLowerCase())
                         );
-                        
+
                         if (district) {
                             setEditShippingData(prev => ({
                                 ...prev,
                                 districtCode: String(district.code),
                                 districtName: district.name,
                             }));
-                            
+
                             // Load wards
                             fetch(`https://provinces.open-api.vn/api/d/${district.code}?depth=2`)
                                 .then((res) => res.json())
                                 .then((data) => {
                                     const wardsList = data.wards || [];
                                     setWards(wardsList);
-                                    
+
                                     // Tìm ward
                                     if (wardName) {
-                                        const ward = wardsList.find((w: any) => 
-                                            w.name === wardName || 
+                                        const ward = wardsList.find((w: any) =>
+                                            w.name === wardName ||
                                             w.name.toLowerCase().includes(wardName.toLowerCase()) ||
                                             wardName.toLowerCase().includes(w.name.toLowerCase())
                                         );
-                                        
+
                                         if (ward) {
                                             setEditShippingData(prev => ({
                                                 ...prev,
@@ -323,7 +325,7 @@ export default function POS() {
                 })
                 .catch(() => setDistricts([]));
         }
-        
+
         setIsEditingShipping(true);
     };
 
@@ -336,19 +338,19 @@ export default function POS() {
             alert("Vui lòng nhập đầy đủ tên và số điện thoại!");
             return;
         }
-        
+
         if (!editShippingData.detailAddress.trim() || !editShippingData.provinceName) {
             alert("Vui lòng nhập đầy đủ thông tin địa chỉ!");
             return;
         }
-        
+
         // Tạo địa chỉ đầy đủ
         const addressParts = [editShippingData.detailAddress];
         if (editShippingData.wardName) addressParts.push(editShippingData.wardName);
         if (editShippingData.districtName) addressParts.push(editShippingData.districtName);
         if (editShippingData.provinceName) addressParts.push(editShippingData.provinceName);
         const fullAddress = addressParts.join(", ");
-        
+
         // CHỈ update attributes, KHÔNG động vào relationships.customer
         updateOrder({
             attributes: {
@@ -358,7 +360,7 @@ export default function POS() {
             }
             // KHÔNG update relationships.customer - giữ nguyên khách hàng gốc
         });
-        
+
         setIsEditingShipping(false);
         alert("Đã lưu thông tin giao hàng!");
     };
@@ -371,7 +373,7 @@ export default function POS() {
     // Popup
     const [showProductPopup, setShowProductPopup] = useState(false);
     const [showCustomerPopup, setShowCustomerPopup] = useState(false);
-    
+
     // Payment method
     const [paymentMethod, setPaymentMethod] = useState<"CASH" | "TRANSFER">("CASH");
     const [orderCode, setOrderCode] = useState<string>("");
@@ -386,7 +388,7 @@ export default function POS() {
     // Giảm giá trực tiếp (POS)
     const [directDiscountInput, setDirectDiscountInput] = useState("");
     const [discountType, setDiscountType] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
-    
+
     // Form chỉnh sửa thông tin giao hàng
     const [isEditingShipping, setIsEditingShipping] = useState(false);
     const [editShippingData, setEditShippingData] = useState({
@@ -400,10 +402,10 @@ export default function POS() {
         wardCode: "",
         wardName: "",
     });
-    const [provinces, setProvinces] = useState<Array<{code: number; name: string}>>([]);
-    const [districts, setDistricts] = useState<Array<{code: number; name: string}>>([]);
-    const [wards, setWards] = useState<Array<{code: number; name: string}>>([]);
-    
+    const [provinces, setProvinces] = useState<Array<{ code: number; name: string }>>([]);
+    const [districts, setDistricts] = useState<Array<{ code: number; name: string }>>([]);
+    const [wards, setWards] = useState<Array<{ code: number; name: string }>>([]);
+
     // Search sản phẩm (gợi ý bên dưới ô tìm kiếm)
     const [searchText, setSearchText] = useState("");
 
@@ -491,7 +493,7 @@ export default function POS() {
 
     // Lấy đơn hàng hiện tại
     const activeOrder = orders.find((o) => o.id === activeOrderId);
-    
+
     // Reset payment state khi chuyển đơn hàng
     useEffect(() => {
         setIsPaymentConfirmed(false);
@@ -503,7 +505,7 @@ export default function POS() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeOrderId]);
-    
+
     // Tạo mã đơn hàng khi chọn chuyển khoản
     useEffect(() => {
         if (paymentMethod === "TRANSFER") {
@@ -515,7 +517,7 @@ export default function POS() {
         setIsPaymentConfirmed(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [paymentMethod]);
-    
+
     // ➤ Khi đổi khách hàng → tự điền tên + sđt vào form giao hàng
     useEffect(() => {
         if (activeOrder?.customer) {
@@ -573,16 +575,23 @@ export default function POS() {
     // CART FUNCTIONS
     // ===============================
     const addProduct = (product: any) => {
+        if (product.stock <= 0) {
+            toast.warning("Sản phẩm đã hết hàng");
+            return;
+        }
         const current = activeOrder.relationships.receiptDetails;
 
         const exists = current.find((e: any) => e.bookCopy.id === product.id);
-
         let updatedItems;
-
         if (exists) {
+            const newQuantity = exists.quantity + 1;
+            if (newQuantity > product.stock) {
+                toast.warning("Không đủ hàng trong kho");
+                return;
+            }
             updatedItems = current.map((e: any) =>
                 e.bookCopy.id === product.id
-                    ? {...e, quantity: e.quantity + 1}
+                    ? {...e, quantity: newQuantity}
                     : e
             );
         } else {
@@ -791,7 +800,6 @@ export default function POS() {
                         </div>
 
 
-
                         {/* GIỎ HÀNG TABLE */}
                         <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white">
                             <table className="table min-w-[700px]">
@@ -838,7 +846,7 @@ export default function POS() {
 
                                         <td className="align-middle">
                                             <div className="flex flex-col justify-center">
-                                                <span className="font-semibold">{receiptDetail.bookCopy.title}</span>
+                                                <span className="font-semibold">{receiptDetail.bookCopy.title + " - " + receiptDetail.bookCopy.bookFormat}</span>
                                                 <span className="text-gray-500 text-xs mt-1">
                                                     Đơn giá:{" "}
                                                     <b className="text-red-500">
@@ -863,14 +871,19 @@ export default function POS() {
                                                     className="w-20 text-center font-medium border border-gray-300 rounded-md py-1.5 px-2"
                                                     value={receiptDetail.quantity}
                                                     onChange={(e) => {
-                                                        const newQty = parseInt(e.target.value) || 1;
+                                                        let newQty = parseInt(e.target.value) || 1;
                                                         if (newQty >= 1) {
                                                             updateOrder({
                                                                 relationships: {
-                                                                    receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) =>
-                                                                        item.bookCopy.id === receiptDetail.bookCopy.id
-                                                                            ? {...item, quantity: newQty}
-                                                                            : item
+                                                                    receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) => {
+                                                                            if (newQty > item.bookCopy.stock) {
+                                                                                newQty = item.bookCopy.stock;
+                                                                            }
+                                                                            return item.bookCopy.id === receiptDetail.bookCopy.id
+                                                                                ? {...item, quantity: newQty}
+                                                                                : item
+
+                                                                        }
                                                                     )
                                                                 }
                                                             });
@@ -1022,7 +1035,8 @@ export default function POS() {
                             </div>
 
                             {orderDiscount > 0 && (
-                                <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                                <div
+                                    className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
                                     <span className="text-sm text-green-700">
                                         Đã giảm: <b>{orderDiscount.toLocaleString()}đ</b>
                                     </span>
@@ -1066,7 +1080,8 @@ export default function POS() {
                                                             {v.description}
                                                         </div>
                                                     </div>
-                                                    <div className="text-xs font-semibold text-[var(--sidebar-primary)]">
+                                                    <div
+                                                        className="text-xs font-semibold text-[var(--sidebar-primary)]">
                                                         {v.label}
                                                     </div>
                                                 </button>
@@ -1081,7 +1096,8 @@ export default function POS() {
                     <div className="card shadow-sm">
                         <h3 className="card-title mb-4">Nhận hàng</h3>
                         <div className="space-y-3">
-                            <label className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+                            <label
+                                className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     className="checkbox mt-0.5 w-5 h-5"
@@ -1093,7 +1109,8 @@ export default function POS() {
                                 </div>
                             </label>
 
-                            <label className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+                            <label
+                                className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     className="checkbox mt-0.5 w-5 h-5"
@@ -1112,19 +1129,22 @@ export default function POS() {
                                                     {/* Hiển thị thông tin (read-only) */}
                                                     <div className="space-y-3">
                                                         <div>
-                                                            <label className="text-sm font-medium text-gray-500">Tên người nhận</label>
+                                                            <label className="text-sm font-medium text-gray-500">Tên
+                                                                người nhận</label>
                                                             <div className="mt-1 text-gray-800">
                                                                 {activeOrder.attributes.customerName || "Chưa có thông tin"}
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-sm font-medium text-gray-500">Số điện thoại</label>
+                                                            <label className="text-sm font-medium text-gray-500">Số điện
+                                                                thoại</label>
                                                             <div className="mt-1 text-gray-800">
                                                                 {activeOrder.attributes.customerPhone || "Chưa có thông tin"}
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-sm font-medium text-gray-500">Địa chỉ nhận hàng</label>
+                                                            <label className="text-sm font-medium text-gray-500">Địa chỉ
+                                                                nhận hàng</label>
                                                             <div className="mt-1 text-gray-800">
                                                                 {activeOrder.attributes.customerAddress || "Chưa có thông tin"}
                                                             </div>
@@ -1150,7 +1170,10 @@ export default function POS() {
                                                                 type="text"
                                                                 className="input w-full mt-1"
                                                                 value={editShippingData.name}
-                                                                onChange={(e) => setEditShippingData(prev => ({ ...prev, name: e.target.value }))}
+                                                                onChange={(e) => setEditShippingData(prev => ({
+                                                                    ...prev,
+                                                                    name: e.target.value
+                                                                }))}
                                                                 placeholder="Nhập tên người nhận"
                                                             />
                                                         </div>
@@ -1163,7 +1186,10 @@ export default function POS() {
                                                                 type="text"
                                                                 className="input w-full mt-1"
                                                                 value={editShippingData.phone}
-                                                                onChange={(e) => setEditShippingData(prev => ({ ...prev, phone: e.target.value }))}
+                                                                onChange={(e) => setEditShippingData(prev => ({
+                                                                    ...prev,
+                                                                    phone: e.target.value
+                                                                }))}
                                                                 placeholder="Nhập số điện thoại"
                                                             />
                                                         </div>
@@ -1172,7 +1198,8 @@ export default function POS() {
                                                         <div className="grid grid-cols-3 gap-3">
                                                             <div>
                                                                 <label className="text-sm font-medium">
-                                                                    Tỉnh/Thành phố <span className="text-red-600">*</span>
+                                                                    Tỉnh/Thành phố <span
+                                                                    className="text-red-600">*</span>
                                                                 </label>
                                                                 <select
                                                                     value={editShippingData.provinceCode}
@@ -1238,7 +1265,10 @@ export default function POS() {
                                                                 type="text"
                                                                 className="input w-full mt-1"
                                                                 value={editShippingData.detailAddress}
-                                                                onChange={(e) => setEditShippingData(prev => ({ ...prev, detailAddress: e.target.value }))}
+                                                                onChange={(e) => setEditShippingData(prev => ({
+                                                                    ...prev,
+                                                                    detailAddress: e.target.value
+                                                                }))}
                                                                 placeholder="Số nhà, tên đường..."
                                                             />
                                                         </div>
@@ -1316,8 +1346,9 @@ export default function POS() {
                     <div className="card shadow-sm">
                         <h3 className="card-title mb-4">Phương thức thanh toán</h3>
                         <div className="space-y-3">
-                            
-                            <label className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+
+                            <label
+                                className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     name="paymentMethod"
@@ -1330,7 +1361,8 @@ export default function POS() {
                                 </div>
                             </label>
 
-                            <label className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+                            <label
+                                className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     name="paymentMethod"
@@ -1346,23 +1378,25 @@ export default function POS() {
 
                         {/* HIỂN THỊ QR CODE KHI CHỌN CHUYỂN KHOẢN */}
                         {paymentMethod === "TRANSFER" && orderCode && (
-                            <div className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
+                            <div
+                                className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
                                 <div className="text-center mb-3">
                                     <div className="font-semibold text-sm mb-1">Mã đơn hàng:</div>
                                     <div className="text-xl font-bold text-blue-600 mb-2">{orderCode}</div>
                                     <div className="text-sm text-gray-600">
-                                        Số tiền: <span className="font-bold text-red-600">{grandTotal.toLocaleString()}đ</span>
+                                        Số tiền: <span
+                                        className="font-bold text-red-600">{grandTotal.toLocaleString()}đ</span>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex flex-col items-center gap-4">
                                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <QRCodeDisplay value={orderCode} size={220} />
+                                        <QRCodeDisplay value={orderCode} size={220}/>
                                     </div>
-                                    
+
                                     {!isPaymentConfirmed && (
-                        <button
-                            type="button"
+                                        <button
+                                            type="button"
                                             className="btn bg-green-500 hover:bg-green-600 text-white w-full mt-2 py-3 text-base font-semibold"
                                             onClick={() => {
                                                 setIsPaymentConfirmed(true);
@@ -1380,13 +1414,18 @@ export default function POS() {
                                             }}
                                         >
                                             ✓ Đã nhận tiền
-                        </button>
+                                        </button>
                                     )}
-                                    
+
                                     {isPaymentConfirmed && (
-                                        <div className="w-full p-4 bg-green-100 border-2 border-green-400 rounded-lg text-center">
-                                            <div className="text-green-700 font-semibold text-base">✓ Đã xác nhận nhận tiền</div>
-                                            <div className="text-xs text-green-600 mt-1">Đơn hàng sẽ được tạo với trạng thái "Đã thanh toán"</div>
+                                        <div
+                                            className="w-full p-4 bg-green-100 border-2 border-green-400 rounded-lg text-center">
+                                            <div className="text-green-700 font-semibold text-base">✓ Đã xác nhận nhận
+                                                tiền
+                                            </div>
+                                            <div className="text-xs text-green-600 mt-1">Đơn hàng sẽ được tạo với trạng
+                                                thái "Đã thanh toán"
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1399,99 +1438,99 @@ export default function POS() {
                         type="button"
                         className="btn btn-primary w-full py-3 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow"
                         onClick={async () => {
-                                const order = structuredClone(activeOrder);
-                                if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) return;
-                                
-                                // Kiểm tra nếu chọn chuyển khoản nhưng chưa xác nhận
-                                if (paymentMethod === "TRANSFER" && !isPaymentConfirmed) {
-                                    alert("Vui lòng xác nhận đã nhận tiền trước khi tạo đơn hàng!");
+                            const order = structuredClone(activeOrder);
+                            if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) return;
+
+                            // Kiểm tra nếu chọn chuyển khoản nhưng chưa xác nhận
+                            if (paymentMethod === "TRANSFER" && !isPaymentConfirmed) {
+                                alert("Vui lòng xác nhận đã nhận tiền trước khi tạo đơn hàng!");
+                                return;
+                            }
+
+                            // Validate thông tin giao hàng nếu chọn chuyển phát
+                            if (shippingMethod === "DELIVERY") {
+                                if (!order.attributes.customerName || !order.attributes.customerName.trim()) {
+                                    alert("Vui lòng nhập tên người nhận!");
                                     return;
                                 }
-                                
-                                // Validate thông tin giao hàng nếu chọn chuyển phát
-                                if (shippingMethod === "DELIVERY") {
-                                    if (!order.attributes.customerName || !order.attributes.customerName.trim()) {
-                                        alert("Vui lòng nhập tên người nhận!");
-                                        return;
-                                    }
-                                    if (!order.attributes.customerPhone || !order.attributes.customerPhone.trim()) {
-                                        alert("Vui lòng nhập số điện thoại!");
-                                        return;
-                                    }
-                                    if (!order.attributes.customerAddress || !order.attributes.customerAddress.trim()) {
-                                        alert("Vui lòng nhập địa chỉ giao hàng!");
-                                        return;
-                                    }
+                                if (!order.attributes.customerPhone || !order.attributes.customerPhone.trim()) {
+                                    alert("Vui lòng nhập số điện thoại!");
+                                    return;
                                 }
-                                
-                                order.attributes.hasShipping = shippingMethod === "DELIVERY";
-                                order.id = 0;
-                                order.attributes.discount = order.discount;
-                                order.attributes.discountAmount = order.discountAmount;
-                                order.relationships.employee = {
-                                    id: user!.id
+                                if (!order.attributes.customerAddress || !order.attributes.customerAddress.trim()) {
+                                    alert("Vui lòng nhập địa chỉ giao hàng!");
+                                    return;
                                 }
-                                
-                                // Cập nhật payment detail - ưu tiên lấy từ activeOrder nếu đã có, nếu không thì dùng state
-                                const existingPaymentDetail = activeOrder.relationships?.paymentDetail;
-                                if (existingPaymentDetail && existingPaymentDetail.paymentType) {
-                                    // Dùng paymentDetail đã được update từ nút "Đã nhận tiền"
-                                    order.relationships.paymentDetail = existingPaymentDetail;
-                                } else {
-                                    // Tạo mới từ state
-                                    order.relationships.paymentDetail = {
-                                        id: Date.now(),
-                                        paymentType: paymentMethod,
-                                    };
+                            }
+
+                            order.attributes.hasShipping = shippingMethod === "DELIVERY";
+                            order.id = 0;
+                            order.attributes.discount = order.discount;
+                            order.attributes.discountAmount = order.discountAmount;
+                            order.relationships.employee = {
+                                id: user!.id
+                            }
+
+                            // Cập nhật payment detail - ưu tiên lấy từ activeOrder nếu đã có, nếu không thì dùng state
+                            const existingPaymentDetail = activeOrder.relationships?.paymentDetail;
+                            if (existingPaymentDetail && existingPaymentDetail.paymentType) {
+                                // Dùng paymentDetail đã được update từ nút "Đã nhận tiền"
+                                order.relationships.paymentDetail = existingPaymentDetail;
+                            } else {
+                                // Tạo mới từ state
+                                order.relationships.paymentDetail = {
+                                    id: Date.now(),
+                                    paymentType: paymentMethod,
+                                };
+                            }
+
+                            // Set order status dựa trên phương thức thanh toán
+                            const finalPaymentType = existingPaymentDetail?.paymentType || paymentMethod;
+                            if (finalPaymentType === "CASH") {
+                                order.attributes.orderStatus = "PENDING";
+                            } else if (finalPaymentType === "TRANSFER" && isPaymentConfirmed) {
+                                order.attributes.orderStatus = "PAID";
+                            }
+
+                            console.log(order);
+                            console.log(serializeReceipt(order));
+                            const saved = await receiptCreate.mutateAsync(order);
+                            console.log(saved.data.id);
+
+                            // Cập nhật orderCode với ID thật từ backend nếu cần
+                            if (saved.data.id) {
+                                setOrderCode(`ORD${saved.data.id}`);
+                            }
+
+                            setOrders((prev) => {
+                                // remove the completed order from the current in-memory list
+                                const updated = prev.filter((o) => o.id !== activeOrderId);
+
+                                if (updated.length === 0) {
+                                    // if nothing left, create a fresh order (prevents activeOrder === null)
+                                    const fresh = createEmptyOrder();
+                                    // persist the single fresh order
+                                    localStorage.setItem("posOrders", JSON.stringify([fresh]));
+                                    // update active tab to the new order
+                                    setActiveOrderId(fresh.id);
+                                    return [fresh];
                                 }
-                                
-                                // Set order status dựa trên phương thức thanh toán
-                                const finalPaymentType = existingPaymentDetail?.paymentType || paymentMethod;
-                                if (finalPaymentType === "CASH") {
-                                    order.attributes.orderStatus = "PENDING";
-                                } else if (finalPaymentType === "TRANSFER" && isPaymentConfirmed) {
-                                    order.attributes.orderStatus = "PAID";
-                                }
-                                
-                                console.log(order);
-                                console.log(serializeReceipt(order));
-                                const saved = await receiptCreate.mutateAsync(order);
-                                console.log(saved.data.id);
-                                
-                                // Cập nhật orderCode với ID thật từ backend nếu cần
-                                if (saved.data.id) {
-                                    setOrderCode(`ORD${saved.data.id}`);
+
+                                // persist updated list
+                                localStorage.setItem("posOrders", JSON.stringify(updated));
+
+                                // if the deleted order was the active one, switch to the first remaining
+                                if (!updated.find((o) => o.id === activeOrderId)) {
+                                    setActiveOrderId(updated[0].id);
                                 }
 
-                                setOrders((prev) => {
-                                    // remove the completed order from the current in-memory list
-                                    const updated = prev.filter((o) => o.id !== activeOrderId);
+                                return updated;
+                            });
 
-                                    if (updated.length === 0) {
-                                        // if nothing left, create a fresh order (prevents activeOrder === null)
-                                        const fresh = createEmptyOrder();
-                                        // persist the single fresh order
-                                        localStorage.setItem("posOrders", JSON.stringify([fresh]));
-                                        // update active tab to the new order
-                                        setActiveOrderId(fresh.id);
-                                        return [fresh];
-                                    }
-
-                                    // persist updated list
-                                    localStorage.setItem("posOrders", JSON.stringify(updated));
-
-                                    // if the deleted order was the active one, switch to the first remaining
-                                    if (!updated.find((o) => o.id === activeOrderId)) {
-                                        setActiveOrderId(updated[0].id);
-                                    }
-
-                                    return updated;
-                                });
-
-                            }}
-                        >
-                            Xác nhận đơn hàng
-                        </button>
+                        }}
+                    >
+                        Xác nhận đơn hàng
+                    </button>
                 </div>
             </div>
 
