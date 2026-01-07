@@ -54,6 +54,8 @@ export function useReceipt(
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["receipts"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["books"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["users"], exact: false})
             await queryClient.invalidateQueries({queryKey: ["user"], exact: false})
             toast.success("Success");
@@ -75,6 +77,8 @@ export function useReceipt(
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({queryKey: ["receipts"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["books"], exact: false});
+            await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["users"], exact: false})
             await queryClient.invalidateQueries({queryKey: ["user"], exact: false})
             toast.success("Success");
