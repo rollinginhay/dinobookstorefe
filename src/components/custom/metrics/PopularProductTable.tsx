@@ -85,7 +85,7 @@ export default function PopularProductTable({books, receipts}: PopularProductTab
             className="h-full rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] flex flex-col">
             <div className="px-4 pt-4 pb-0 sm:px-6 flex-shrink-0">
                 <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-                    Sách sắp hết hàng
+                    Sách bán chạy tháng này
                 </h3>
             </div>
 
