@@ -70,7 +70,8 @@ export default function PopularProductTable({books, receipts}: PopularProductTab
                     tally[d.bookDetail.id] = 0;
                 }
 
-                tally[d.bookDetail.id]++;
+                // ✅ Cộng quantity thay vì chỉ đếm số lần xuất hiện
+                tally[d.bookDetail.id] += d.quantity || 1;
             })
         });
 

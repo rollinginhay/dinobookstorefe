@@ -26,51 +26,69 @@ export const BillService = {
 
         const json = await res.json();
 
-        return json.data.map((item: any) => {
-            const a = item.attributes || {};
-            const note = a.note || "";
+        // ✅ Fetch detail cho từng item để lấy giá đúng (tính từ originalPrice)
+        const billsWithCorrectPrice = await Promise.all(
+            json.data.map(async (item: any) => {
+                const a = item.attributes || {};
+                const note = a.note || "";
 
-            // Parse return request status từ note
-            let returnStatus: "REQUESTED" | "REJECTED" | "APPROVED" | null = null;
-            if (note && note.includes("RETURN_REQUEST:")) {
-                if (note.includes("RETURN_APPROVED")) {
-                    returnStatus = "APPROVED";
-                } else if (note.includes("RETURN_REJECTED")) {
-                    returnStatus = "REJECTED";
-                } else {
-                    returnStatus = "REQUESTED";
+                // Parse return request status từ note
+                let returnStatus: "REQUESTED" | "REJECTED" | "APPROVED" | null = null;
+                if (note && note.includes("RETURN_REQUEST:")) {
+                    if (note.includes("RETURN_APPROVED")) {
+                        returnStatus = "APPROVED";
+                    } else if (note.includes("RETURN_REJECTED")) {
+                        returnStatus = "REJECTED";
+                    } else {
+                        returnStatus = "REQUESTED";
+                    }
                 }
-                // Debug log
-                console.log(`Receipt ${item.id}: note = "${note.substring(0, 100)}", returnStatus = ${returnStatus}`);
-            }
 
-            return {
-                id: item.id,
+                // ✅ Fetch detail để tính lại grandTotal từ giá gốc
+                let correctGrandTotal = a.grandTotal ?? 0;
+                try {
+                    const detailRes = await BillService.getById(Number(item.id));
+                    // Tính lại từ originalPrice (giá gốc)
+                    const correctSubTotal = detailRes.items.reduce(
+                        (sum: number, it: any) => sum + (it.originalPrice || it.pricePerUnit) * it.quantity,
+                        0
+                    );
+                    correctGrandTotal = correctSubTotal + detailRes.shippingFee - detailRes.discount;
+                } catch (e) {
+                    // Nếu fetch detail fail, dùng giá từ backend
+                    console.warn(`Failed to fetch detail for receipt ${item.id}, using backend value:`, e);
+                }
 
-                // tránh crash: fallback "UNKNOWN"
-                status: a.orderStatus || "UNKNOWN",
+                return {
+                    id: item.id,
 
-                // FE muốn ONLINE / POS
-                orderType: a.orderType === "DIRECT"
-                    ? "POS"
-                    : a.orderType === "ONLINE"
-                    ? "ONLINE"
-                    : a.orderType || "UNKNOWN",
+                    // tránh crash: fallback "UNKNOWN"
+                    status: a.orderStatus || "UNKNOWN",
 
-                // FE muốn tổng tiền — fallback 0 để không toLocaleString(undefined)
-                totalAmount: a.grandTotal ?? 0,
+                    // FE muốn ONLINE / POS
+                    orderType: a.orderType === "DIRECT"
+                        ? "POS"
+                        : a.orderType === "ONLINE"
+                        ? "ONLINE"
+                        : a.orderType || "UNKNOWN",
 
-                // FE muốn ngày tạo
-                orderDate: a.createdAt ?? "",
+                    // ✅ Dùng giá đã tính lại từ detail (từ originalPrice)
+                    totalAmount: correctGrandTotal,
 
-                // FE muốn khách hàng & sđt
-                customerName: a.customerName ?? "Khách lẻ",
-                customerPhone: a.customerPhone ?? "-",
+                    // FE muốn ngày tạo
+                    orderDate: a.createdAt ?? "",
 
-                // Return request status
-                returnStatus: returnStatus,
-            };
-        });
+                    // FE muốn khách hàng & sđt
+                    customerName: a.customerName ?? "Khách lẻ",
+                    customerPhone: a.customerPhone ?? "-",
+
+                    // Return request status
+                    returnStatus: returnStatus,
+                };
+            })
+        );
+
+        return billsWithCorrectPrice;
     },
 
     // ============================================
@@ -189,11 +207,18 @@ export const BillService = {
                     ? ` - ${bd.attributes.bookFormat}`
                     : "");
 
+            // ✅ Lấy giá gốc từ bookDetail (salePrice) thay vì giá đã giảm từ receiptDetail
+            // pricePerUnit trong receiptDetail là giá ĐÃ GIẢM (sau khi áp dụng campaign giảm giá sản phẩm)
+            // Để tính tổng tiền hàng gốc, cần dùng salePrice từ bookDetail
+            const originalPrice = bd?.attributes?.salePrice ?? rd.attributes?.pricePerUnit ?? 0;
+            const discountedPrice = rd.attributes?.pricePerUnit ?? 0; // Giá đã giảm (nếu có)
+            
             return {
                 id: Number(rd.id), // id receiptDetail
                 bookDetailId: Number(bookDetailId),
                 name,
-                pricePerUnit: rd.attributes?.pricePerUnit ?? 0,
+                pricePerUnit: discountedPrice, // Giá đã giảm để hiển thị
+                originalPrice: originalPrice, // ✅ Giá gốc để tính tổng tiền hàng
                 quantity: rd.attributes?.quantity ?? 1,
                 stock: bd?.attributes?.stock ?? 0,
                 image: book?.attributes?.imageUrl ?? "/default-book.png",

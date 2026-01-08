@@ -1228,20 +1228,22 @@ export default function POS() {
                                     disabled={showCustomDiscount}
                                 >
                                     <option value="">-- Không giảm giá --</option>
-                                    {VOUCHERS.length === 0 ? (
+                                    {VOUCHERS.filter(v => v.type === "PERCENTAGE_RECEIPT" || v.type === "FIXED").length === 0 ? (
                                         <option value="" disabled>Không có đợt giảm giá đang hoạt động</option>
                                     ) : (
-                                        VOUCHERS.map((v) => {
-                                            const discountText = v.type === "PERCENTAGE_RECEIPT" 
-                                                ? `${v.value}%${v.maxDiscount ? ` (tối đa ${v.maxDiscount.toLocaleString()}đ)` : ""}`
-                                                : `${v.value.toLocaleString()}đ`;
-                                            const minTotalText = v.minTotal > 0 ? ` - Đơn tối thiểu: ${v.minTotal.toLocaleString()}đ` : "";
-                                            return (
-                                                <option key={v.id} value={v.id}>
-                                                    {v.description || v.id} - Giảm {discountText}{minTotalText}
-                                                </option>
-                                            );
-                                        })
+                                        VOUCHERS
+                                            .filter(v => v.type === "PERCENTAGE_RECEIPT" || v.type === "FIXED") // ✅ Chỉ hiển thị đợt giảm giá, bỏ combo (PERCENTAGE_PRODUCT)
+                                            .map((v) => {
+                                                const discountText = v.type === "PERCENTAGE_RECEIPT" 
+                                                    ? `${v.value}%${v.maxDiscount ? ` (tối đa ${v.maxDiscount.toLocaleString()}đ)` : ""}`
+                                                    : `${v.value.toLocaleString()}đ`;
+                                                const minTotalText = v.minTotal > 0 ? ` - Đơn tối thiểu: ${v.minTotal.toLocaleString()}đ` : "";
+                                                return (
+                                                    <option key={v.id} value={v.id}>
+                                                        {v.description || v.id} - Giảm {discountText}{minTotalText}
+                                                    </option>
+                                                );
+                                            })
                                     )}
                                 </select>
                             </div>
@@ -1686,7 +1688,7 @@ export default function POS() {
                             <div
                                 className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
                                 <div className="text-center mb-3">
-                                    <div className="font-semibold text-sm mb-1">MÃ THANH TOÁN</div>
+                                    <div className="font-semibold text-sm mb-1">Mã đơn hàng:</div>
                                     <div className="text-xl font-bold text-blue-600 mb-2">{orderCode}</div>
                                     <div className="text-sm text-gray-600">
                                         Số tiền: <span
