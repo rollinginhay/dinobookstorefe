@@ -35,7 +35,6 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
 
               <td className="px-4 py-3">
                 {(() => {
-                  // @ts-ignore - campaignType có thể không có trong type nhưng có trong data thực tế
                   const campaignType = d.campaignType;
                   if (campaignType === "PERCENTAGE_PRODUCT") {
                     return "Combo";
@@ -77,7 +76,6 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
 
               <td className="px-4 py-3 text-center">
                 {(() => {
-                  // @ts-ignore - campaignType có thể không có trong type nhưng có trong data thực tế
                   const isCombo = d.campaignType === "PERCENTAGE_PRODUCT";
                   const now = new Date();
                   const start = d.startDate ? new Date(d.startDate) : null;

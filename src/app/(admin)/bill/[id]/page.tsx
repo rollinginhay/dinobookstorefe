@@ -119,9 +119,12 @@ function renderStatusBadge(status: OrderStatus) {
         <span className="badge bg-green-100 text-green-600">Hoàn thành</span>
       );
     case "CANCELLED":
-    case "FAILED":
       return (
         <span className="badge bg-red-100 text-red-600">Đã hủy</span>
+      );
+    case "FAILED":
+      return (
+        <span className="badge bg-red-100 text-red-600">Giao thất bại</span>
       );
     case "REFUNDED":
       return (
@@ -206,7 +209,7 @@ function StatusTimeline({
     AUTHORIZED: "Đã xác nhận",
     IN_TRANSIT: "Đang vận chuyển",
     PAID: "Hoàn thành",
-    FAILED: "Thất bại",
+    FAILED: "Giao thất bại",
     CANCELLED: "Đã hủy",
     REFUNDED: "Hoàn tiền",
     UNKNOWN: "Không xác định",
@@ -520,6 +523,58 @@ export default function BillDetailPage() {
   const [showProductModal, setShowProductModal] = useState(false);
 
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  
+  // Return request state - parse từ receipt.note theo quy ước log
+  const [returnRequest, setReturnRequest] = useState<{
+    reason: string;
+    createdAt: string;
+    status: "REQUESTED" | "APPROVED" | "REJECTED";
+    rejectedReason?: string;
+    rejectedDate?: string;
+  } | null>(null);
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  
+  // Parse return request từ note (format: RETURN_REQUEST:{reason} hoặc RETURN_APPROVED, RETURN_REJECTED:{reason}|{date})
+  const parseReturnRequestFromNote = (note: string, receiptCreatedAt?: string, receiptUpdatedAt?: string): typeof returnRequest => {
+    if (!note) return null;
+    // Tìm RETURN_REQUEST:{reason} - lấy ngày từ dòng RETURN_REQUEST (nếu có timestamp) hoặc dùng receiptUpdatedAt
+    const requestMatch = note.match(/RETURN_REQUEST:(.+?)(?:\n|$)/);
+    if (requestMatch) {
+      const reason = requestMatch[1].trim();
+      // Tìm ngày yêu cầu - có thể parse từ note hoặc dùng receiptUpdatedAt khi có RETURN_REQUEST
+      // Nếu có RETURN_REQUEST, ngày yêu cầu là lúc note được update (receiptUpdatedAt)
+      // Hoặc có thể parse từ format RETURN_REQUEST:{reason}|{date} nếu có
+      let requestDate = receiptUpdatedAt || receiptCreatedAt || "";
+      const requestWithDateMatch = note.match(/RETURN_REQUEST:(.+?)\|(.+?)(?:\n|$)/);
+      if (requestWithDateMatch) {
+        requestDate = requestWithDateMatch[2].trim();
+      }
+      
+      // Kiểm tra đã được duyệt/từ chối chưa
+      if (note.includes("RETURN_APPROVED")) {
+        return { reason, createdAt: requestDate, status: "APPROVED" };
+      }
+      // Parse RETURN_REJECTED:{reason}|{date}
+      const rejectedMatch = note.match(/RETURN_REJECTED:([^|]+)\|(.+)/);
+      if (rejectedMatch) {
+        return { 
+          reason, 
+          createdAt: requestDate, // Ngày yêu cầu trả hàng (không phải ngày từ chối)
+          status: "REJECTED",
+          rejectedReason: rejectedMatch[1].trim(),
+          rejectedDate: rejectedMatch[2].trim(),
+        };
+      }
+      // Fallback: chỉ có RETURN_REJECTED không có format đầy đủ
+      if (note.includes("RETURN_REJECTED")) {
+        return { reason, createdAt: requestDate, status: "REJECTED" };
+      }
+      return { reason, createdAt: requestDate, status: "REQUESTED" };
+    }
+    return null;
+  };
 
     
     const { id } = useParams();
@@ -594,6 +649,13 @@ setHasShipping(detectedHasShipping);
         setAmountPaid(res.amountPaid);
 
         setOrderNote(res.orderNote ?? "");
+        
+        // Parse return request từ note (theo quy ước: RETURN_REQUEST, RETURN_APPROVED, RETURN_REJECTED)
+        // Lấy createdAt và updatedAt từ receipt để hiển thị ngày yêu cầu
+        const receiptCreatedAt = res.createdAt || res.orderDate || "";
+        const receiptUpdatedAt = res.updatedAt || res.orderDate || "";
+        const parsedReturnRequest = parseReturnRequestFromNote(res.orderNote ?? "", receiptCreatedAt, receiptUpdatedAt);
+        setReturnRequest(parsedReturnRequest);
 
         setPaymentHistory(payments);
 
@@ -732,7 +794,7 @@ setHasShipping(detectedHasShipping);
     }
 
     // =========================
-    // REFUND — chỉ cho prepaid (không COD) + PAID hoặc FAILED
+    // REFUND — chỉ cho prepaid (không COD) + PAID hoặc FAILED + return request đã APPROVED
     // =========================
     else if (confirmState.action === "REFUND") {
       if (paymentType === "COD") {
@@ -744,7 +806,22 @@ setHasShipping(detectedHasShipping);
         alert("Chỉ hoàn tiền cho đơn đã thanh toán hoặc giao thất bại.");
         return;
       }
+      
+      // Kiểm tra return request đã được duyệt chưa
+      if (!returnRequest || returnRequest.status !== "APPROVED") {
+        alert("Chỉ có thể hoàn tiền sau khi đã duyệt yêu cầu trả hàng.");
+        return;
+      }
 
+      // Ghi log REFUND_AFTER_RETURN vào receipt.note (theo quy ước)
+      const currentNote = orderNote || "";
+      const newNote = currentNote + (currentNote ? "\n" : "") + "REFUND_AFTER_RETURN";
+      await BillService.updateReceipt(receiptId, {
+        attributes: { note: newNote },
+      });
+      setOrderNote(newNote);
+      
+      // Đổi order_status thành REFUNDED (theo spec: chỉ đổi khi hoàn tiền)
       await BillService.updateStatus(receiptId, "REFUNDED");
       setStatus("REFUNDED");
     }
@@ -828,9 +905,10 @@ setHasShipping(detectedHasShipping);
     </button>
   )}
 
-  {/* REFUND: chỉ prepaid */}
+  {/* REFUND: chỉ prepaid - chỉ hiện khi return request đã được APPROVED */}
   {(status === "PAID" || status === "FAILED") &&
-    paymentType !== "COD" && (
+    paymentType !== "COD" &&
+    returnRequest?.status === "APPROVED" && (
       <button
         className="btn bg-gray-800 text-white hover:bg-black"
         disabled={isUpdatingStatus}
@@ -841,6 +919,62 @@ setHasShipping(detectedHasShipping);
     )}
 
 </div>
+
+        {/* YÊU CẦU TRẢ HÀNG (theo spec: admin phải duyệt trước khi hoàn tiền) */}
+        {returnRequest && returnRequest.status === "REQUESTED" && (
+          <div className="card border-orange-200 bg-orange-50 mt-4">
+            <h3 className="card-title text-orange-800">Yêu cầu trả hàng</h3>
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="font-semibold text-gray-700">Lý do trả hàng:</span>
+                <p className="mt-1 text-gray-800 bg-white p-3 rounded border border-orange-200">
+                  {returnRequest.reason}
+                </p>
+              </div>
+              <div className="text-gray-600">
+                Ngày yêu cầu: {returnRequest.createdAt ? new Date(returnRequest.createdAt).toLocaleString("vi-VN") : "Không xác định"}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  className="btn bg-green-600 text-white hover:bg-green-700"
+                  disabled={isProcessingReturn}
+                  onClick={async () => {
+                    if (!receiptId || Number.isNaN(receiptId) || !returnRequest) return;
+                    try {
+                      setIsProcessingReturn(true);
+                      // Ghi log RETURN_APPROVED vào receipt.note (theo quy ước)
+                      const currentNote = orderNote || "";
+                      const newNote = currentNote + (currentNote ? "\n" : "") + "RETURN_APPROVED";
+                      await BillService.updateReceipt(receiptId, {
+                        attributes: { note: newNote },
+                      });
+                      setOrderNote(newNote);
+                      setReturnRequest({ ...returnRequest, status: "APPROVED" });
+                      // Sau khi duyệt, nút "Hoàn tiền" sẽ xuất hiện (không đổi status ngay)
+                    } catch (e) {
+                      console.error(e);
+                      alert("Có lỗi khi duyệt yêu cầu trả hàng.");
+                    } finally {
+                      setIsProcessingReturn(false);
+                    }
+                  }}
+                >
+                  Chấp nhận
+                </button>
+                <button
+                  className="btn bg-red-600 text-white hover:bg-red-700"
+                  disabled={isProcessingReturn}
+                  onClick={() => {
+                    setShowRejectModal(true);
+                    setRejectReason("");
+                  }}
+                >
+                  Từ chối trả hàng
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
             {/* SẢN PHẨM TRONG ĐƠN */}
@@ -1123,6 +1257,76 @@ setHasShipping(detectedHasShipping);
                 onClose={() => setShowProductModal(false)}
                 onSelect={handleSelectProduct}
             />
+
+            {/* Modal từ chối trả hàng */}
+            {showRejectModal && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Từ chối yêu cầu trả hàng</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lý do từ chối <span className="text-red-600">*</span>
+                    </label>
+                    <textarea
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder="Nhập lý do từ chối yêu cầu trả hàng..."
+                    />
+                  </div>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => {
+                        setShowRejectModal(false);
+                        setRejectReason("");
+                      }}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!rejectReason.trim()) {
+                          alert("Vui lòng nhập lý do từ chối");
+                          return;
+                        }
+                        if (!receiptId || Number.isNaN(receiptId) || !returnRequest) return;
+                        try {
+                          setIsProcessingReturn(true);
+                          // Ghi log RETURN_REJECTED:{reason}|{date} vào receipt.note (theo quy ước)
+                          const currentNote = orderNote || "";
+                          const rejectDate = new Date().toISOString();
+                          const newNote = currentNote + (currentNote ? "\n" : "") + `RETURN_REJECTED:${rejectReason.trim()}|${rejectDate}`;
+                          await BillService.updateReceipt(receiptId, {
+                            attributes: { note: newNote },
+                          });
+                          setOrderNote(newNote);
+                          setReturnRequest({ 
+                            ...returnRequest, 
+                            status: "REJECTED",
+                            rejectedReason: rejectReason.trim(),
+                            rejectedDate: rejectDate,
+                          });
+                          setShowRejectModal(false);
+                          setRejectReason("");
+                          // Order vẫn là PAID, không đổi status
+                        } catch (e) {
+                          console.error(e);
+                          alert("Có lỗi khi từ chối yêu cầu trả hàng.");
+                        } finally {
+                          setIsProcessingReturn(false);
+                        }
+                      }}
+                      disabled={isProcessingReturn || !rejectReason.trim()}
+                      className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                    >
+                      {isProcessingReturn ? "Đang xử lý..." : "Xác nhận từ chối"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
         </div>
     );
 }

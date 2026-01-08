@@ -9,10 +9,18 @@ export type Discount = {
   discountLabel: string;
 
   minTotal: number;
-  endDate: string;
+  startDate: string | null | undefined;
+  endDate: string | null | undefined;
 
   quantity: number; // fix cứng
   used: number;     // fix cứng
 
   status: DiscountStatus;
+  
+  // Các field từ mapper
+  campaignType?: string;
+  enabled?: boolean;
+  percentage?: number | null;
+  maxDiscount?: number | null;
+  note?: string | null;
 };

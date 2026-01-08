@@ -1686,7 +1686,7 @@ export default function POS() {
                             <div
                                 className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
                                 <div className="text-center mb-3">
-                                    <div className="font-semibold text-sm mb-1">Mã đơn hàng:</div>
+                                    <div className="font-semibold text-sm mb-1">MÃ THANH TOÁN</div>
                                     <div className="text-xl font-bold text-blue-600 mb-2">{orderCode}</div>
                                     <div className="text-sm text-gray-600">
                                         Số tiền: <span

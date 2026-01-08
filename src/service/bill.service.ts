@@ -10,7 +10,8 @@ export const BillService = {
     // ============================================
     async getList(page = 0, limit = 50) {
         const res = await fetch(
-            `http://localhost:8080/v1/receipts/list?e=true&page=${page}&limit=${limit}`,
+            // Bỏ filter e=true để không bỏ sót hóa đơn mới; sort theo updatedAt desc
+            `http://localhost:8080/v1/receipts/list?page=${page}&limit=${limit}&sort=updatedAt;desc`,
             {
                 headers: {
                     "Content-Type": "application/vnd.api+json",
@@ -27,6 +28,21 @@ export const BillService = {
 
         return json.data.map((item: any) => {
             const a = item.attributes || {};
+            const note = a.note || "";
+
+            // Parse return request status từ note
+            let returnStatus: "REQUESTED" | "REJECTED" | "APPROVED" | null = null;
+            if (note && note.includes("RETURN_REQUEST:")) {
+                if (note.includes("RETURN_APPROVED")) {
+                    returnStatus = "APPROVED";
+                } else if (note.includes("RETURN_REJECTED")) {
+                    returnStatus = "REJECTED";
+                } else {
+                    returnStatus = "REQUESTED";
+                }
+                // Debug log
+                console.log(`Receipt ${item.id}: note = "${note.substring(0, 100)}", returnStatus = ${returnStatus}`);
+            }
 
             return {
                 id: item.id,
@@ -50,6 +66,9 @@ export const BillService = {
                 // FE muốn khách hàng & sđt
                 customerName: a.customerName ?? "Khách lẻ",
                 customerPhone: a.customerPhone ?? "-",
+
+                // Return request status
+                returnStatus: returnStatus,
             };
         });
     },
@@ -221,6 +240,11 @@ export const BillService = {
 
             // Thành tiền cuối cùng khách phải trả (grandTotal của BE)
             amountPaid: attrs.grandTotal ?? 0,
+            
+            // Ngày tạo và ngày cập nhật
+            createdAt: attrs.createdAt ?? "",
+            updatedAt: attrs.updatedAt ?? attrs.createdAt ?? "",
+            orderDate: attrs.createdAt ?? "",
 
             // Ghi chú đơn hàng (nếu BE có field)
             orderNote: attrs.orderNote ?? attrs.note ?? "",

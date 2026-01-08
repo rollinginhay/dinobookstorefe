@@ -165,30 +165,65 @@ export default function BillList() {
     // ===========================
     // STATUS BADGE
     // ===========================
-    const renderStatusBadge = (status: string) => {
+    const renderStatusBadge = (status: string, returnStatus?: "REQUESTED" | "REJECTED" | "APPROVED" | null) => {
+        let statusBadge;
         switch (status) {
             case "PENDING":
-                return <span className="badge bg-yellow-100 text-yellow-600">Chờ xác nhận</span>;
+                statusBadge = <span className="badge bg-yellow-100 text-yellow-600">Chờ xác nhận</span>;
+                break;
 
             case "AUTHORIZED":
-                return <span className="badge bg-orange-100 text-orange-600">Đã xác nhận</span>;
+                statusBadge = <span className="badge bg-orange-100 text-orange-600">Đã xác nhận</span>;
+                break;
 
             case "IN_TRANSIT":
-                return <span className="badge bg-blue-100 text-blue-600">Đang vận chuyển</span>;
+                statusBadge = <span className="badge bg-blue-100 text-blue-600">Đang vận chuyển</span>;
+                break;
 
             case "PAID":
-                return <span className="badge bg-green-100 text-green-600">Hoàn thành</span>;
+                statusBadge = <span className="badge bg-green-100 text-green-600">Hoàn thành</span>;
+                break;
 
             case "CANCELLED":
             case "FAILED":   // 👈 gộp chung vào đây
-                return <span className="badge bg-red-100 text-red-600">Đã hủy</span>;
+                statusBadge = <span className="badge bg-red-100 text-red-600">Đã hủy</span>;
+                break;
 
             case "REFUNDED":
-                return <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>;
+                statusBadge = <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>;
+                break;
 
             default:
-                return <span className="badge bg-gray-200 text-gray-700">{status}</span>;
+                statusBadge = <span className="badge bg-gray-200 text-gray-700">{status}</span>;
         }
+
+        // Thêm badge trạng thái return request nếu có
+        if (returnStatus === "REQUESTED") {
+            return (
+                <div className="flex flex-col gap-1 items-start">
+                    {statusBadge}
+                    <span className="badge bg-orange-100 text-orange-600 text-xs whitespace-nowrap">🟠 Yêu cầu trả hàng</span>
+                </div>
+            );
+        }
+        if (returnStatus === "REJECTED") {
+            return (
+                <div className="flex flex-col gap-1 items-start">
+                    {statusBadge}
+                    <span className="badge bg-red-100 text-red-600 text-xs whitespace-nowrap">🔴 Trả hàng bị từ chối</span>
+                </div>
+            );
+        }
+        if (returnStatus === "APPROVED") {
+            return (
+                <div className="flex flex-col gap-1 items-start">
+                    {statusBadge}
+                    <span className="badge bg-purple-100 text-purple-600 text-xs whitespace-nowrap">🟣 Hoàn tiền</span>
+                </div>
+            );
+        }
+
+        return statusBadge;
     };
 
 // TÍNH BILL THEO TRANG
@@ -330,41 +365,43 @@ export default function BillList() {
                     </thead>
 
                     <tbody>
-                    {currentBills.map((bill: any, index: number) => (
-                        <tr key={bill.id}>
-                            <td>{startIndex + index + 1}</td>
-                            <td>HD{bill.id}</td>
-                            <td>{bill.customerName}</td>
-                            <td>{bill.customerPhone}</td>
+                    {currentBills.map((bill: any, index: number) => {
+                        return (
+                            <tr key={bill.id}>
+                                <td>{startIndex + index + 1}</td>
+                                <td>HD{bill.id}</td>
+                                <td>{bill.customerName}</td>
+                                <td>{bill.customerPhone}</td>
 
-                            <td className="text-red-500">
-                                {(bill.totalAmount || 0).toLocaleString()} đ
-                            </td>
+                                <td className="text-red-500">
+                                    {(bill.totalAmount || 0).toLocaleString()} đ
+                                </td>
 
-                            <td>{renderStatusBadge(bill.status)}</td>
+                                <td className="align-top">{renderStatusBadge(bill.status, bill.returnStatus)}</td>
 
-                            <td>{new Date(bill.orderDate).toLocaleString("vi-VN")}</td>
+                                <td>{new Date(bill.orderDate).toLocaleString("vi-VN")}</td>
 
-                            <td>
-                                {bill.orderType === "POS" ? (
-                                    <span className="badge bg-green-100 text-green-600">Tại quầy</span>
-                                ) : (
-                                    <span className="badge bg-purple-100 text-purple-600">Trực tuyến</span>
-                                )}
-                            </td>
+                                <td>
+                                    {bill.orderType === "POS" ? (
+                                        <span className="badge bg-green-100 text-green-600">Tại quầy</span>
+                                    ) : (
+                                        <span className="badge bg-purple-100 text-purple-600">Trực tuyến</span>
+                                    )}
+                                </td>
 
-                            <td>
-                                <div className="flex gap-3 text-lg">
-                                    <Link href={`/bill/${bill.id}`} className="text-blue-600">
-                                        📄
-                                    </Link>
-                                    <Link href="#" className="text-green-600">
-                                        🖨️
-                                    </Link>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
+                                <td>
+                                    <div className="flex gap-3 text-lg">
+                                        <Link href={`/bill/${bill.id}`} className="text-blue-600">
+                                            📄
+                                        </Link>
+                                        <Link href="#" className="text-green-600">
+                                            🖨️
+                                        </Link>
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
 
                     {filteredBills.length === 0 && (
                         <tr>
