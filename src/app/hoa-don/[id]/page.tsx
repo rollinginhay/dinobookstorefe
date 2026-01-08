@@ -96,40 +96,23 @@ export default function HoaDon() {
         console.log("📦 Combo metadata từ localStorage:", receiptComboMetadata);
         console.log("📦 ReceiptDetails để map:", receiptDetails);
         
-        // Map receiptDetailIds với combo (nếu chưa có thì map bằng bookDetailIds)
+        // Map receiptDetailIds với combo
+        // CHỈ map khi combo có receiptDetailIds rõ ràng từ khi tạo đơn
+        // KHÔNG tự động map bằng bookDetailIds vì sẽ gộp nhầm sách lẻ vào combo
+        // (ví dụ: mua combo + sách lẻ có cùng bookDetailId → sách lẻ sẽ bị gộp vào combo nếu map bằng bookDetailIds)
         const receiptDetailIdToComboMap: Record<string, any> = {};
-        const processedReceiptDetailIds = new Set<string>();
         
         receiptComboMetadata.forEach((combo) => {
           const comboReceiptDetailIds = combo.receiptDetailIds || [];
+          // CHỈ map khi có receiptDetailIds và length > 0
+          // Nếu không có, không map gì cả để tránh gộp nhầm sách lẻ
           if (comboReceiptDetailIds.length > 0) {
-            // Đã có receiptDetailIds từ khi tạo đơn
             comboReceiptDetailIds.forEach((rdId: string) => {
               receiptDetailIdToComboMap[rdId] = combo;
             });
-          } else {
-            // Chưa có receiptDetailIds, map bằng bookDetailIds
-            // Theo ERD: receipt_detail có book_copy_id (FK đến book_detail.id)
-            receiptDetails.forEach((rd: any) => {
-              // Lấy bookDetailId từ relationships (bookCopy hoặc bookDetail) hoặc attributes
-              const bookDetailId = String(
-                rd.relationships?.bookCopy?.data?.id || 
-                rd.relationships?.bookDetail?.data?.id ||
-                rd.attributes?.bookCopy ||
-                rd.attributes?.bookDetailId
-              );
-              
-              if (combo.bookDetailIds.includes(bookDetailId) && !processedReceiptDetailIds.has(rd.id)) {
-                receiptDetailIdToComboMap[rd.id] = combo;
-                processedReceiptDetailIds.add(rd.id);
-                // Thêm vào combo.receiptDetailIds để lưu lại
-                if (!combo.receiptDetailIds) combo.receiptDetailIds = [];
-                if (!combo.receiptDetailIds.includes(rd.id)) {
-                  combo.receiptDetailIds.push(rd.id);
-                }
-              }
-            });
           }
+          // BỎ phần else: không tự động map bằng bookDetailIds
+          // Vì nếu làm vậy, sách lẻ có bookDetailId trùng với combo sẽ bị gộp nhầm vào combo
         });
         
         // Lưu lại combo metadata đã được map với receiptDetailIds
@@ -396,7 +379,7 @@ export default function HoaDon() {
     );
   }
 
-  const { info, items, shipping, voucherDiscount, subTotal, finalTotal, note, createdAt, orderCode, orderType } =
+  const { info, items, shipping, voucherDiscount, subTotal, finalTotal, note, createdAt, orderCode, orderType, status } =
     order;
 
   // ✅ Tính "Tổng tiền hàng" = tổng giá gốc của tất cả sách
@@ -424,6 +407,27 @@ export default function HoaDon() {
       return total + (item.price || 0) * (item.quantity || 1);
     }
   }, 0);
+
+  const statusMeta: Record<string, { label: string; color: string; dot: string }> = {
+    pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+    authorized: { label: "Đã xác nhận", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+    in_transit: { label: "Đang vận chuyển", color: "bg-indigo-100 text-indigo-700", dot: "bg-indigo-500" },
+    paid: { label: "Hoàn thành", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
+    cancelled: { label: "Đã hủy", color: "bg-gray-200 text-gray-600", dot: "bg-gray-500" },
+    failed: { label: "Giao thất bại", color: "bg-red-100 text-red-600", dot: "bg-red-500" },
+    refunded: { label: "Hoàn tiền", color: "bg-purple-100 text-purple-700", dot: "bg-purple-500" },
+  };
+
+  const renderStatus = (status: string) => {
+    const key = (status || "").toLowerCase();
+    const meta = statusMeta[key] || { label: status || "—", color: "bg-gray-100 text-gray-700", dot: "bg-gray-400" };
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${meta.color}`}>
+        <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+        {meta.label}
+      </span>
+    );
+  };
 
   // ✅ Tính "Giảm giá" = tổng giá gốc - tổng giá đã giảm
   const totalDiscount = totalOriginalPrice - totalDiscountedPrice;
@@ -454,6 +458,9 @@ export default function HoaDon() {
                     <span className="font-semibold text-gray-700">
                       {new Date(createdAt).toLocaleString("vi-VN")}
                     </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-gray-600 text-sm">Trạng thái:</span>
+                  {renderStatus(status)}
                   </div>
                 </div>
               </div>

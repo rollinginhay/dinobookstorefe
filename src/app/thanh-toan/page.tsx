@@ -24,7 +24,12 @@ export default function ThanhToan() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [successReceiptId, setSuccessReceiptId] = useState<string | null>(null);
+  const [saveAsDefault, setSaveAsDefault] = useState(true);
+  const [prefillLocationDone, setPrefillLocationDone] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -36,6 +41,119 @@ export default function ThanhToan() {
     paymentMethod: "CASH||TRANSFER",
     note: "",
   });
+
+  // Fetch thông tin user từ API khi vào trang
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const token = localStorage.getItem("jwtToken");
+        if (!token) {
+          // Chưa đăng nhập, form trống
+          return;
+        }
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+        const res = await fetch(`${API_BASE_URL}/v1/users/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          console.error("Không lấy được thông tin user");
+          return;
+        }
+
+        const data = await res.json();
+        const userData = data.data?.attributes || data;
+        
+        // Parse defaultAddress từ note field (nếu có)
+        let defaultAddress = null;
+        if (userData.note) {
+          try {
+            defaultAddress = JSON.parse(userData.note);
+          } catch (e) {
+            // Nếu không parse được, có thể note không phải JSON
+            console.warn("Không parse được defaultAddress từ note:", e);
+          }
+        }
+        
+        // Fill form từ defaultAddress nếu có
+        if (defaultAddress && defaultAddress.receiverName) {
+          setFormData((prev) => ({
+            ...prev,
+            fullName: defaultAddress.receiverName || userData.personName || userData.fullName || "",
+            phone: defaultAddress.phone || userData.phoneNumber || "",
+            email: userData.email || "",
+            address: defaultAddress.addressLine || "",
+            city: defaultAddress.city || "",
+            district: defaultAddress.district || "",
+            ward: defaultAddress.ward || "",
+          }));
+          setSaveAsDefault(true);
+        } else {
+          // Không có defaultAddress, chỉ fill email và fullName từ user
+          setFormData((prev) => ({
+            ...prev,
+            fullName: userData.personName || userData.fullName || "",
+            email: userData.email || "",
+            phone: userData.phoneNumber || "",
+          }));
+        }
+      } catch (error) {
+        console.error("Lỗi fetch user info:", error);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
+  // Prefill dropdown tỉnh/quận/phường theo địa chỉ mặc định đã lưu
+  useEffect(() => {
+    if (prefillLocationDone) return;
+    if (!formData.city || !provinces.length) return;
+
+    const province = provinces.find(
+      (p) =>
+        p.name === formData.city ||
+        String(p.code) === String(formData.city)
+    );
+    if (!province) return;
+
+    const districtName = formData.district;
+    const wardName = formData.ward;
+
+    const loadLocation = async () => {
+      try {
+        const provRes = await fetch(
+          `https://provinces.open-api.vn/api/p/${province.code}?depth=2`
+        );
+        const provData = await provRes.json();
+        const loadedDistricts = provData.districts || [];
+        setDistricts(loadedDistricts);
+
+        const matchedDistrict = loadedDistricts.find(
+          (d: any) => d.name === districtName
+        );
+        if (matchedDistrict) {
+          const distRes = await fetch(
+            `https://provinces.open-api.vn/api/d/${matchedDistrict.code}?depth=2`
+          );
+          const distData = await distRes.json();
+          const loadedWards = distData.wards || [];
+          setWards(loadedWards);
+        } else {
+          setWards([]);
+        }
+      } catch (err) {
+        console.error("Lỗi prefill tỉnh/quận/phường:", err);
+      } finally {
+        setPrefillLocationDone(true);
+      }
+    };
+
+    loadLocation();
+  }, [prefillLocationDone, formData.city, formData.district, formData.ward, provinces]);
 
   // Load Provinces
   useEffect(() => {
@@ -67,19 +185,85 @@ export default function ThanhToan() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    setLoading(true);
+    
+    // Hiển thị confirm modal thay vì window.confirm
+    setShowConfirmModal(true);
+    setPendingSubmit(true);
+  };
 
-    // Confirm
-    if (!window.confirm("Bạn có chắc chắn muốn đặt hàng không?")) {
-      setLoading(false);
-      return;
+  // Xử lý khi user xác nhận đặt hàng
+  const handleConfirmOrder = async () => {
+    setShowConfirmModal(false);
+    setLoading(true);
+    
+    // Tiếp tục logic đặt hàng
+    await processOrder();
+  };
+
+  const persistDefaultShipping = async () => {
+    if (!saveAsDefault) return;
+    
+    // Lưu địa chỉ mặc định vào backend thay vì localStorage
+    try {
+      const token = localStorage.getItem("jwtToken");
+      if (!token) return;
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+      const selectedCityName =
+        provinces.find((p) => p.name === formData.city || String(p.code) === String(formData.city))?.name ||
+        formData.city;
+      const selectedDistrictName =
+        districts.find((d) => d.name === formData.district || String(d.code) === String(formData.district))?.name ||
+        formData.district;
+
+      const payload = {
+        data: {
+          type: "user",
+          id: "0", // Backend sẽ lấy từ token
+          attributes: {
+            personName: formData.fullName,
+            phoneNumber: formData.phone,
+            address: `${formData.address}, ${formData.ward}, ${selectedDistrictName}, ${selectedCityName}`,
+            // Lưu defaultAddress vào note field dưới dạng JSON string
+            note: JSON.stringify({
+              receiverName: formData.fullName,
+              phone: formData.phone,
+              addressLine: formData.address,
+              city: selectedCityName,
+              district: selectedDistrictName,
+              ward: formData.ward,
+            }),
+          },
+        },
+      };
+
+      const res = await fetch(`${API_BASE_URL}/v1/user/update`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/vnd.api+json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Không lưu được địa chỉ mặc định", errData);
+        // Không throw error để không block quá trình đặt hàng
+      }
+    } catch (error) {
+      console.error("Lỗi lưu địa chỉ mặc định:", error);
     }
+  };
+
+  // Hàm xử lý đặt hàng (tách ra từ handleSubmit)
+  const processOrder = async () => {
 
     // Build full address as string
     const fullAddress = `${formData.address}, ${formData.ward}, ${formData.district}, ${formData.city}`;
     
     // Build Receipt Payload
-    const userId = localStorage.getItem("userId");
+    // userId sẽ được lấy từ token ở backend, không cần gửi từ FE
     
     // Tạo included trước để có thể dùng cho relationships
     const receiptDetailsIncluded: any[] = selectedCartItems.flatMap((item) => {
@@ -225,12 +409,8 @@ export default function ThanhToan() {
           //     id: 1,
           //   },
           // },
-          customer: {
-            data: {
-              type: "user",
-              id: userId,
-            },
-          },
+          // customer sẽ được lấy từ token ở backend, không cần gửi từ FE
+          customer: { data: null },
           employee: { data: null },
         },
       },
@@ -286,6 +466,7 @@ export default function ThanhToan() {
           receiptComboMetadata.push({
             comboId: comboMeta.comboId,
             bookDetailIds: bookDetailIds, // Lưu bookDetailIds từ receiptDetails trong payload
+            cartDetailIds: comboMeta.cartDetailIds, // Lưu cartDetailIds để map chính xác
             comboName: comboMeta.comboName,
             comboPrice: comboMeta.comboPrice,
             comboOriginalPrice: comboMeta.comboOriginalPrice,
@@ -298,13 +479,24 @@ export default function ThanhToan() {
     });
 
     try {
+      // Lấy token để gửi kèm request
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        alert("Vui lòng đăng nhập để đặt hàng");
+        router.push("/dang-nhap");
+        return;
+      }
+
       // --------------- COD ----------------
       if (formData.paymentMethod === "CASH") {
         const res = await fetch(
           "http://localhost:8080/v1/receipt/createOnline",
           {
             method: "POST",
-            headers: { "Content-Type": "application/vnd.api+json" },
+            headers: { 
+              "Content-Type": "application/vnd.api+json",
+              "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify(receiptPayload),
           }
         );
@@ -316,6 +508,8 @@ export default function ThanhToan() {
         if (!receiptId) {
           throw new Error("Không lấy được ID đơn hàng!");
         }
+
+        persistDefaultShipping();
         
         // Lưu combo metadata với receiptId để trang hóa đơn có thể sử dụng
         if (receiptComboMetadata.length > 0) {
@@ -330,17 +524,67 @@ export default function ThanhToan() {
               const receiptDetails = receiptDetailsJson.data || [];
               
               // Map bookDetailIds với receiptDetailIds dựa vào book_copy_id
+              // QUAN TRỌNG: Chỉ map đúng các receiptDetail thuộc combo, không map sách lẻ
+              // Sử dụng cartDetailIds để map chính xác (nếu có), nếu không thì map theo bookDetailIds với số lượng giới hạn
               receiptComboMetadata.forEach((comboMeta) => {
-                const matchedReceiptDetails = receiptDetails.filter((rd: any) => {
-                  // Lấy bookDetailId từ relationships hoặc attributes
-                  const bookDetailId = String(
-                    rd.relationships?.bookCopy?.data?.id || 
-                    rd.relationships?.bookDetail?.data?.id ||
-                    rd.attributes?.bookCopy ||
-                    rd.attributes?.bookDetailId
-                  );
-                  return comboMeta.bookDetailIds.includes(bookDetailId);
-                });
+                const expectedCount = comboMeta.bookDetailIds.length * (comboMeta.quantity || 1);
+                let matchedReceiptDetails: any[] = [];
+                
+                // Nếu có cartDetailIds, map dựa vào đó (chính xác hơn)
+                if (comboMeta.cartDetailIds && comboMeta.cartDetailIds.length > 0) {
+                  // Map dựa vào cartDetailIds: tìm receiptDetail có id trùng với cartDetailId
+                  // Lưu ý: receiptDetail.id từ backend có thể khác cartDetailId, nên cần map qua bookDetailId
+                  const usedReceiptDetailIds = new Set<string>();
+                  
+                  // Map từng bookDetailId trong combo theo thứ tự
+                  comboMeta.bookDetailIds.forEach((bookDetailId: string, bookIndex: number) => {
+                    // Tìm receiptDetail có bookDetailId trùng và chưa được dùng
+                    // Chỉ map đúng số lượng theo quantity
+                    for (let qty = 0; qty < (comboMeta.quantity || 1); qty++) {
+                      const found = receiptDetails.find((rd: any) => {
+                        const rdBookDetailId = String(
+                          rd.relationships?.bookCopy?.data?.id || 
+                          rd.relationships?.bookDetail?.data?.id ||
+                          rd.attributes?.bookCopy ||
+                          rd.attributes?.bookDetailId
+                        );
+                        return String(bookDetailId) === rdBookDetailId && 
+                               !usedReceiptDetailIds.has(String(rd.id));
+                      });
+                      
+                      if (found) {
+                        matchedReceiptDetails.push(found);
+                        usedReceiptDetailIds.add(String(found.id));
+                      }
+                    }
+                  });
+                  
+                  // Chỉ lấy đúng số lượng expected, không lấy thêm
+                  matchedReceiptDetails = matchedReceiptDetails.slice(0, expectedCount);
+                } else {
+                  // Fallback: map theo bookDetailIds nhưng chỉ lấy đúng số lượng
+                  const usedReceiptDetailIds = new Set<string>();
+                  
+                  comboMeta.bookDetailIds.forEach((bookDetailId: string) => {
+                    for (let qty = 0; qty < (comboMeta.quantity || 1); qty++) {
+                      const found = receiptDetails.find((rd: any) => {
+                        const rdBookDetailId = String(
+                          rd.relationships?.bookCopy?.data?.id || 
+                          rd.relationships?.bookDetail?.data?.id ||
+                          rd.attributes?.bookCopy ||
+                          rd.attributes?.bookDetailId
+                        );
+                        return String(bookDetailId) === rdBookDetailId && 
+                               !usedReceiptDetailIds.has(String(rd.id));
+                      });
+                      
+                      if (found && matchedReceiptDetails.length < expectedCount) {
+                        matchedReceiptDetails.push(found);
+                        usedReceiptDetailIds.add(String(found.id));
+                      }
+                    }
+                  });
+                }
                 
                 comboMeta.receiptDetailIds = matchedReceiptDetails.map((rd: any) => String(rd.id));
               });
@@ -361,8 +605,10 @@ export default function ThanhToan() {
         await clearAllCartFromBackend();
         localStorage.setItem("latestOrder", JSON.stringify(receipt));
 
-        alert("Đặt hàng thành công! Vui lòng kiểm tra email của bạn");
-        router.push(`/hoa-don/${receiptId}`);
+        // Hiển thị modal thành công ở giữa màn hình
+        setSuccessReceiptId(String(receiptId));
+        setShowSuccessNotification(true);
+        setLoading(false); // Tắt loading để hiển thị modal
         return;
       }
 
@@ -374,7 +620,10 @@ export default function ThanhToan() {
             "http://localhost:8080/v1/receipt/createOnline",
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/vnd.api+json",
+                "Authorization": `Bearer ${token}`
+              },
               body: JSON.stringify(receiptPayload),
             }
           );
@@ -388,6 +637,8 @@ export default function ThanhToan() {
           if (!receiptId) {
             throw new Error("Không lấy được receiptId!");
           }
+
+          persistDefaultShipping();
 
           // Lưu combo metadata với receiptId để trang hóa đơn có thể sử dụng
           if (receiptComboMetadata.length > 0) {
@@ -462,6 +713,12 @@ export default function ThanhToan() {
     }
   };
 
+  // Hàm xử lý khi user hủy confirm
+  const handleCancelConfirm = () => {
+    setShowConfirmModal(false);
+    setPendingSubmit(false);
+  };
+
   // --------------------------------------------------
 
   const handleChange = (
@@ -531,21 +788,76 @@ export default function ThanhToan() {
   // ===================================================
   // 🔥 RETURN JSX NẰM NGOÀI handleSubmit – FIX MẤT UI
   // ===================================================
-  if (selectedCartItems.length === 0) {
+  // Nếu đang hiển thị modal thành công thì vẫn render để hiển thị modal
+  if (selectedCartItems.length === 0 && !showSuccessNotification) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Chưa có sản phẩm được chọn
-          </h2>
-          <button
-            onClick={() => router.push("/gio-hang")}
-            className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
-          >
-            Quay lại giỏ hàng
-          </button>
+      <>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Chưa có sản phẩm được chọn
+            </h2>
+            <button
+              onClick={() => router.push("/gio-hang")}
+              className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
+            >
+              Quay lại giỏ hàng
+            </button>
+          </div>
         </div>
-      </div>
+        {/* Đảm bảo modal thành công vẫn render nếu có */}
+        {showSuccessNotification && successReceiptId && (
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-20 backdrop-blur-[2px] z-[10000] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+              <div className="p-8 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-10 h-10 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Đặt hàng thành công
+                </h2>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Vui lòng kiểm tra email của bạn để xem chi tiết đơn hàng
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSuccessNotification(false);
+                      router.push("/");
+                    }}
+                    className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
+                  >
+                    Về trang chủ
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSuccessNotification(false);
+                      router.push(`/hoa-don/${successReceiptId}`);
+                    }}
+                    className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
+                  >
+                    Xem hóa đơn
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -644,7 +956,7 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div> 
+                  </div>
 
                   {/* Quận / Huyện */}
                   <div>
@@ -708,6 +1020,16 @@ export default function ThanhToan() {
                     placeholder="Số nhà, tên đường..."
                   />
                 </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={saveAsDefault}
+                    onChange={(e) => setSaveAsDefault(e.target.checked)}
+                    className="h-4 w-4 text-orange-500"
+                  />
+                  <span>Đặt làm địa chỉ mặc định</span>
+                </label>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -917,6 +1239,117 @@ export default function ThanhToan() {
           </div>
         </form>
       </div>
+
+      {/* Success Modal - giữa màn hình (giống Shopee) */}
+      {showSuccessNotification && successReceiptId && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-20 backdrop-blur-[2px] z-[10000] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+            <div className="p-8 text-center">
+              {/* Icon thành công */}
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-10 h-10 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Tiêu đề */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Đặt hàng thành công
+              </h2>
+              
+              {/* Mô tả */}
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Vui lòng kiểm tra email của bạn để xem chi tiết đơn hàng
+              </p>
+              
+              {/* 2 nút */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowSuccessNotification(false);
+                    router.push("/");
+                  }}
+                  className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
+                >
+                  Về trang chủ
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSuccessNotification(false);
+                    router.push(`/hoa-don/${successReceiptId}`);
+                  }}
+                  className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
+                >
+                  Xem hóa đơn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Order Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-transparent z-[9999] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-orange-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Xác nhận đặt hàng
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    Bạn có chắc chắn muốn đặt hàng không?
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCancelConfirm}
+                  disabled={loading}
+                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleConfirmOrder}
+                  disabled={loading}
+                  className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50"
+                >
+                  {loading ? "Đang xử lý..." : "Xác nhận"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

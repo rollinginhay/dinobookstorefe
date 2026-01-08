@@ -29,6 +29,33 @@ type OrderHistoryItem = {
   createdAt: string;
   status: string;
   totalAmount: number;
+  returnRequest?: {
+    type: string;
+    note: string;
+    createdAt: string;
+  } | null;
+  returnRejected?: {
+    type: string;
+    note: string;
+    createdAt: string;
+  } | null;
+  returnApproved?: {
+    type: string;
+    createdAt: string;
+  } | null;
+};
+
+const STATUS_MAP: Record<
+  string,
+  { label: string; color: string; dot: string; showReturnButton?: boolean }
+> = {
+  pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+  authorized: { label: "Đã xác nhận", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+  in_transit: { label: "Đang vận chuyển", color: "bg-indigo-100 text-indigo-700", dot: "bg-indigo-500" },
+  paid: { label: "Hoàn thành", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500", showReturnButton: true },
+  cancelled: { label: "Đã hủy", color: "bg-gray-200 text-gray-600", dot: "bg-gray-500" },
+  failed: { label: "Giao thất bại", color: "bg-red-100 text-red-600", dot: "bg-red-500" },
+  refunded: { label: "Hoàn tiền", color: "bg-purple-100 text-purple-700", dot: "bg-purple-500" },
 };
 
 export default function TrangTaiKhoan() {
@@ -42,6 +69,13 @@ export default function TrangTaiKhoan() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showReturnConfirmModal, setShowReturnConfirmModal] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [selectedReturnOrder, setSelectedReturnOrder] = useState<OrderHistoryItem | null>(null);
 
   // Form address state
   const [newAddress, setNewAddress] = useState({
@@ -77,30 +111,40 @@ export default function TrangTaiKhoan() {
     const fetchProfile = async () => {
       try {
         setLoadingProfile(true);
+        const token = localStorage.getItem("jwtToken");
         const res = await fetch(`${API_BASE_URL}/v1/users/me`, {
+          headers: token ? {
+            Authorization: `Bearer ${token}`,
+          } : {},
           credentials: "include",
         });
 
         if (!res.ok) throw new Error("Không lấy được thông tin tài khoản.");
 
         const data = await res.json();
+        const userData = data.data?.attributes || data;
+        
+        // Parse defaultAddress từ note field
+        let defaultAddress = null;
+        if (userData.note) {
+          try {
+            defaultAddress = JSON.parse(userData.note);
+          } catch (e) {
+            console.error("Lỗi parse defaultAddress từ note:", e);
+          }
+        }
 
         setBackendUser({
           id: data.id ?? data.data?.id ?? "",
           fullName:
-            data.fullName ??
-            data.data?.attributes?.fullName ??
+            userData.personName ??
+            userData.fullName ??
             (session.user?.name || "Người dùng"),
           email:
-            data.email ??
-            data.data?.attributes?.email ??
+            userData.email ??
             (session.user?.email || ""),
-          phoneNumber:
-            data.phoneNumber ?? data.data?.attributes?.phoneNumber ?? "",
-          defaultAddress:
-            data.defaultAddress ??
-            data.data?.attributes?.defaultAddress ??
-            null,
+          phoneNumber: userData.phoneNumber ?? "",
+          defaultAddress: defaultAddress,
         } as BackendUser);
       } catch (err: any) {
         console.error("Lỗi fetch profile:", err);
@@ -126,7 +170,10 @@ export default function TrangTaiKhoan() {
   }, []);
 
   // Xử lý onchange của dropdown
-  const handleCityChange = async (provinceCode: string) => {
+  const handleCityChange = async (
+    provinceCode: string,
+    prefill?: { districtName?: string; wardName?: string }
+  ) => {
     setNewAddress({
       ...newAddress,
       city: provinceCode,
@@ -142,13 +189,27 @@ export default function TrangTaiKhoan() {
         `https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`
       );
       const data = await res.json();
-      setDistricts(data.districts || []);
+      const loadedDistricts = data.districts || [];
+      setDistricts(loadedDistricts);
+      if (prefill?.districtName) {
+        const district = loadedDistricts.find((d: any) => d.name === prefill.districtName);
+        if (district) {
+          setNewAddress((prev) => ({
+            ...prev,
+            district: String(district.code),
+          }));
+          handleDistrictChange(String(district.code), { wardName: prefill.wardName });
+        }
+      }
     } catch (err) {
       console.error("Lỗi tải quận/huyện:", err);
     }
   };
 
-  const handleDistrictChange = async (districtCode: string) => {
+  const handleDistrictChange = async (
+    districtCode: string,
+    prefill?: { wardName?: string }
+  ) => {
     setNewAddress({ ...newAddress, district: districtCode, ward: "" });
     setWards([]);
     if (!districtCode) return;
@@ -158,65 +219,187 @@ export default function TrangTaiKhoan() {
         `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`
       );
       const data = await res.json();
-      setWards(data.wards || []);
+      const loadedWards = data.wards || [];
+      setWards(loadedWards);
+      if (prefill?.wardName) {
+        const ward = loadedWards.find((w: any) => w.name === prefill.wardName);
+        if (ward) {
+          setNewAddress((prev) => ({
+            ...prev,
+            ward: ward.name,
+          }));
+        }
+      }
     } catch (err) {
       console.error("Lỗi tải phường/xã:", err);
     }
   };
+  const normalizeStatus = (status?: string) => (status || "").toLowerCase();
+
+  const fetchOrders = async () => {
+    const token = localStorage.getItem("jwtToken");
+    const userId = localStorage.getItem("userId");
+    if (!token || !API_BASE_URL || !userId) {
+      setOrders([]);
+      setLoadingOrders(false);
+      return;
+    }
+    try {
+      setLoadingOrders(true);
+      // Dùng endpoint receipts (có relationships) để lọc theo customer.id = userId
+      const res = await fetch(
+        `${API_BASE_URL}/v1/receipts?e=true&page=0&limit=100&sort=updatedAt;desc`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) throw new Error("Không lấy được lịch sử đơn hàng.");
+
+      const data = await res.json();
+      const rawItems = data.data ?? [];
+
+      const items: OrderHistoryItem[] = await Promise.all(
+        rawItems
+          .filter((item: any) => {
+            const customerId = item.relationships?.customer?.data?.id;
+            return customerId && String(customerId) === String(userId);
+          })
+          .map(async (item: any) => {
+            const orderId = item.id?.toString();
+            // Fetch receipt history để kiểm tra return request
+            // Tạm thời bỏ qua vì endpoint chưa có, sẽ implement sau
+            let returnRequest = null;
+            let returnRejected = null;
+            let returnApproved = null;
+            // Endpoint /v1/receipt/{id}/history chưa có, skip để tránh lỗi 404
+            // Sẽ implement sau khi BE có endpoint này
+            // Tạm thời set các giá trị về null
+            returnRequest = null;
+            returnRejected = null;
+            returnApproved = null;
+            // Parse note từ receipt để check return request status
+            const note = item.attributes?.note || "";
+            const hasReturnRequestInNote = note.includes("RETURN_REQUEST:");
+            const hasReturnRejectedInNote = note.includes("RETURN_REJECTED:");
+            const hasReturnApprovedInNote = note.includes("RETURN_APPROVED:");
+            
+            // Parse thông tin từ chối từ note (format: RETURN_REJECTED:{reason}|{date})
+            let rejectedReason = null;
+            let rejectedDate = null;
+            if (hasReturnRejectedInNote) {
+              const rejectedMatch = note.match(/RETURN_REJECTED:([^|]+)\|(.+)/);
+              if (rejectedMatch) {
+                rejectedReason = rejectedMatch[1].trim();
+                rejectedDate = rejectedMatch[2].trim();
+              } else {
+                // Fallback: lấy toàn bộ sau RETURN_REJECTED:
+                const simpleMatch = note.match(/RETURN_REJECTED:(.+)/);
+                if (simpleMatch) {
+                  rejectedReason = simpleMatch[1].trim();
+                }
+              }
+            }
+
+            return {
+              id: orderId,
+              code: item.attributes?.orderCode || item.attributes?.code || `ORDER-${orderId}`,
+              createdAt: item.attributes?.createdAt || new Date().toISOString(),
+              status: normalizeStatus(item.attributes?.orderStatus || item.attributes?.status) || "pending",
+              totalAmount: item.attributes?.grandTotal || item.attributes?.totalAmount || 0,
+              note: note,
+              returnRequest: hasReturnRequestInNote ? { type: "RETURN_REQUEST", note: note, createdAt: item.attributes?.createdAt || new Date().toISOString() } : null,
+              returnRejected: hasReturnRejectedInNote ? { type: "RETURN_REJECTED", note: rejectedReason || "", createdAt: rejectedDate || item.attributes?.updatedAt || new Date().toISOString() } : null,
+              returnApproved: hasReturnApprovedInNote ? { type: "RETURN_APPROVED", note: note, createdAt: item.attributes?.updatedAt || new Date().toISOString() } : null,
+            };
+          })
+      );
+
+      setOrders(items);
+    } catch (err: any) {
+      console.error("Lỗi fetch orders:", err);
+      setActionError(err.message);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwtToken");
-    if (!token) {
+    const userId = localStorage.getItem("userId");
+    if (!token || !userId) {
       setIsLoggedIn(false);
       setLoadingProfile(false);
       setLoadingOrders(false);
       return;
     }
     setIsLoggedIn(true);
-
-    const username = localStorage.getItem("username") || "Người dùng";
-    const userEmail = localStorage.getItem("email") || "";
-
-    setBackendUser({
-      id: "local",
-      fullName: username,
-      email: userEmail,
-    });
-    setLoadingProfile(false);
-
-    const fetchOrders = async () => {
-      if (!API_BASE_URL) {
-        setOrders([]);
-        setLoadingOrders(false);
-        return;
-      }
-      try {
-        setLoadingOrders(true);
-        const res = await fetch(`${API_BASE_URL}/v1/orders/my`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!res.ok) throw new Error("Không lấy được lịch sử đơn hàng.");
-
-        const data = await res.json();
-
-        const items: OrderHistoryItem[] =
-          data.data?.map((item: any) => ({
-            id: item.id?.toString(),
-            code: item.attributes?.code || `ORDER-${item.id}`,
-            createdAt: item.attributes?.createdAt || new Date().toISOString(),
-            status: item.attributes?.status || "PENDING",
-            totalAmount: item.attributes?.totalAmount || 0,
-          })) ?? [];
-
-        setOrders(items);
-      } catch (err: any) {
-        console.error("Lỗi fetch orders:", err);
-      } finally {
-        setLoadingOrders(false);
-      }
-    };
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    if (!backendUser || backendUser.defaultAddress) return;
+
+    try {
+      const saved = localStorage.getItem("defaultShippingInfo");
+      if (!saved) return;
+      const info = JSON.parse(saved);
+
+      setBackendUser((prev) => ({
+        ...(prev || { id: "local" }),
+        fullName:
+          prev?.fullName ||
+          info.fullName ||
+          info.receiverName ||
+          "Người dùng",
+        email: prev?.email || info.email || "",
+        phoneNumber: prev?.phoneNumber || info.phone || "",
+        defaultAddress: {
+          receiverName:
+            info.fullName ||
+            info.receiverName ||
+            prev?.defaultAddress?.receiverName ||
+            prev?.fullName,
+          phone: info.phone || prev?.defaultAddress?.phone,
+          addressLine:
+            info.addressLine ||
+            info.address ||
+            prev?.defaultAddress?.addressLine,
+          ward: info.ward || prev?.defaultAddress?.ward,
+          district: info.district || prev?.defaultAddress?.district,
+          city: info.city || prev?.defaultAddress?.city,
+        },
+      }));
+    } catch (err) {
+      console.error("Lỗi đọc defaultShippingInfo:", err);
+    }
+  }, [backendUser]);
+
+  // Prefill form thêm địa chỉ với địa chỉ mặc định (city/district/ward)
+  useEffect(() => {
+    const da = backendUser?.defaultAddress;
+    if (!da || !cities.length) return;
+
+    const province = cities.find((c) => c.name === da.city);
+    const provinceCode = province?.code ? String(province.code) : "";
+
+    setNewAddress((prev) => ({
+      ...prev,
+      receiverName: da.receiverName || prev.receiverName,
+      phone: da.phone || prev.phone,
+      addressLine: da.addressLine || prev.addressLine,
+      city: provinceCode,
+      district: "",
+      ward: "",
+    }));
+
+    if (provinceCode) {
+      handleCityChange(provinceCode, {
+        districtName: da.district,
+        wardName: da.ward,
+      });
+    }
+  }, [backendUser?.defaultAddress, cities]);
 
   const handleLogout = () => {
     localStorage.removeItem("jwtToken");
@@ -278,13 +461,42 @@ export default function TrangTaiKhoan() {
       const token = localStorage.getItem("jwtToken");
       if (!token || !API_BASE_URL) throw new Error("Không tìm thấy token/API");
 
+      const selectedCityName =
+        cities.find((c) => String(c.code) === String(newAddress.city))?.name ||
+        newAddress.city;
+      const selectedDistrictName =
+        districts.find((d) => String(d.code) === String(newAddress.district))?.name ||
+        newAddress.district;
+      
+      // Format JSON:API như backend expect
+      const payload = {
+        data: {
+          type: "user",
+          id: "0", // Backend sẽ lấy từ token
+          attributes: {
+            personName: newAddress.receiverName,
+            phoneNumber: newAddress.phone,
+            address: `${newAddress.addressLine}, ${newAddress.ward}, ${selectedDistrictName}, ${selectedCityName}`,
+            // Lưu defaultAddress vào note field dưới dạng JSON string
+            note: JSON.stringify({
+              receiverName: newAddress.receiverName,
+              phone: newAddress.phone,
+              addressLine: newAddress.addressLine,
+              city: selectedCityName,
+              district: selectedDistrictName,
+              ward: newAddress.ward,
+            }),
+          },
+        },
+      };
+
       const res = await fetch(`${API_BASE_URL}/v1/user/update`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/vnd.api+json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newAddress),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -293,11 +505,24 @@ export default function TrangTaiKhoan() {
       }
 
       const data = await res.json();
+      const userData = data.data?.attributes || data;
+
+      // Parse defaultAddress từ note field
+      let defaultAddress = null;
+      if (userData.note) {
+        try {
+          defaultAddress = JSON.parse(userData.note);
+        } catch (e) {
+          console.error("Lỗi parse defaultAddress từ note:", e);
+        }
+      }
 
       // Update local backendUser
       setBackendUser((prev) => ({
         ...prev!,
-        defaultAddress: data.data, // assuming backend trả về address object
+        defaultAddress: defaultAddress,
+        personName: userData.personName || prev?.personName,
+        phoneNumber: userData.phoneNumber || prev?.phoneNumber,
       }));
 
       setAddressMessage("Đã thêm địa chỉ thành công!");
@@ -314,6 +539,149 @@ export default function TrangTaiKhoan() {
       setAddressMessage(err.message);
     } finally {
       setSavingAddress(false);
+    }
+  };
+
+  const renderStatusBadge = (status: string) => {
+    const key = normalizeStatus(status);
+    const meta = STATUS_MAP[key] || { label: status, color: "bg-gray-100 text-gray-700", dot: "bg-gray-400" };
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${meta.color}`}>
+        <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+        {meta.label}
+      </span>
+    );
+  };
+
+  const handleCancelOrder = async (order: OrderHistoryItem) => {
+    if (!API_BASE_URL) {
+      setActionError("Không tìm thấy API_BASE_URL");
+      return;
+    }
+    const st = normalizeStatus(order.status);
+    if (!["pending", "confirmed"].includes(st)) return;
+
+    const ok = confirm("Bạn có chắc muốn hủy đơn này?");
+    if (!ok) return;
+
+    try {
+      setActionError(null);
+      setActionLoadingId(order.id);
+      const token = localStorage.getItem("jwtToken");
+      const res = await fetch(`${API_BASE_URL}/v1/receipt/${order.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          orderStatus: "CANCELLED",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Hủy đơn thất bại");
+      }
+      await fetchOrders();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const openReturnModal = (order: OrderHistoryItem) => {
+    setSelectedReturnOrder(order);
+    setReturnReason("");
+    setShowReturnModal(true);
+  };
+
+  const handleConfirmReturnRequest = () => {
+    if (!returnReason.trim()) {
+      setActionError("Vui lòng nhập lý do trả hàng");
+      return;
+    }
+    setShowReturnConfirmModal(true);
+  };
+
+  const submitReturnRequest = async () => {
+    if (!selectedReturnOrder) return;
+    if (!returnReason.trim()) {
+      setActionError("Vui lòng nhập lý do trả hàng");
+      return;
+    }
+    if (!API_BASE_URL) {
+      setActionError("Không tìm thấy API_BASE_URL");
+      return;
+    }
+    // Kiểm tra status phải là PAID (theo spec: chỉ cho phép khi PAID)
+    const statusKey = normalizeStatus(selectedReturnOrder.status);
+    if (statusKey !== "paid") {
+      setActionError("Chỉ có thể yêu cầu trả hàng khi đơn hàng đã hoàn thành");
+      return;
+    }
+    // Kiểm tra xem đã có return request chưa (không cho gửi lại)
+    if (selectedReturnOrder.returnRequest) {
+      setActionError("Bạn đã gửi yêu cầu trả hàng cho đơn này rồi");
+      return;
+    }
+    // Kiểm tra xem đã bị từ chối chưa (không cho gửi lại sau khi bị từ chối)
+    if (selectedReturnOrder.returnRejected) {
+      setActionError("Yêu cầu trả hàng đã bị từ chối, không thể gửi lại");
+      return;
+    }
+    try {
+      setReturnSubmitting(true);
+      setActionError(null);
+      const token = localStorage.getItem("jwtToken");
+      // Gửi return request - ghi log RETURN_REQUEST:{reason} vào receipt.note (theo quy ước)
+      // KHÔNG đổi order_status (theo spec)
+      const res = await fetch(
+        `${API_BASE_URL}/v1/receipt/${selectedReturnOrder.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/vnd.api+json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (!res.ok) throw new Error("Không lấy được thông tin đơn hàng");
+      const receiptData = await res.json();
+      const currentNote = receiptData.data?.attributes?.note || "";
+      const newNote = currentNote + (currentNote ? "\n" : "") + `RETURN_REQUEST:${returnReason.trim()}`;
+      
+      // Update receipt.note với log RETURN_REQUEST
+      const updateRes = await fetch(
+        `${API_BASE_URL}/v1/receipt/update`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/vnd.api+json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            data: {
+              type: "receipt",
+              id: String(selectedReturnOrder.id),
+              attributes: { note: newNote },
+            },
+          }),
+        }
+      );
+      if (!updateRes.ok) {
+        const data = await updateRes.json().catch(() => ({}));
+        throw new Error(data.message || "Gửi yêu cầu trả hàng thất bại");
+      }
+      // Đóng modal và refresh danh sách (order_status KHÔNG đổi, chỉ có return_request được tạo)
+      setShowReturnModal(false);
+      setShowReturnConfirmModal(false);
+      setReturnReason("");
+      await fetchOrders();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setReturnSubmitting(false);
     }
   };
 
@@ -366,36 +734,36 @@ export default function TrangTaiKhoan() {
                   <span>👤</span>
                   <span>Thông tin cá nhân</span>
                 </span>
-                <span className="text-[10px] uppercase tracking-wide text-red-500">
+                {/* <span className="text-[10px] uppercase tracking-wide text-red-500">
                   Mặc định
-                </span>
+                </span> */}
               </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection("section-orders")}
-                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span>📦</span>
-                <span>Lịch sử đơn hàng</span>
-              </button>
+            {/* <button
+                 type="button"
+                 onClick={() => scrollToSection("section-orders")}
+                 className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
+               >
+                 <span>📦</span>
+                 <span>Lịch sử đơn hàng</span>
+               </button>
 
-              <button
-                type="button"
-                onClick={() => scrollToSection("section-address")}
-                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span>📍</span>
-                <span>Địa chỉ giao hàng</span>
-              </button>
+               <button
+                 type="button"
+                 onClick={() => scrollToSection("section-address")}
+                 className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
+               >
+                 <span>📍</span>
+                 <span>Địa chỉ giao hàng</span>
+               </button>
 
-              <button
-                type="button"
-                onClick={() => scrollToSection("section-favorites")}
-                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span>❤️</span>
-                <span>Sách yêu thích</span>
-              </button>
+               <button
+                 type="button"
+                 onClick={() => scrollToSection("section-favorites")}
+                 className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors"
+               >
+                 <span>❤️</span>
+                 <span>Sách yêu thích</span>
+               </button> */}
             </nav>
 
             <button
@@ -425,9 +793,9 @@ export default function TrangTaiKhoan() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     Thông tin cá nhân & địa chỉ giao hàng
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  {/* <p className="text-sm text-gray-500">
                     Đồng bộ từ localStorage.
-                  </p>
+                  </p> */}
                 </div>
 
                 {loadingProfile && (
@@ -466,9 +834,9 @@ export default function TrangTaiKhoan() {
 
                 {/* Địa chỉ */}
                 <div id="section-address" className="space-y-3 scroll-mt-32">
-                  <h4 className="text-sm font-semibold text-gray-900">
+                  {/* <h4 className="text-sm font-semibold text-gray-900">
                     Địa chỉ giao hàng mặc định
-                  </h4>
+                  </h4> */}
                 </div>
                 {/* <div>
                   {user.provider && (
@@ -484,9 +852,9 @@ export default function TrangTaiKhoan() {
                     <h4 className="text-sm font-semibold text-gray-900">
                       Địa chỉ giao hàng mặc định
                     </h4>
-                    <span className="text-[11px] text-gray-400 italic">
+                    {/* <span className="text-[11px] text-gray-400 italic">
                       (Lấy từ backend nếu có)
-                    </span>
+                    </span> */}
                   </div>
 
                   {backendUser?.defaultAddress ? (
@@ -517,7 +885,7 @@ export default function TrangTaiKhoan() {
                   )}
 
                   {/* Form thêm địa chỉ */}
-                  <form
+                  {/* <form
                     className="mt-4 space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100"
                     onSubmit={handleAddAddress}
                   >
@@ -567,10 +935,10 @@ export default function TrangTaiKhoan() {
                           })
                         }
                         required
-                      />
+                      /> */}
 
                       {/* Dropdown Tỉnh/Thành */}
-                      <select
+                      {/* <select
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                         value={newAddress.city}
                         onChange={(e) => handleCityChange(e.target.value)}
@@ -582,10 +950,10 @@ export default function TrangTaiKhoan() {
                             {c.name}
                           </option>
                         ))}
-                      </select>
+                      </select> */}
 
                       {/* Dropdown Quận/Huyện */}
-                      <select
+                      {/* <select
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                         value={newAddress.district}
                         onChange={(e) => handleDistrictChange(e.target.value)}
@@ -598,10 +966,10 @@ export default function TrangTaiKhoan() {
                             {d.name}
                           </option>
                         ))}
-                      </select>
+                      </select> */}
 
                       {/* Dropdown Phường/Xã */}
-                      <select
+                      {/* <select
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                         value={newAddress.ward}
                         onChange={(e) =>
@@ -626,7 +994,7 @@ export default function TrangTaiKhoan() {
                     >
                       {savingAddress ? "Đang lưu..." : "Lưu địa chỉ"}
                     </button>
-                  </form>
+                  </form> */}
                 </div>
               </div>
             </section>
@@ -641,9 +1009,6 @@ export default function TrangTaiKhoan() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     Lịch sử đơn hàng
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    Những đơn hàng bạn đã đặt.
-                  </p>
                 </div>
 
                 {loadingOrders && (
@@ -653,54 +1018,126 @@ export default function TrangTaiKhoan() {
                 )}
               </header>
 
+              {actionError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-2">
+                  {actionError}
+                </div>
+              )}
+
               {orders.length === 0 && !loadingOrders ? (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
                   Chưa tìm thấy đơn hàng nào. Hãy thử đặt sách để xem lịch sử
                   tại đây nhé!
                 </div>
               ) : (
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left font-semibold text-gray-500">
-                          Mã đơn
-                        </th>
-                        <th className="px-4 py-2 text-left font-semibold text-gray-500">
-                          Ngày đặt
-                        </th>
-                        <th className="px-4 py-2 text-left font-semibold text-gray-500">
-                          Trạng thái
-                        </th>
-                        <th className="px-4 py-2 text-right font-semibold text-gray-500">
-                          Tổng tiền
-                        </th>
-                      </tr>
-                    </thead>
+                <div className="space-y-3">
+                  {orders.map((order) => {
+                    const statusKey = normalizeStatus(order.status);
+                    const canCancel = ["pending", "authorized"].includes(statusKey);
+                    // Chỉ hiện nút "Yêu cầu trả hàng" khi status = PAID (theo spec)
+                    const canReturn = statusKey === "paid";
+                    // Kiểm tra xem đã có return request chưa
+                    const hasReturnRequest = order.returnRequest !== null;
+                    const isReturnRejected = order.returnRejected !== null;
+                    const isReturnApproved = order.returnApproved !== null;
+                    // Sau khi bị từ chối, không cho gửi lại yêu cầu
+                    const canShowReturnButton = canReturn && !hasReturnRequest && !isReturnRejected;
+                    return (
+                      <div
+                        key={order.id}
+                        className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 sm:px-5 sm:py-4 shadow-sm"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-3 text-sm text-gray-700">
+                              <span className="font-semibold text-gray-900">Đơn hàng</span>
+                              <Link
+                                href={`/hoa-don/${order.id}`}
+                                className="text-red-600 font-semibold hover:underline"
+                              >
+                                #{order.code}
+                              </Link>
+                              <span className="text-gray-400">•</span>
+                              <span className="text-gray-600">
+                                {new Date(order.createdAt).toLocaleString("vi-VN")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {renderStatusBadge(order.status)}
+                              <span className="text-sm font-semibold text-red-600">
+                                {order.totalAmount.toLocaleString("vi-VN")} ₫
+                              </span>
+                            </div>
+                          </div>
 
-                    <tbody className="divide-y divide-gray-100">
-                      {orders.map((order) => (
-                        <tr key={order.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 font-semibold text-gray-800">
-                            {order.code}
-                          </td>
-                          <td className="px-4 py-2 text-gray-600">
-                            {new Date(order.createdAt).toLocaleString("vi-VN")}
-                          </td>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/hoa-don/${order.id}`}
+                              className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium hover:border-red-300"
+                            >
+                              Xem chi tiết
+                            </Link>
 
-                          <td className="px-4 py-2">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
-                              {order.status}
-                            </span>
-                          </td>
+                            <button
+                              onClick={() => handleCancelOrder(order)}
+                              disabled={!canCancel || actionLoadingId === order.id}
+                              className={`px-3 py-2 rounded-lg text-sm font-semibold border ${
+                                canCancel
+                                  ? "bg-white text-red-600 border-red-200 hover:border-red-400"
+                                  : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                              }`}
+                            >
+                              {actionLoadingId === order.id ? "Đang hủy..." : "Hủy đơn"}
+                            </button>
 
-                          <td className="px-4 py-2 text-right font-semibold text-red-600">
-                            {order.totalAmount.toLocaleString("vi-VN")} ₫
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            {/* Chỉ hiện nút "Yêu cầu trả hàng" khi status = PAID và chưa có return request và chưa bị từ chối */}
+                            {canShowReturnButton && (
+                              <button
+                                onClick={() => openReturnModal(order)}
+                                disabled={actionLoadingId === order.id}
+                                className="px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400"
+                              >
+                                Yêu cầu trả hàng
+                              </button>
+                            )}
+                            
+                            {/* Hiển thị block read-only khi bị từ chối */}
+                            {isReturnRejected && order.returnRejected && (
+                              <div className="px-4 py-3 rounded-lg border border-red-200 bg-red-50">
+                                <div className="text-sm font-semibold text-red-700 mb-2">
+                                  Yêu cầu trả hàng đã bị từ chối
+                                </div>
+                                {order.returnRejected.note && (
+                                  <div className="text-sm text-red-600 mb-1">
+                                    <span className="font-medium">Lý do:</span> {order.returnRejected.note}
+                                  </div>
+                                )}
+                                {order.returnRejected.createdAt && (
+                                  <div className="text-xs text-red-500">
+                                    Ngày xử lý: {new Date(order.returnRejected.createdAt).toLocaleString("vi-VN")}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Hiển thị trạng thái return request đang chờ xử lý */}
+                            {hasReturnRequest && !isReturnRejected && !isReturnApproved && (
+                              <span className="px-3 py-2 rounded-lg text-sm font-semibold border bg-orange-50 text-orange-600 border-orange-200">
+                                Đã gửi yêu cầu trả hàng – đang chờ shop xử lý
+                              </span>
+                            )}
+                            
+                            {/* Hiển thị trạng thái đã duyệt */}
+                            {isReturnApproved && (
+                              <span className="px-3 py-2 rounded-lg text-sm font-semibold border bg-purple-50 text-purple-600 border-purple-200">
+                                Đã duyệt - đang chờ hoàn tiền
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -749,6 +1186,78 @@ export default function TrangTaiKhoan() {
           </main>
         </div>
       </div>
+
+      {showReturnModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center px-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Yêu cầu trả hàng {selectedReturnOrder ? `#${selectedReturnOrder.code}` : ""}
+              </h3>
+              <button
+                onClick={() => setShowReturnModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="text-sm text-gray-700">
+              Lý do trả hàng <span className="text-red-600">*</span>
+            </div>
+            <textarea
+              value={returnReason}
+              onChange={(e) => setReturnReason(e.target.value)}
+              rows={4}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+              placeholder="VD: Sản phẩm bị lỗi, giao sai, không đúng mô tả..."
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowReturnModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmReturnRequest}
+                disabled={returnSubmitting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+              >
+                {returnSubmitting ? "Đang gửi..." : "Gửi yêu cầu trả hàng"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm gửi yêu cầu trả hàng */}
+      {showReturnConfirmModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center px-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 text-center">
+              Bạn có muốn gửi yêu cầu trả hàng không?
+            </h3>
+            <p className="text-sm text-gray-600 text-center">
+              Yêu cầu sẽ được gửi tới shop để xử lý. Đơn hàng hiện tại không đổi trạng thái.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowReturnConfirmModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={submitReturnRequest}
+                disabled={returnSubmitting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+              >
+                {returnSubmitting ? "Đang gửi..." : "Xác nhận"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

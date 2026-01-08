@@ -22,9 +22,12 @@ export default function DangNhapPage() {
   const [registerForm, setRegisterForm] = useState({
     fullName: "",
     email: "",
-    phoneNumber: "",
     password: "",
+    confirmPassword: "",
   });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState<string | null>(null);
@@ -106,24 +109,32 @@ export default function DangNhapPage() {
     setRegisterLoading(true);
 
     try {
-      if (!registerForm.phoneNumber.trim()) {
-        throw new Error("Vui lòng nhập số điện thoại.");
-      }
       if (!validatePassword(registerForm.password)) {
         throw new Error(passwordHint);
       }
+      if (registerForm.password !== registerForm.confirmPassword) {
+        throw new Error("Mật khẩu xác nhận không khớp.");
+      }
 
-      // FIX CỨNG: giả lập đăng ký thành công, lưu user và chuyển sang tab đăng nhập
-      const fakeUser = {
-        name: registerForm.fullName || "Người dùng",
+      // Gọi API đăng ký từ BE
+      const data = await callAuthApi("/v1/auth/register", {
         email: registerForm.email,
-      };
-      localStorage.setItem("localUser", JSON.stringify(fakeUser));
+        password: registerForm.password,
+      });
 
-      setRegisterMessage(
-        "Đăng ký thành công (demo)! Bạn đã được đăng nhập và sẽ được chuyển về trang chủ."
-      );
-      setTimeout(() => router.push("/"), 1000);
+      // Lưu thông tin user và token sau khi đăng ký thành công
+      if (data?.jwtToken) {
+        localStorage.setItem("jwtToken", data.jwtToken);
+        localStorage.setItem("username", data.username ?? (registerForm.fullName || "Người dùng"));
+        localStorage.setItem("userId", data.userId);
+        setIsLoggedIn(true);
+      }
+
+      setRegisterMessage("Đăng ký thành công! Bạn đã được đăng nhập và sẽ được chuyển về trang chủ.");
+      setTimeout(() => {
+        window.location.reload();
+        router.push("/");
+      }, 1000);
     } catch (error) {
       setRegisterMessage(
         error instanceof Error ? error.message : "Không thể đăng ký."
@@ -142,10 +153,6 @@ export default function DangNhapPage() {
     router.push("/");
   };
 
-  // Google sign-in không còn dùng NextAuth
-  const handleGoogleSignIn = () => {
-    alert("Google Login không hoạt động vì bạn đã bỏ NextAuth.");
-  };
 
   const renderForm = () => {
     if (activeTab === "login") {
@@ -170,16 +177,59 @@ export default function DangNhapPage() {
             <label className="block text-sm font-medium text-gray-600 mb-1">
               Mật khẩu
             </label>
-            <input
-              type="password"
-              required
-              value={loginForm.password}
-              onChange={(event) =>
-                setLoginForm({ ...loginForm, password: event.target.value })
-              }
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showLoginPassword ? "text" : "password"}
+                required
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm({ ...loginForm, password: event.target.value })
+                }
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showLoginPassword ? (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
             <p className="text-xs text-gray-500 mt-1">{passwordHint}</p>
           </div>
           <button
@@ -217,24 +267,6 @@ export default function DangNhapPage() {
           <label className="block text-sm font-medium text-gray-600 mb-1">
             Email
           </label>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">
-              Số điện thoại
-            </label>
-            <input
-              type="tel"
-              required
-              value={registerForm.phoneNumber}
-              onChange={(event) =>
-                setRegisterForm({
-                  ...registerForm,
-                  phoneNumber: event.target.value,
-                })
-              }
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="09xx xxx xxx"
-            />
-          </div>
           <input
             type="email"
             required
@@ -250,17 +282,142 @@ export default function DangNhapPage() {
           <label className="block text-sm font-medium text-gray-600 mb-1">
             Mật khẩu
           </label>
-          <input
-            type="password"
-            required
-            value={registerForm.password}
-            onChange={(event) =>
-              setRegisterForm({ ...registerForm, password: event.target.value })
-            }
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="Tối thiểu 8 ký tự"
-          />
+          <div className="relative">
+            <input
+              type={showRegisterPassword ? "text" : "password"}
+              required
+              value={registerForm.password}
+              onChange={(event) =>
+                setRegisterForm({ ...registerForm, password: event.target.value })
+              }
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Tối thiểu 8 ký tự"
+            />
+            <button
+              type="button"
+              onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+            >
+              {showRegisterPassword ? (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
           <p className="text-xs text-gray-500 mt-1">{passwordHint}</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">
+            Xác nhận mật khẩu
+          </label>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              value={registerForm.confirmPassword}
+              onChange={(event) =>
+                setRegisterForm({
+                  ...registerForm,
+                  confirmPassword: event.target.value,
+                })
+              }
+              className={`w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                registerForm.confirmPassword &&
+                registerForm.password === registerForm.confirmPassword
+                  ? "pr-20"
+                  : "pr-10"
+              }`}
+              placeholder="Nhập lại mật khẩu"
+            />
+            {registerForm.confirmPassword &&
+              registerForm.password === registerForm.confirmPassword && (
+                <svg
+                  className="absolute right-10 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              )}
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+            >
+              {showConfirmPassword ? (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
         <button
           type="submit"
@@ -305,7 +462,7 @@ export default function DangNhapPage() {
 
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gradient-to-br from-red-50 to-white py-10 px-4">
-      <div className="max-w-5xl mx-auto grid gap-10 lg:grid-cols-2">
+      <div className="max-w-2xl mx-auto">
         <section className="bg-white rounded-3xl shadow-xl p-8 border border-red-100">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-2xl">
@@ -316,8 +473,6 @@ export default function DangNhapPage() {
                 Đăng nhập / Đăng ký
               </h1>
               <p className="text-gray-500 text-sm">
-                Dành cho tài khoản nội bộ (form demo). Dùng Google để đăng nhập
-                thật.
               </p>
             </div>
           </div>
@@ -353,57 +508,6 @@ export default function DangNhapPage() {
             </div>
           )}
           {renderForm()}
-        </section>
-
-        <section className="bg-red-600 rounded-3xl shadow-xl p-8 text-white space-y-6 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top,_#fff,_transparent_50%)]" />
-          <div className="relative space-y-4">
-            <h2 className="text-3xl font-black">Đăng nhập bằng Google</h2>
-            <p className="text-red-50">
-              Đây là cách nhanh nhất để đăng ký/đăng nhập thật sự. Google sẽ xác
-              thực tài khoản giúp bạn.
-            </p>
-          </div>
-
-          <button
-            onClick={handleGoogleSignIn}
-            className="relative flex items-center justify-center gap-3 w-full bg-white text-red-600 font-semibold py-3 rounded-2xl shadow-2xl hover:-translate-y-0.5 transition-transform"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 533.5 544.3">
-              <path
-                fill="#4285f4"
-                d="M533.5 278.4c0-17.4-1.6-34.1-4.7-50.4H272v95.4h147.3c-6.4 34.8-25.8 64.2-55 83.9v69.6h88.7c51.9-47.8 80.5-118.3 80.5-198.5z"
-              />
-              <path
-                fill="#34a853"
-                d="M272 544.3c74.7 0 137.4-24.7 183.2-67.4l-88.7-69.6c-24.6 16.5-56.1 26-94.5 26-72.7 0-134.3-49.1-156.4-115.1H24v72.3C69.8 486.1 163.4 544.3 272 544.3z"
-              />
-              <path
-                fill="#fbbc04"
-                d="M115.6 318.2c-5.6-16.5-8.8-34.1-8.8-52.2s3.2-35.7 8.8-52.2v-72.3H24C8.7 188.2 0 223.2 0 260s8.7 71.8 24 118.7l91.6-71.5z"
-              />
-              <path
-                fill="#ea4335"
-                d="M272 107.7c40.7 0 77.2 14 106 41.5l79.1-79.1C409.3 24.7 346.7 0 272 0 163.4 0 69.8 58.2 24 141.3l91.6 72.3C137.7 156.8 199.3 107.7 272 107.7z"
-              />
-            </svg>
-            <span>Tiếp tục với Google</span>
-          </button>
-
-          <div className="relative bg-white/10 rounded-2xl p-6 space-y-4">
-            <p className="font-semibold uppercase tracking-wide text-sm text-red-100">
-              Hướng dẫn nhanh
-            </p>
-            <ul className="space-y-3 text-sm text-red-50">
-              <li>1. Thêm GOOGLE_CLIENT_ID/SECRET vào file .env.local</li>
-              <li>2. Khởi động lại `npm run dev`</li>
-              <li>3. Bấm “Tiếp tục với Google” để đăng nhập</li>
-            </ul>
-            <p className="text-xs text-red-200">
-              Sau khi Google xác thực thành công, bạn sẽ nhận token từ API của
-              bạn.
-            </p>
-          </div>
         </section>
       </div>
     </div>
