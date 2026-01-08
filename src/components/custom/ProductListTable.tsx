@@ -532,6 +532,15 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        Ngày xuất bản
+                                    </p>
+                                </div>
+                            </th>
+                            <th
+                                className="cursor-pointer px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                         Định dạng
                                     </p>
                                 </div>
@@ -614,12 +623,9 @@ const ProductListTable: React.FC = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Ngày xuất bản
+                                        Hành động
                                     </p>
                                 </div>
-                            </th>
-                            <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Hành động
                             </th>
                             <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                                 <div className="relative">
@@ -682,6 +688,21 @@ const ProductListTable: React.FC = () => {
                                     </td>
                                 )}
                                 
+                                {/* Ngày xuất bản - merge nếu không phải copy đầu tiên */}
+                                {row.isFirstCopy && (
+                                    <td 
+                                        className="px-5 py-4 whitespace-nowrap"
+                                        rowSpan={row.totalCopies}
+                                    >
+                                        <p className="text-sm text-gray-700 dark:text-gray-400">
+                                            {(() => {
+                                                const published = row.book.attributes?.published || row.book.published;
+                                                return published ? getDisplayDate(published) : "-";
+                                            })()}
+                                        </p>
+                                    </td>
+                                )}
+                                
                                 {/* Định dạng - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
@@ -718,31 +739,24 @@ const ProductListTable: React.FC = () => {
                                 
                                 {/* Trạng thái - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
+                  {(() => {
+                    // ✅ Tự động tính enabled dựa trên stock: stock > 0 → enabled = true, stock = 0 → enabled = false
+                    const stock = Number(row.copy.stock || 0);
+                    const effectiveEnabled = stock > 0 ? (row.copy.enabled !== false) : false;
+                    
+                    return (
                   <span
                       className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-                          row.copy.enabled
+                              effectiveEnabled
                               ? "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-500"
                               : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-500"
                       }`}
                   >
-                    {row.copy.enabled ? "Đang bán" : "Ngừng bán"}
+                        {effectiveEnabled ? "Đang bán" : "Ngừng bán"}
                   </span>
+                    );
+                  })()}
                                 </td>
-                                
-                                {/* Ngày xuất bản - merge nếu không phải copy đầu tiên */}
-                                {row.isFirstCopy && (
-                                    <td 
-                                        className="px-5 py-4 whitespace-nowrap"
-                                        rowSpan={row.totalCopies}
-                                    >
-                                        <p className="text-sm text-gray-700 dark:text-gray-400">
-                                            {(() => {
-                                                const published = row.book.attributes?.published || row.book.published;
-                                                return published ? getDisplayDate(published) : "-";
-                                            })()}
-                                        </p>
-                                    </td>
-                                )}
                                 
                                 {/* Hành động - chỉ render khi là copy đầu tiên */}
                                 {row.isFirstCopy && (

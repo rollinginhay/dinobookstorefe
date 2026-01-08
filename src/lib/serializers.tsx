@@ -186,6 +186,9 @@ export function serializeReceipt(receipt: any) {
 
             orderStatus: attrs.orderStatus ?? "PENDING",
             orderType: attrs.orderType ?? "DIRECT",
+            
+            // Bán hàng tại quầy - KHÔNG có VAT
+            tax: attrs.tax ?? 0,
 
             enabled: true
         },

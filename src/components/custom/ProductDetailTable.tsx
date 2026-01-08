@@ -68,7 +68,25 @@ const ProductDetailTable: React.FC = () => {
 
     useEffect(() => {
         if (!bookFetch.isSuccess) return;
-        setFormData(deserializeBook(bookFetch.data.data));
+        const deserialized = deserializeBook(bookFetch.data.data);
+        
+        // ✅ Tự động update enabled dựa trên stock khi load dữ liệu từ BE
+        if (deserialized.relationships?.bookCopies) {
+            deserialized.relationships.bookCopies = deserialized.relationships.bookCopies.map((bc: any) => {
+                const stock = Number(bc.stock || 0);
+                // Nếu stock = 0 thì tự động set enabled = false
+                if (stock <= 0) {
+                    return { ...bc, enabled: false };
+                }
+                // Nếu stock > 0 và enabled chưa được set hoặc false thì set enabled = true
+                if (stock > 0 && (bc.enabled === undefined || bc.enabled === false)) {
+                    return { ...bc, enabled: true };
+                }
+                return bc;
+            });
+        }
+        
+        setFormData(deserialized);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bookFetch.dataUpdatedAt]);
 
@@ -96,51 +114,58 @@ const ProductDetailTable: React.FC = () => {
         
         let hasError = false;
         
-        // Validate ISBN
-        if (!editingItem.isbn || editingItem.isbn.trim() === "") {
+        // Validate ISBN - convert sang string trước khi trim
+        const isbnStr = String(editingItem.isbn || "").trim();
+        if (!isbnStr) {
             newErrors.isbn = "Vui lòng nhập ISBN";
             hasError = true;
         }
         
-        // Validate Định dạng
-        if (!editingItem.bookFormat || editingItem.bookFormat.trim() === "") {
+        // Validate Định dạng - convert sang string trước khi trim
+        const bookFormatStr = String(editingItem.bookFormat || "").trim();
+        if (!bookFormatStr) {
             newErrors.bookFormat = "Vui lòng chọn định dạng";
             hasError = true;
         }
         
-        // Validate Số trang
-        if (!editingItem.printLength || editingItem.printLength.trim() === "") {
+        // Validate Số trang - convert sang string trước khi trim
+        const printLengthStr = String(editingItem.printLength || "").trim();
+        if (!printLengthStr) {
             newErrors.printLength = "Vui lòng nhập số trang";
             hasError = true;
-        } else if (isNaN(parseInt(editingItem.printLength)) || parseInt(editingItem.printLength) <= 0) {
+        } else if (isNaN(parseInt(printLengthStr)) || parseInt(printLengthStr) <= 0) {
             newErrors.printLength = "Số trang phải là số dương";
             hasError = true;
         }
         
-        // Validate Kích thước
-        if (!dimensions.width || !dimensions.height || dimensions.width.trim() === "" || dimensions.height.trim() === "") {
+        // Validate Kích thước - convert sang string trước khi trim
+        const widthStr = String(dimensions.width || "").trim();
+        const heightStr = String(dimensions.height || "").trim();
+        if (!widthStr || !heightStr) {
             newErrors.dimensions = "Vui lòng nhập đầy đủ kích thước";
             hasError = true;
-        } else if (isNaN(parseInt(dimensions.width)) || parseInt(dimensions.width) <= 0 || 
-                   isNaN(parseInt(dimensions.height)) || parseInt(dimensions.height) <= 0) {
+        } else if (isNaN(parseInt(widthStr)) || parseInt(widthStr) <= 0 || 
+                   isNaN(parseInt(heightStr)) || parseInt(heightStr) <= 0) {
             newErrors.dimensions = "Kích thước phải là số dương";
             hasError = true;
         }
         
-        // Validate Giá bán
-        if (!editingItem.salePrice || editingItem.salePrice.trim() === "") {
+        // Validate Giá bán - convert sang string trước khi trim
+        const salePriceStr = String(editingItem.salePrice || "").trim();
+        if (!salePriceStr) {
             newErrors.salePrice = "Vui lòng nhập giá bán";
             hasError = true;
-        } else if (isNaN(parseInt(editingItem.salePrice)) || parseInt(editingItem.salePrice) <= 0) {
+        } else if (isNaN(parseInt(salePriceStr)) || parseInt(salePriceStr) <= 0) {
             newErrors.salePrice = "Giá bán phải là số dương";
             hasError = true;
         }
         
-        // Validate Tồn kho
-        if (!editingItem.stock || editingItem.stock.trim() === "") {
+        // Validate Tồn kho - convert sang string trước khi trim
+        const stockStr = String(editingItem.stock || "").trim();
+        if (!stockStr) {
             newErrors.stock = "Vui lòng nhập tồn kho";
             hasError = true;
-        } else if (isNaN(parseInt(editingItem.stock)) || parseInt(editingItem.stock) < 0) {
+        } else if (isNaN(parseInt(stockStr)) || parseInt(stockStr) < 0) {
             newErrors.stock = "Tồn kho phải là số không âm";
             hasError = true;
         }
@@ -155,10 +180,15 @@ const ProductDetailTable: React.FC = () => {
         const updated = structuredClone(formData);
         const list = updated.relationships.bookCopies ?? [];
 
+        // ✅ Tự động set enabled dựa trên stock
+        const stockValue = parseInt(String(editingItem.stock || "0"));
+        const autoEnabled = stockValue > 0; // Stock > 0 → enabled = true, Stock = 0 → enabled = false
+
         // Combine dimensions trước khi lưu
         const itemToSave = {
             ...editingItem,
-            dimensions: `${dimensions.width} x ${dimensions.height} cm`
+            dimensions: `${dimensions.width} x ${dimensions.height} cm`,
+            enabled: autoEnabled // Tự động set enabled dựa trên stock
         };
         
         if (itemToSave.id === 0) {
@@ -338,22 +368,53 @@ return (
                 </td>
 
                 <td className="px-5 py-4">
+                  {(() => {
+                    // ✅ Tự động tính enabled dựa trên stock: stock > 0 → enabled = true, stock = 0 → enabled = false
+                    const stock = Number(e.stock || 0);
+                    const effectiveEnabled = stock > 0 ? (e.enabled !== false) : false;
+                    
+                    return (
                   <span
                     className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-                      e.enabled
+                          effectiveEnabled
                         ? "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-500"
                         : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-500"
                     }`}
                   >
-                    {e.enabled ? "Đang bán" : "Ngừng bán"}
+                        {effectiveEnabled ? "Đang bán" : "Ngừng bán"}
                   </span>
+                    );
+                  })()}
                 </td>
 
                 <td className="px-5 py-4">
                   <TableActionButtons
                     viewLink={`/book/${e.id}`}
                     onEdit={() => {
-                      setEditingItem(e);
+                      // Convert tất cả các field sang string để tránh lỗi .trim()
+                      const editData = {
+                        ...e,
+                        isbn: String(e.isbn || ""),
+                        bookFormat: String(e.bookFormat || ""),
+                        printLength: String(e.printLength || ""),
+                        stock: String(e.stock || ""),
+                        salePrice: String(e.salePrice || ""),
+                      };
+                      // Parse dimensions nếu có (format: "14 x 20 cm")
+                      if (e.dimensions && typeof e.dimensions === "string") {
+                        const dimMatch = e.dimensions.match(/(\d+)\s*x\s*(\d+)/);
+                        if (dimMatch) {
+                          setDimensions({
+                            width: dimMatch[1],
+                            height: dimMatch[2],
+                          });
+                        } else {
+                          setDimensions({ width: "", height: "" });
+                        }
+                      } else {
+                        setDimensions({ width: "", height: "" });
+                      }
+                      setEditingItem(editData);
                       isEditing.current = true;
                       setErrors({
                         isbn: "",

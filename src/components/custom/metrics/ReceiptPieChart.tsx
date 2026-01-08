@@ -84,7 +84,7 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
         };
     }, [selectedGroup]);
     const options: ApexOptions = useMemo(() => ({
-        colors: ["#9b8afb", "#fd853a", "#fdb022", "#32d583"],
+        colors: ["#9b8afb", "#fd853a", "#fdb022", "#32d583", "#ec4899", "#8b5cf6", "#06b6d4"],
         labels: chartData.labels,
         chart: {
             fontFamily: "Inter, system-ui, -apple-system, sans-serif",
@@ -294,7 +294,7 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
                             const percentage = chartData.total > 0
                                 ? ((count / chartData.total) * 100).toFixed(1)
                                 : 0;
-                            const colors = ["#9b8afb", "#fd853a", "#fdb022", "#32d583"];
+                            const colors = ["#9b8afb", "#fd853a", "#fdb022", "#32d583", "#ec4899", "#8b5cf6", "#06b6d4"];
 
                             return (
                                 <div key={status} className="flex items-start gap-2.5">

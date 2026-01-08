@@ -85,18 +85,72 @@ export async function fetchDiscountById(id: string | number) {
   return campaign;
 }
 
+// Helper để serialize campaign với relationships (theo format JSON:API)
+function serializeCampaign(data: any) {
+  const { campaignDetails, ...attributes } = data;
+  
+  // ✅ Serialize base resource - kitsu trả về string JSON
+  const serializedStr = jsonApi.serialise("campaign", attributes);
+  
+  // Parse thành object để thêm relationships
+  let parsed: any;
+  try {
+    parsed = typeof serializedStr === "string" ? JSON.parse(serializedStr) : serializedStr;
+  } catch (e) {
+    console.error("❌ Error parsing serialized:", e, "serializedStr:", serializedStr);
+    // Fallback: tạo structure mới
+    parsed = {
+      data: {
+        type: "campaign",
+        attributes: attributes
+      }
+    };
+  }
+  
+  // ✅ Đảm bảo có structure đúng
+  if (!parsed.data) {
+    parsed.data = { type: "campaign", attributes: attributes };
+  }
+  if (!parsed.data.attributes) {
+    parsed.data.attributes = attributes;
+  }
+  
+  // ✅ Thêm relationships.campaignDetails theo format JSON:API
+  if (campaignDetails && Array.isArray(campaignDetails) && campaignDetails.length > 0) {
+    if (!parsed.data.relationships) {
+      parsed.data.relationships = {};
+    }
+    
+    parsed.data.relationships.campaignDetails = {
+      data: campaignDetails.map((cd: any) => ({
+        type: "campaignDetail",
+        attributes: {
+          bookDetailId: cd.bookDetailId,
+          value: cd.value || null,
+        }
+      }))
+    };
+  }
+  
+  const finalPayload = JSON.stringify(parsed);
+  console.log("🔍 Serialized campaign payload:", finalPayload);
+  return finalPayload;
+}
+
 export async function createDiscount(data: any) {
+  const serialized = serializeCampaign(data);
   const res = await api.post(
     API_ROUTES.POST_CAMPAIGN_CREATE,
-    jsonApi.serialise("campaign", data)
+    serialized
   );
   return res.data;
 }
 
 export async function updateDiscount(data: any) {
+  const serialized = serializeCampaign(data);
   const res = await api.put(
     API_ROUTES.PUT_CAMPAIGN_UPDATE,
-    jsonApi.serialise("campaign", data)
+    serialized
   );
   return res.data;
 }

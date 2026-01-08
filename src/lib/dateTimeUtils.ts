@@ -5,6 +5,10 @@ export type YMD = {
 };
 
 export function extractYMDFromDateTime(javaDateTime: string): YMD {
+    if (!javaDateTime) {
+        return { year: 0, month: 0, day: 0 };
+    }
+    
     const [year, month, day] = javaDateTime
         .split("T")[0]
         .split("-")

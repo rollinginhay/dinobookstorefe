@@ -4,14 +4,20 @@ import {useMemo, useState} from "react";
 
 interface ProductSelectorProps {
     onClose: () => void;
-    onSelect: (product: any) => void;
+    // multi = false: onSelect(product)
+    // multi = true: onSelect(product[])
+    onSelect: (product: any | any[]) => void;
     products: any[];
+    multi?: boolean;
+    initialSelectedIds?: string[];
 }
 
 export default function ProductSelector({
                                             onClose,
                                             onSelect,
-                                            products
+                                            products,
+                                            multi = false,
+                                            initialSelectedIds = [],
                                         }: ProductSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
@@ -21,6 +27,7 @@ export default function ProductSelector({
     });
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 9;
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialSelectedIds));
 
     // Lấy danh sách unique values cho filters
     const uniqueBookFormats = useMemo(() => {
@@ -77,7 +84,25 @@ export default function ProductSelector({
     }, [filteredProducts, currentPage, itemsPerPage]);
 
     const handleChangeFilter = (key: string, value: string) => {
-        setFilters((prev) => ({...prev, [key]: value}));
+        setFilters((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const handleConfirmMulti = () => {
+        const selected = products.filter((p) => selectedIds.has(String(p.id)));
+        onSelect(selected);
+        onClose();
     };
 
     return (
@@ -248,12 +273,30 @@ export default function ProductSelector({
                         paginatedProducts.map((item) => (
                             <div
                                 key={item.id}
-                                className="border rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer"
+                                className={`border rounded-lg p-4 shadow-sm hover:shadow-md transition cursor-pointer relative ${
+                                    multi && selectedIds.has(String(item.id))
+                                        ? "border-blue-500 ring-2 ring-blue-200"
+                                        : ""
+                                }`}
                                 onClick={() => {
-                                    onSelect({...item, quantity: 1});
-                                    onClose();
+                                    if (multi) {
+                                        toggleSelect(String(item.id));
+                                    } else {
+                                        onSelect({ ...item, quantity: 1 });
+                                        onClose();
+                                    }
                                 }}
                             >
+                                {multi && (
+                                    <div className="absolute top-2 right-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(String(item.id))}
+                                            readOnly
+                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                                        />
+                                    </div>
+                                )}
                                 <img
                                     src={item.imageUrl}
                                     alt={item.title}
@@ -335,6 +378,26 @@ export default function ProductSelector({
                                 Sau ›
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Nút xác nhận khi chọn nhiều sản phẩm */}
+                {multi && (
+                    <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                        <div className="text-sm text-gray-600">
+                            Đã chọn{" "}
+                            <span className="font-semibold">
+                                {selectedIds.size}
+                            </span>{" "}
+                            sản phẩm
+                        </div>
+                        <button
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={selectedIds.size === 0}
+                            onClick={handleConfirmMulti}
+                        >
+                            Xác nhận
+                        </button>
                     </div>
                 )}
             </div>

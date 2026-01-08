@@ -37,10 +37,14 @@ export default function SalesAndRevenueChart({paidReceipts}: SalesAndRevenueChar
             if (receipts.length === 0) {
                 return {categories: [], sales: [], revenue: []};
             }
-
-            const dates = receipts.map(r =>
-                r.paymentDate !== null ? new Date(r.paymentDate) : new Date(r.updatedAt)
-            );
+            
+            const dates = receipts.map(r => {
+                const date = r.paymentDate !== null && r.paymentDate !== undefined 
+                    ? new Date(r.paymentDate) 
+                    : new Date(r.updatedAt);
+                return date;
+            });
+            
             const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
             const maxDate = new Date();
 
@@ -50,7 +54,9 @@ export default function SalesAndRevenueChart({paidReceipts}: SalesAndRevenueChar
             monthRange.forEach(m => bucket.set(m, {sales: 0, revenue: 0}));
 
             receipts.forEach(r => {
-                const date = new Date(r.paymentDate);
+                const date = r.paymentDate !== null && r.paymentDate !== undefined 
+                    ? new Date(r.paymentDate) 
+                    : new Date(r.updatedAt);
                 const key = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
                 const entry = bucket.get(key);
                 if (!entry) return;
