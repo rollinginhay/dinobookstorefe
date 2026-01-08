@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { useVoucher } from "@/contexts/VoucherContext";
+// ✅ Bỏ voucher - không dùng nữa
+// import { useVoucher } from "@/contexts/VoucherContext";
 
 import Breadcrumb from "@/components/Breadcrumb";
 import { useRouter } from "next/navigation";
@@ -15,9 +16,10 @@ export default function ThanhToan() {
   const router = useRouter();
   const { selectedCartItems, clearAllCartFromBackend, selectedTotalPrice, clearCart } =
     useCart();
-  const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
-  const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
-  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  // ✅ Bỏ voucher - không dùng nữa
+  // const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
+  // const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
+  // const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -45,16 +47,21 @@ export default function ThanhToan() {
 
   // --- Calculate totals ---
   const shipping = selectedTotalPrice >= 299000 ? 0 : 30000;
-  const subtotal = selectedTotalPrice + shipping;
-
-  const voucherDiscount =
-    selectedVoucherId &&
-    subtotal >= (getVoucherById(selectedVoucherId)?.minOrder || 0)
-      ? calculateDiscount(selectedVoucherId, subtotal)
-      : 0;
-
-  // Tổng giảm giá = promotion + voucher (không cộng dồn, lấy cái lớn hơn hoặc cộng tùy logic)
-  const finalTotal = Math.max(subtotal - voucherDiscount, 0);
+  
+  // ✅ Tạm tính = tổng giá gốc (originalPrice)
+  const totalOriginal = selectedCartItems.reduce((sum, item) => {
+    if (item.isCombo && item.comboOriginalPrice) {
+      return sum + (item.comboOriginalPrice * item.quantity);
+    }
+    const originalPrice = item.originalPrice || item.price;
+    return sum + (originalPrice * item.quantity);
+  }, 0);
+  
+  // ✅ Số tiền giảm = tổng giá gốc - tổng giá đã giảm
+  const discountAmount = totalOriginal - selectedTotalPrice;
+  
+  // ✅ Tổng cộng = giá đã giảm + phí ship
+  const finalTotal = selectedTotalPrice + shipping;
 
   // ----------------- Handle Submit -----------------
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,10 +206,10 @@ export default function ThanhToan() {
           orderStatus: "PENDING",
           orderType: "ONLINE",
           note: formData.note,
-          discount: voucherDiscount,
-          subTotal: subtotal,
+          discount: discountAmount, // ✅ Số tiền giảm từ campaign
+          subTotal: totalOriginal, // ✅ Tạm tính = tổng giá gốc
           serviceCost: shipping,
-          grandTotal: finalTotal,
+          grandTotal: finalTotal, // ✅ Tổng cộng = giá đã giảm + phí ship
           hasShipping: shipping > 0,
         },
         relationships: {
@@ -617,7 +624,7 @@ export default function ThanhToan() {
 
                 <div className="grid grid-cols-3 gap-4">
                   {/* Tỉnh / Thành phố */}
-                  {/* <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tỉnh/Thành phố <span className="text-red-600">*</span>
                     </label>
@@ -637,10 +644,10 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div> */}
+                  </div> 
 
                   {/* Quận / Huyện */}
-                  {/* <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Quận/Huyện <span className="text-red-600">*</span>
                     </label>
@@ -661,10 +668,10 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div> */}
+                  </div>
 
                   {/* Phường / Xã */}
-                  {/* <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phường/Xã <span className="text-red-600">*</span>
                     </label>
@@ -684,7 +691,7 @@ export default function ThanhToan() {
                         </option>
                       ))}
                     </select>
-                  </div> */}
+                  </div>
                 </div>
                 {/* Địa chỉ chi tiết */}
                 <div>
@@ -819,57 +826,57 @@ export default function ThanhToan() {
                       <div className="text-gray-600">
                         Số lượng: {item.quantity}
                       </div>
-                    </div>
-                    <div className="font-semibold text-gray-900">
-                      {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                      {/* Price - Hiển thị giá sale (đỏ, to) và giá gốc (gạch ngang) */}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-red-600 font-bold text-base">
+                          {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                        </span>
+                        {(() => {
+                          // Tính giá gốc: nếu là combo dùng comboOriginalPrice, không thì dùng originalPrice
+                          const originalPrice = item.isCombo && item.comboOriginalPrice
+                            ? item.comboOriginalPrice
+                            : (item.originalPrice || item.price);
+                          const originalAmount = originalPrice * item.quantity;
+                          const discountedAmount = item.price * item.quantity;
+                          
+                          if (originalAmount > discountedAmount) {
+                            return (
+                              <span className="text-gray-400 text-xs line-through">
+                                {originalAmount.toLocaleString("vi-VN")} ₫
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Voucher Section */}
-              <div className="border-t pt-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-700">
-                    Mã giảm giá
+              <div className="border-t pt-4 space-y-3">
+                {/* Tạm tính = tổng giá gốc */}
+                <div className="flex justify-between text-gray-600">
+                  <span>Tạm tính ({selectedCartItems.length} sản phẩm)</span>
+                  <span>
+                    {selectedCartItems.reduce((sum, item) => {
+                      if (item.isCombo && item.comboOriginalPrice) {
+                        return sum + (item.comboOriginalPrice * item.quantity);
+                      }
+                      const originalPrice = item.originalPrice || item.price;
+                      return sum + (originalPrice * item.quantity);
+                    }, 0).toLocaleString("vi-VN")} ₫
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowVoucherModal(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    {selectedVoucherId ? "Đổi mã" : "Chọn mã"}
-                  </button>
                 </div>
-                {selectedVoucherId && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-green-800">
-                        {getVoucherById(selectedVoucherId)?.code}
-                      </span>
-                      <span className="text-xs text-green-600">
-                        -{voucherDiscount.toLocaleString("vi-VN")}₫
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedVoucherId("");
-                        setShowVoucherModal(false);
-                      }}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                    >
-                      ✕
-                    </button>
+                {/* Giảm giá */}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Giảm giá</span>
+                    <span className="font-medium">
+                      -{discountAmount.toLocaleString("vi-VN")} ₫
+                    </span>
                   </div>
                 )}
-              </div>
-
-              <div className="border-t pt-4 space-y-3">
-                <div className="flex justify-between text-gray-600">
-                  <span>Tạm tính</span>
-                  <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
-                </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>
                   <span>
@@ -911,115 +918,6 @@ export default function ThanhToan() {
         </form>
       </div>
 
-      {/* Voucher Modal */}
-      {showVoucherModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Chọn mã giảm giá
-              </h2>
-              <button
-                onClick={() => setShowVoucherModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              {savedVouchers.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🎁</div>
-                  <p className="text-gray-600 mb-4">
-                    Bạn chưa có mã giảm giá nào
-                  </p>
-                  <a
-                    href="/voucher"
-                    className="text-blue-600 hover:text-blue-800 font-semibold"
-                  >
-                    Xem tất cả mã giảm giá →
-                  </a>
-                </div>
-              ) : (
-                savedVouchers.map((voucherId) => {
-                  const voucher = getVoucherById(voucherId);
-                  if (!voucher || !voucher.available) return null;
-                  const discount = calculateDiscount(voucherId, subtotal);
-                  const isSelected = selectedVoucherId === voucherId;
-                  const canUse = subtotal >= voucher.minOrder;
-
-                  return (
-                    <div
-                      key={voucherId}
-                      className={`border-2 rounded-xl p-4 transition-all ${
-                        isSelected
-                          ? "border-blue-600 bg-blue-50"
-                          : canUse
-                          ? "border-gray-200 hover:border-blue-300 cursor-pointer"
-                          : "border-gray-200 opacity-50 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (canUse) {
-                          setSelectedVoucherId(voucherId);
-                          setShowVoucherModal(false);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-lg text-gray-900">
-                              {voucher.code}
-                            </span>
-                            {isSelected && (
-                              <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                Đã chọn
-                              </span>
-                            )}
-                            {!canUse && (
-                              <span className="bg-gray-400 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                Chưa đủ điều kiện
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 mb-1">
-                            {voucher.description}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Đơn hàng tối thiểu:{" "}
-                            {voucher.minOrder.toLocaleString("vi-VN")}₫
-                            {discount > 0 && canUse && (
-                              <span className="ml-2 text-green-600 font-semibold">
-                                (Giảm {discount.toLocaleString("vi-VN")}₫)
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        {canUse && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedVoucherId(voucherId);
-                              setShowVoucherModal(false);
-                            }}
-                            className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                              isSelected
-                                ? "bg-blue-600 text-white"
-                                : "bg-blue-600 hover:bg-blue-700 text-white"
-                            }`}
-                          >
-                            {isSelected ? "Đã chọn" : "Áp dụng"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

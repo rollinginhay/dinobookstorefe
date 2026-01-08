@@ -3,11 +3,68 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BookCard, { Book } from "@/components/BookCard";
-import VoucherSection from "@/components/VoucherSection";
+// import VoucherSection from "@/components/VoucherSection";
 import { domesticBooks } from "@/data/books";
 import { BookDetail } from "@/contexts/ReceiptContext";
 
 const FALLBACK_IMAGE = "/images/dacnhantam.jpg";
+
+// Lấy campaign giảm % đang hoạt động (áp cho toàn bộ sách trên web)
+async function fetchActivePercentageCampaign(): Promise<{
+  name: string | null;
+  percentage: number;
+  campaigns: any[];
+}> {
+  try {
+    console.log("🔍 [Campaign] Đang fetch campaigns từ API...");
+    const res = await fetch("http://localhost:8080/v1/activecampaigns");
+    if (!res.ok) {
+      console.error("❌ [Campaign] API error:", res.status);
+      return { name: null, percentage: 0, campaigns: [] };
+    }
+
+    const json = await res.json();
+    const campaigns = json.data || [];
+    console.log("📊 [Campaign] Tổng số campaigns active:", campaigns.length);
+    console.log("📋 [Campaign] Danh sách campaigns:", campaigns.map((c: any) => ({
+      id: c.id,
+      name: c.attributes?.name,
+      type: c.attributes?.campaignType,
+      percentage: c.attributes?.percentage,
+      maxDiscount: c.attributes?.maxDiscount,
+      enabled: c.attributes?.enabled,
+      endDate: c.attributes?.endDate
+    })));
+
+    // Ưu tiên campaign dạng PERCENTAGE_DISCOUNT (giảm % toàn sàn)
+    const percentageCampaign = campaigns.find(
+      (c: any) =>
+        c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
+        typeof c.attributes?.percentage === "number" &&
+        c.attributes.percentage > 0
+    );
+
+    if (!percentageCampaign) {
+      console.log("⚠️ [Campaign] Không tìm thấy PERCENTAGE_DISCOUNT campaign");
+      return { name: null, percentage: 0, campaigns };
+    }
+
+    console.log("✅ [Campaign] Tìm thấy campaign:", {
+      name: percentageCampaign.attributes.name,
+      percentage: percentageCampaign.attributes.percentage,
+      maxDiscount: percentageCampaign.attributes.maxDiscount
+    });
+
+    return {
+      name: percentageCampaign.attributes.name || null,
+      percentage: percentageCampaign.attributes.percentage,
+      campaigns,
+    };
+  } catch (e) {
+    console.error("❌ [Campaign] Không thể tải campaign đang hoạt động:", e);
+    return { name: null, percentage: 0, campaigns: [] };
+  }
+}
 
 const mapToBookCard = (book: Partial<Book>): Book => ({
   id: Number(book.id),
@@ -53,11 +110,12 @@ export default function Home() {
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [campaignPercentage, setCampaignPercentage] = useState<number>(0);
   const hasFeatured = featuredBooks.length > 0;
   const displayFeatured = hasFeatured ? featuredBooks : fallbackFeaturedBooks;
 
   // 🟢 Fetch TOÀN BỘ SÁCH
-  async function fetchAllBooks() {
+  async function fetchAllBooks(activePercentage: number, campaigns: any[] = []) {
     try {
       const res = await fetch(
         "http://localhost:8080/v1/books?e=true&page=0&limit=30"
@@ -98,7 +156,94 @@ export default function Home() {
             item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
 
           const firstCopy = includedMap.get(`bookDetail-${copyIds[0]}`) || {};
-          const price = firstCopy?.attributes?.supplyPrice || 0;
+          const detailAttrs = firstCopy?.attributes || {};
+          
+          // ✅ Filter: Chỉ lấy sách có stock > 0 VÀ enabled = true
+          const stock = detailAttrs.stock || 0;
+          const enabled = detailAttrs.enabled !== false; // enabled mặc định là true nếu không có
+          if (stock <= 0 || !enabled) {
+            return null; // Skip sách hết hàng hoặc đã ngừng bán
+          }
+          
+          // ⚠️ QUAN TRỌNG: 
+          // - supplyPrice = Giá nhập (giá vốn) - KHÔNG dùng để tính discount
+          // - salePrice = Giá bán ra (giá gốc để tính discount)
+          const salePrice = detailAttrs.salePrice || detailAttrs.supplyPrice || 0;
+          const bookDetailId = Number(copyIds[0]);
+          
+          // ✅ Tự tính giá giảm từ campaign đang active
+          let discountPercent = null;
+          let maxDiscount = null;
+          
+          // Tìm campaign PERCENTAGE_DISCOUNT (áp dụng cho tất cả sách)
+          const percentageDiscountCampaign = campaigns.find(
+            (c: any) =>
+              c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
+              typeof c.attributes?.percentage === "number" &&
+              c.attributes.percentage > 0
+          );
+          
+          if (percentageDiscountCampaign) {
+            discountPercent = percentageDiscountCampaign.attributes.percentage;
+            maxDiscount = percentageDiscountCampaign.attributes.maxDiscount || null;
+            console.log(`💰 [Price] Sách "${item.attributes?.title}" - Campaign found:`, {
+              name: percentageDiscountCampaign.attributes?.name,
+              percentage: discountPercent,
+              maxDiscount,
+              salePrice,
+              startDate: percentageDiscountCampaign.attributes?.startDate,
+              endDate: percentageDiscountCampaign.attributes?.endDate
+            });
+          } else {
+            console.log(`⚠️ [Price] Sách "${item.attributes?.title}" - KHÔNG TÌM THẤY PERCENTAGE_DISCOUNT campaign`);
+            console.log(`📋 [Price] Available campaigns:`, campaigns.map((c: any) => ({
+              name: c.attributes?.name,
+              type: c.attributes?.campaignType,
+              percentage: c.attributes?.percentage
+            })));
+          }
+          
+          // Tính giá sau giảm
+          let finalPrice = salePrice;
+          let originalPrice = null;
+          let discount = 0;
+          
+          if (discountPercent && discountPercent > 0 && salePrice > 0) {
+            // Tính số tiền giảm
+            let discountedAmount = salePrice * (discountPercent / 100);
+            console.log(`💰 [Price] Sách "${item.attributes?.title}" - Discounted amount (before max):`, discountedAmount);
+            
+            // Áp dụng maxDiscount nếu có
+            if (maxDiscount && discountedAmount > maxDiscount) {
+              discountedAmount = maxDiscount;
+              console.log(`💰 [Price] Sách "${item.attributes?.title}" - Applied maxDiscount:`, maxDiscount);
+            }
+            
+            finalPrice = Math.round(salePrice - discountedAmount);
+            
+            // Chỉ hiển thị discount nếu thực sự có giảm giá
+            if (finalPrice < salePrice && finalPrice > 0) {
+              originalPrice = salePrice;
+              discount = discountPercent;
+              console.log(`✅ [Price] Sách "${item.attributes?.title}" - CÓ GIẢM GIÁ:`, {
+                originalPrice,
+                finalPrice,
+                discount: discount + "%"
+              });
+            } else {
+              finalPrice = salePrice;
+              console.log(`⚠️ [Price] Sách "${item.attributes?.title}" - KHÔNG CÓ GIẢM GIÁ (finalPrice >= salePrice hoặc <= 0)`, {
+                finalPrice,
+                salePrice
+              });
+            }
+          } else {
+            if (salePrice <= 0) {
+              console.log(`⚠️ [Price] Sách "${item.attributes?.title}" - salePrice = 0 hoặc null`);
+            } else {
+              console.log(`ℹ️ [Price] Sách "${item.attributes?.title}" - Không có campaign PERCENTAGE_DISCOUNT`);
+            }
+          }
 
           const rating = item.attributes?.rating || 0;
 
@@ -107,11 +252,19 @@ export default function Home() {
             title: item.attributes?.title || "Không có tên",
             author: authors,
             genreName,
-            price,
+            price: finalPrice, // Giá hiển thị (discountPrice nếu có, salePrice nếu không)
+            originalPrice: originalPrice, // Giá gốc (salePrice nếu có discount, null nếu không)
+            discount,
             rating,
             image: item.attributes?.imageUrl,
+            sold: stock, // Lưu stock vào sold để BookCombo check
+            bookDetailId: Number(copyIds[0]) || 0,
+            bookFormat: detailAttrs.bookFormat || "Khác",
+            year: item.attributes?.year || 0,
+            language: item.attributes?.language || "Không rõ",
           };
-        }) || [];
+        })
+        .filter((book: Book | null) => book !== null) || [];
 
       localStorage.setItem("allBookData", JSON.stringify(books));
       setAllBooks(books);
@@ -127,7 +280,9 @@ export default function Home() {
       try {
         setLoading(true);
         localStorage.removeItem("allBookData");
-        await Promise.all([fetchAllBooks()]);
+        const { percentage, campaigns } = await fetchActivePercentageCampaign();
+        setCampaignPercentage(percentage || 0);
+        await Promise.all([fetchAllBooks(percentage || 0, campaigns || [])]);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -177,7 +332,7 @@ export default function Home() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32 text-center">
           <h1 className="text-7xl md:text-9xl font-black text-white mb-6">
-            11.11
+            15.1
           </h1>
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
             NGÀY ĐÔI SALE VÔ LỖI
@@ -196,7 +351,7 @@ export default function Home() {
       </section>
 
       {/* 🎁 Voucher Section */}
-      <VoucherSection />
+      {/* <VoucherSection /> */}
 
       {/* 🏆 Sách nổi bật */}
       <section id="featured" className="py-16 bg-white">

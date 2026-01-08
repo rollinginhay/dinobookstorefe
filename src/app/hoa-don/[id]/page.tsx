@@ -9,6 +9,7 @@ export default function HoaDon() {
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedCombos, setExpandedCombos] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!receiptId) return;
@@ -274,10 +275,17 @@ export default function HoaDon() {
 
             const comboInfo = receiptDetailIdToComboMap[rd.id];
 
+            // ✅ Lấy giá gốc từ bookDetail (salePrice)
+            const bookDetailObj = bookDetails.find((bd: any) => String(bd.id) === String(bookDetailId));
+            const bookDetailAttrs = bookDetailObj?.attributes || {};
+            const originalPrice = bookDetailAttrs.salePrice || rd.attributes?.pricePerUnit || 0;
+            const discountedPrice = rd.attributes?.pricePerUnit ?? 0;
+
             return {
               id: rd.id,
               title: book?.attributes?.title ?? "Sách",
-              price: rd.attributes?.pricePerUnit ?? 0,
+              price: discountedPrice, // Giá đã giảm
+              originalPrice: originalPrice, // ✅ Giá gốc (salePrice)
               quantity: rd.attributes?.quantity ?? 1,
               image: book?.attributes?.imageUrl ?? "/default-book.jpg",
               bookDetailId: bookDetailId,
@@ -285,6 +293,7 @@ export default function HoaDon() {
               comboId: comboInfo?.comboId,
               comboName: comboInfo?.comboName,
               comboPrice: comboInfo?.comboPrice,
+              comboOriginalPrice: comboInfo?.comboOriginalPrice, // ✅ Giá gốc combo
             };
           })
         );
@@ -312,14 +321,19 @@ export default function HoaDon() {
           if (comboItems.length > 0) {
             const firstItem = comboItems[0];
             const comboInfo = receiptDetailIdToComboMap[firstItem.id];
+            const comboPrice = comboInfo?.comboPrice || comboItems.reduce((sum, item) => sum + item.price, 0);
+            const comboOriginalPrice = comboInfo?.comboOriginalPrice || comboItems.reduce((sum, item) => sum + (item.originalPrice || item.price), 0);
+            
             finalProductList.push({
               id: `combo-${comboInfo?.comboId}`,
               isCombo: true,
               comboName: comboInfo?.comboName || "Combo sách",
-              comboPrice: comboInfo?.comboPrice || comboItems.reduce((sum, item) => sum + item.price, 0),
+              comboPrice: comboPrice, // Giá đã giảm
+              comboOriginalPrice: comboOriginalPrice, // ✅ Giá gốc combo
               quantity: firstItem.quantity,
               items: comboItems,
-              totalPrice: (comboInfo?.comboPrice || comboItems.reduce((sum, item) => sum + item.price, 0)) * firstItem.quantity,
+              totalPrice: comboPrice * firstItem.quantity,
+              totalOriginalPrice: comboOriginalPrice * firstItem.quantity, // ✅ Tổng giá gốc
             });
           }
         });
@@ -385,8 +399,23 @@ export default function HoaDon() {
   const { info, items, shipping, voucherDiscount, subTotal, finalTotal, note, createdAt, orderCode, orderType } =
     order;
 
-  // Tính lại "Tổng tiền hàng" từ danh sách sản phẩm (chưa có phí ship và voucher)
-  const calculatedSubTotal = items.reduce((total: number, item: any) => {
+  // ✅ Tính "Tổng tiền hàng" = tổng giá gốc của tất cả sách
+  const totalOriginalPrice = items.reduce((total: number, item: any) => {
+    if (item.isCombo && item.totalOriginalPrice) {
+      // Combo: dùng totalOriginalPrice (tổng giá gốc combo)
+      return total + item.totalOriginalPrice;
+    } else if (item.isCombo && item.comboOriginalPrice) {
+      // Combo: comboOriginalPrice * quantity
+      return total + (item.comboOriginalPrice || 0) * (item.quantity || 1);
+    } else {
+      // Item đơn lẻ: originalPrice * quantity (nếu có), nếu không thì dùng price
+      const originalPrice = item.originalPrice || item.price || 0;
+      return total + originalPrice * (item.quantity || 1);
+    }
+  }, 0);
+
+  // ✅ Tính "Tổng giá đã giảm" = tổng giá đã giảm của tất cả sách
+  const totalDiscountedPrice = items.reduce((total: number, item: any) => {
     if (item.isCombo && item.totalPrice) {
       // Combo: dùng totalPrice đã tính sẵn
       return total + item.totalPrice;
@@ -396,8 +425,11 @@ export default function HoaDon() {
     }
   }, 0);
 
-  // Tính lại "Thành tiền" = Tổng tiền hàng + Phí ship - Giảm giá
-  const calculatedFinalTotal = calculatedSubTotal + shipping - voucherDiscount;
+  // ✅ Tính "Giảm giá" = tổng giá gốc - tổng giá đã giảm
+  const totalDiscount = totalOriginalPrice - totalDiscountedPrice;
+
+  // ✅ Tính "Thành tiền" = Tổng giá đã giảm + Phí ship
+  const calculatedFinalTotal = totalDiscountedPrice + shipping;
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-6">
@@ -486,10 +518,12 @@ export default function HoaDon() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Phương thức thanh toán:</span>
                     <span className="text-red-600 font-semibold">
-                      {info.paymentMethod === "CASH" || info.paymentMethod === "COD"
-                        ? "Tiền mặt"
+                      {info.paymentMethod === "COD"
+                        ? "COD"
                         : info.paymentMethod === "VNPAY"
                         ? "VNPay"
+                        : info.paymentMethod === "CASH"
+                        ? "Tiền mặt"
                         : info.paymentMethod === "MOMO"
                         ? "MoMo"
                         : info.paymentMethod}
@@ -497,7 +531,7 @@ export default function HoaDon() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Tổng tiền hàng:</span>
-                    <span className="text-gray-700 font-semibold">{calculatedSubTotal.toLocaleString("vi-VN")} ₫</span>
+                    <span className="text-gray-700 font-semibold">{totalOriginalPrice.toLocaleString("vi-VN")} ₫</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Phí ship:</span>
@@ -507,10 +541,10 @@ export default function HoaDon() {
                       <span className="text-gray-700">{shipping.toLocaleString("vi-VN")} ₫</span>
                     )}
                   </div>
-                  {voucherDiscount > 0 && (
+                  {totalDiscount > 0 && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-800 min-w-[160px]">Giảm giá:</span>
-                      <span className="text-red-600 font-semibold">-{voucherDiscount.toLocaleString("vi-VN")} ₫</span>
+                      <span className="text-red-600 font-semibold">-{totalDiscount.toLocaleString("vi-VN")} ₫</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 pt-2 border-t-2 border-red-200">
@@ -554,68 +588,112 @@ export default function HoaDon() {
                 <tbody>
                   {items.map((item: any, index: number) => {
                     if (item.isCombo && item.items && item.items.length > 0) {
-                      // Hiển thị combo với giao diện đẹp hơn
+                      // ✅ Hiển thị combo với nút expand/collapse
+                      const comboId = item.id || `combo-${index}`;
+                      const isExpanded = expandedCombos.has(comboId);
+                      const bookTitles = item.items.map((comboItem: any) => comboItem.title).join(", ");
+                      const displayTitles = bookTitles.length > 60 ? bookTitles.substring(0, 60) + "..." : bookTitles;
+                      
+                      const toggleExpand = () => {
+                        setExpandedCombos((prev) => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(comboId)) {
+                            newSet.delete(comboId);
+                          } else {
+                            newSet.add(comboId);
+                          }
+                          return newSet;
+                        });
+                      };
+                      
                       return (
                         <React.Fragment key={item.id}>
-                          {/* Dòng combo header với design đẹp hơn */}
-                          <tr className="border-b-2 border-red-300 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all shadow-sm">
-                            <td className="py-5 px-4 align-top" rowSpan={item.items.length + 1}>
+                          {/* Dòng combo header */}
+                          <tr className="border-b-2 border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all duration-200">
+                            <td className="py-5 px-6" rowSpan={isExpanded ? item.items.length + 1 : 1}>
                               <div className="flex flex-col items-center gap-2">
-                                <span className="font-bold text-red-600 text-xl">{index + 1}</span>
+                                <span className="font-bold text-red-600 text-xl">
+                                  {index + 1}
+                                </span>
                                 <span className="bg-gradient-to-r from-red-400 to-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
                                   COMBO
                                 </span>
                               </div>
                             </td>
-                            <td className="py-5 px-4" colSpan={2}>
-                              <div className="flex items-center gap-4">
-                                <div className="w-20 h-24 bg-gradient-to-br from-red-300 to-rose-500 rounded-xl flex items-center justify-center shadow-lg border-2 border-red-200">
-                                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                  </svg>
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <span className="font-semibold text-gray-800 text-base">
-                                      {item.comboName || "Combo sách"}
-                                    </span>
-                                  </div>
-                                  {item.comboDiscount && (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-red-600 font-semibold text-sm">
-                                        -{item.comboDiscount}%
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
+                            <td className="py-5 px-6">
+                              <div className="flex items-center">
+                                <img
+                                  src={item.items[0]?.image || item.image}
+                                  alt={item.comboName || "Combo"}
+                                  className="w-20 h-24 object-cover rounded-xl shadow-lg border-2 border-red-100 hover:border-red-300 transition-all"
+                                />
                               </div>
                             </td>
-                            <td className="py-5 px-4 text-right align-top">
+                            <td className="py-5 px-6">
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold text-gray-800 text-base">
+                                    {item.comboName || "Combo sách"}
+                                  </span>
+                                  {/* ✅ Nút expand/collapse */}
+                                  <button
+                                    onClick={toggleExpand}
+                                    className="ml-2 p-1 text-gray-500 hover:text-red-600 transition-colors"
+                                    title={isExpanded ? "Thu gọn" : "Xem chi tiết"}
+                                  >
+                                    {isExpanded ? (
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                </div>
+                                {/* ✅ Tên sách (nhạt nhạt, truncate với 3 chấm) */}
+                                <span className="text-gray-400 text-xs line-clamp-1">
+                                  {displayTitles}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-5 px-6 text-right">
                               <div className="flex flex-col items-end gap-1">
+                                {/* Giá đã giảm (đỏ, to) */}
+                                <span className="font-bold text-red-600 text-base">
+                                  {item.comboPrice.toLocaleString("vi-VN")} ₫
+                                </span>
+                                {/* Giá gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
                                 {item.comboOriginalPrice && item.comboOriginalPrice > item.comboPrice && (
                                   <span className="text-xs text-gray-400 line-through">
                                     {item.comboOriginalPrice.toLocaleString("vi-VN")} ₫
                                   </span>
                                 )}
-                                <span className="font-bold text-red-500 text-lg">
-                                  {item.comboPrice.toLocaleString("vi-VN")} ₫
-                                </span>
-                                <span className="text-xs text-gray-500">/combo</span>
                               </div>
                             </td>
-                            <td className="py-5 px-4 text-right align-top">
+                            <td className="py-5 px-6 text-right">
                               <span className="font-bold text-red-600 text-lg">
-                                {item.items.length * item.quantity}
+                                {item.quantity}
                               </span>
                             </td>
-                            <td className="py-5 px-4 text-right align-top">
-                              <span className="font-bold text-red-500 text-xl">
-                                {item.totalPrice.toLocaleString("vi-VN")} ₫
-                              </span>
+                            <td className="py-5 px-6 text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                {/* Thành tiền đã giảm (đỏ, to) */}
+                                <span className="font-bold text-red-600 text-lg">
+                                  {item.totalPrice.toLocaleString("vi-VN")} ₫
+                                </span>
+                                {/* Thành tiền gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
+                                {item.totalOriginalPrice && item.totalOriginalPrice > item.totalPrice && (
+                                  <span className="text-xs text-gray-400 line-through">
+                                    {item.totalOriginalPrice.toLocaleString("vi-VN")} ₫
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
-                          {/* Các dòng sách trong combo với design đẹp */}
-                          {item.items.map((comboItem: any, comboIdx: number) => (
+                          {/* ✅ Chi tiết các sách trong combo (chỉ hiển thị khi expanded) */}
+                          {isExpanded && item.items.map((comboItem: any, comboIdx: number) => (
                             <tr
                               key={`${item.id}-${comboItem.id || comboIdx}`}
                               className="border-b border-red-100 bg-gradient-to-r from-red-50/30 to-rose-50/30 hover:from-red-50 hover:to-rose-50 transition-all"
@@ -644,16 +722,18 @@ export default function HoaDon() {
                                 </div>
                               </td>
                               <td className="py-4 px-4 text-right">
-                                <span className="text-gray-600 text-sm">
-                                  {(comboItem.price || 0).toLocaleString("vi-VN")} ₫
+                                {/* ✅ Hiển thị giá gốc (originalPrice) cho sản phẩm lẻ trong combo */}
+                                <span className="text-gray-600 text-sm font-medium">
+                                  {(comboItem.originalPrice || comboItem.price || 0).toLocaleString("vi-VN")} ₫
                                 </span>
                               </td>
                               <td className="py-4 px-4 text-right">
                                 <span className="text-gray-600">{comboItem.quantity || 1}</span>
                               </td>
                               <td className="py-4 px-4 text-right">
+                                {/* ✅ Hiển thị thành tiền gốc cho sản phẩm lẻ trong combo */}
                                 <span className="text-gray-700 font-medium">
-                                  {((comboItem.price || 0) * (comboItem.quantity || 1)).toLocaleString("vi-VN")} ₫
+                                  {((comboItem.originalPrice || comboItem.price || 0) * (comboItem.quantity || 1)).toLocaleString("vi-VN")} ₫
                                 </span>
                               </td>
                             </tr>
@@ -689,11 +769,17 @@ export default function HoaDon() {
                             </span>
                           </td>
                           <td className="py-5 px-6 text-right">
-                            <div className="flex flex-col items-end">
+                            <div className="flex flex-col items-end gap-1">
+                              {/* Giá đã giảm (đỏ, to) */}
                               <span className="font-bold text-red-600 text-base">
                                 {item.price.toLocaleString("vi-VN")} ₫
                               </span>
-                              <span className="text-xs text-gray-500">/quyển</span>
+                              {/* Giá gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
+                              {item.originalPrice && item.originalPrice > item.price && (
+                                <span className="text-xs text-gray-400 line-through">
+                                  {item.originalPrice.toLocaleString("vi-VN")} ₫
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="py-5 px-6 text-right">
@@ -702,9 +788,18 @@ export default function HoaDon() {
                             </span>
                           </td>
                           <td className="py-5 px-6 text-right">
-                            <span className="font-bold text-red-600 text-lg">
-                              {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              {/* Thành tiền đã giảm (đỏ, to) */}
+                              <span className="font-bold text-red-600 text-lg">
+                                {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                              </span>
+                              {/* Thành tiền gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
+                              {item.originalPrice && item.originalPrice > item.price && (
+                                <span className="text-xs text-gray-400 line-through">
+                                  {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} ₫
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

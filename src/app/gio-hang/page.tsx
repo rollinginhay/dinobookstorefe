@@ -56,23 +56,15 @@ function ComboItem({
                 {item.comboBooks.map((b) => b.title).join(", ").length > 80 &&
                   "..."}
               </p>
-
-              {/* Combo Price Info */}
+              {/* Price - Hiển thị giá sale và giá gốc - dưới tên combo */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-red-600 font-bold text-lg">
-                  {item.price.toLocaleString("vi-VN")} ₫
+                <span className="text-xl font-bold text-red-600">
+                  {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
                 </span>
-                {item.comboOriginalPrice && (
-                  <>
-                    <span className="text-gray-400 text-sm line-through">
-                      {item.comboOriginalPrice.toLocaleString("vi-VN")} ₫
-                    </span>
-                    {item.comboDiscount && (
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded">
-                        -{item.comboDiscount}%
-                      </span>
-                    )}
-                  </>
+                {item.comboOriginalPrice && item.comboOriginalPrice > item.price && (
+                  <span className="text-gray-400 text-sm line-through">
+                    {(item.comboOriginalPrice * item.quantity).toLocaleString("vi-VN")} ₫
+                  </span>
                 )}
               </div>
 
@@ -125,7 +117,7 @@ function ComboItem({
                       <p className="text-gray-500 text-xs">{book.author}</p>
                     </div>
                     <span className="text-gray-600">
-                      {book.price.toLocaleString("vi-VN")} ₫
+                      {(book.originalPrice || book.price).toLocaleString("vi-VN")} ₫
                     </span>
                   </div>
                 ))}
@@ -135,13 +127,8 @@ function ComboItem({
         </div>
       </div>
 
-      {/* Combo Price and Actions */}
-      <div className="flex items-center justify-between mt-4">
-        {/* Price */}
-        <span className="text-2xl font-bold text-red-600">
-          {item.amount.toLocaleString("vi-VN")} ₫
-        </span>
-
+      {/* Combo Actions */}
+      <div className="flex items-center justify-end mt-4">
         {/* Actions */}
         <div className="flex items-center gap-4">
           {/* Quantity Selector */}
@@ -226,6 +213,7 @@ export default function GioHang() {
     isAllSelected,
     selectedTotalItems,
     selectedTotalPrice,
+    selectedCartItems, // ✅ Lấy selectedCartItems từ context
     totalItems,
     totalPrice,
   } = useCart();
@@ -259,7 +247,7 @@ export default function GioHang() {
     );
     return {
       title: foundBookDetail?.title || NOT_FOUND_BOOK_ID,
-      authorName: foundBookDetail.author || NOT_AUTHORIZED,
+      authorName: foundBookDetail?.author || NOT_AUTHORIZED,
     };
   };
 
@@ -469,15 +457,21 @@ export default function GioHang() {
                               <p className="text-gray-600 mb-2">
                                 {getBookDataByID(item.id).authorName}
                               </p>
+                              {/* Price - Hiển thị giá sale (đỏ, to) và giá gốc (gạch ngang) - dưới tên tác giả */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xl font-bold text-red-600">
+                                  {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                                </span>
+                                {item.originalPrice && item.originalPrice > item.price && (
+                                  <span className="text-gray-400 text-sm line-through">
+                                    {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} ₫
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between mt-4">
-                            {/* Price */}
-                            <span className="text-2xl font-bold text-red-600">
-                              {item.amount.toLocaleString("vi-VN")} ₫
-                            </span>
-
+                          <div className="flex items-center justify-end mt-4">
                             {/* Actions */}
                             <div className="flex items-center gap-4">
                               {/* Quantity Selector */}
@@ -569,17 +563,6 @@ export default function GioHang() {
                               </button>
                             </div>
                           </div>
-
-                          {/* Subtotal */}
-                          <div className="text-right mt-2">
-                            <span className="text-gray-600">Thành tiền: </span>
-                            <span className="text-xl font-bold text-red-600">
-                              {(item.price * item.quantity).toLocaleString(
-                                "vi-VN"
-                              )}{" "}
-                              ₫
-                            </span>
-                          </div>
                         </>
                       )}
                     </div>
@@ -598,14 +581,43 @@ export default function GioHang() {
                 <div className="space-y-4 mb-6">
                   {selectedTotalItems > 0 ? (
                     <>
+                      {/* Tạm tính = tổng giá gốc (originalPrice) */}
                       <div className="flex justify-between text-gray-600">
                         <span>
                           Tạm tính ({selectedTotalItems} sản phẩm đã chọn)
                         </span>
                         <span>
-                          {selectedTotalPrice.toLocaleString("vi-VN")} ₫
+                          {selectedCartItems.reduce((sum, item) => {
+                            const originalPrice = item.originalPrice || item.price;
+                            const originalAmount = originalPrice * item.quantity;
+                            // Nếu là combo, dùng comboOriginalPrice
+                            if (item.isCombo && item.comboOriginalPrice) {
+                              return sum + (item.comboOriginalPrice * item.quantity);
+                            }
+                            return sum + originalAmount;
+                          }, 0).toLocaleString("vi-VN")} ₫
                         </span>
                       </div>
+                      {/* Số tiền giảm */}
+                      {(() => {
+                        const totalOriginal = selectedCartItems.reduce((sum, item) => {
+                          if (item.isCombo && item.comboOriginalPrice) {
+                            return sum + (item.comboOriginalPrice * item.quantity);
+                          }
+                          const originalPrice = item.originalPrice || item.price;
+                          return sum + (originalPrice * item.quantity);
+                        }, 0);
+                        const totalDiscounted = selectedTotalPrice;
+                        const discountAmount = totalOriginal - totalDiscounted;
+                        return discountAmount > 0 ? (
+                          <div className="flex justify-between text-green-600">
+                            <span>Số tiền giảm</span>
+                            <span className="font-medium">
+                              -{discountAmount.toLocaleString("vi-VN")} ₫
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="flex justify-between text-gray-600">
                         <span>Phí vận chuyển</span>
                         <span>
@@ -618,24 +630,40 @@ export default function GioHang() {
                           )}
                         </span>
                       </div>
-                      {selectedTotalPrice > 0 &&
-                        selectedTotalPrice < 299000 && (
-                          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                            Mua thêm{" "}
-                            {(299000 - selectedTotalPrice).toLocaleString(
-                              "vi-VN"
-                            )}{" "}
-                            ₫ để được miễn phí ship
-                          </div>
-                        )}
-                      <div className="border-t pt-4">
-                        <div className="flex justify-between text-lg font-bold text-gray-900">
-                          <span>Tổng cộng</span>
-                          <span className="text-red-600">
-                            {finalTotal.toLocaleString("vi-VN")} ₫
-                          </span>
-                        </div>
-                      </div>
+                      {(() => {
+                        const totalOriginal = selectedCartItems.reduce((sum, item) => {
+                          if (item.isCombo && item.comboOriginalPrice) {
+                            return sum + (item.comboOriginalPrice * item.quantity);
+                          }
+                          const originalPrice = item.originalPrice || item.price;
+                          return sum + (originalPrice * item.quantity);
+                        }, 0);
+                        const totalDiscounted = selectedTotalPrice;
+                        const discountAmount = totalOriginal - totalDiscounted;
+                        const finalTotalWithDiscount = totalDiscounted + shipping;
+                        return (
+                          <>
+                            {totalDiscounted > 0 &&
+                              totalDiscounted < 299000 && (
+                                <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                                  Mua thêm{" "}
+                                  {(299000 - totalDiscounted).toLocaleString(
+                                    "vi-VN"
+                                  )}{" "}
+                                  ₫ để được miễn phí ship
+                                </div>
+                              )}
+                            <div className="border-t pt-4">
+                              <div className="flex justify-between text-lg font-bold text-gray-900">
+                                <span>Tổng cộng</span>
+                                <span className="text-red-600">
+                                  {finalTotalWithDiscount.toLocaleString("vi-VN")} ₫
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="text-center py-8 text-gray-500">

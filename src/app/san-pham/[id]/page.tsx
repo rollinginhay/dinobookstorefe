@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
 import PromotionBanner from "@/components/PromotionBanner";
-import BookCombo from "@/components/BookCombo";
+import AdminCombo from "@/components/AdminCombo";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorite } from "@/contexts/FavoriteContext";
 import Link from "next/link";
@@ -21,9 +21,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<
-    "description" | "details" | "reviews"
+    "description" | "details"
   >("description");
   const [loading, setLoading] = useState(true);
+  const [campaignDiscount, setCampaignDiscount] = useState<number>(0);
+  const [campaignName, setCampaignName] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchBookAndRelated() {
@@ -115,25 +117,36 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
 
         // const price = firstCopy?.attributes?.supplyPrice || 0;
         // const pages = firstCopy?.attributes?.pages || "Không rõ";
-        const stock = firstCopy.attributes.stock;
+        const stock = firstCopy.attributes?.stock || 0;
+        const enabled = firstCopy.attributes?.enabled !== false; // enabled mặc định là true nếu không có
+
+        // ✅ Filter: Nếu stock = 0 hoặc enabled = false thì redirect về trang chủ
+        if (stock <= 0 || !enabled) {
+          router.push("/");
+          return;
+        }
 
         const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
         const detail = detailObj?.attributes || detailObj || {};
 
-        // Một số API trả price, một số trả supplyPrice → ưu tiên supplyPrice
-        const price = detail.supplyPrice || detail.price || 0;
-        const pages = detail.pages || "Không rõ";
+        // ⚠️ QUAN TRỌNG: 
+        // - supplyPrice = Giá nhập (giá vốn) - KHÔNG dùng để tính discount
+        // - salePrice = Giá bán ra (giá gốc để tính discount)
+        const salePrice = detail.salePrice || detail.supplyPrice || 0;
+        
+        const pages = detail.pages || detail.printLength || "Không rõ";
         const isbn = detail.isbn || "Không rõ";
-
         const bookFormat = detail.bookFormat || "Khác";
         const bookDetailId = Number(copyIds[0]);
 
-        // --- DỮ LIỆU HOÀN CHỈNH ---
+        // --- DỮ LIỆU HOÀN CHỈNH (giá sẽ được tính sau khi fetch campaign) ---
         const bookData: Book = {
           id: Number(item.id),
           title: item.attributes?.title,
           author: authors,
-          price,
+          price: salePrice, // Tạm thời dùng salePrice, sẽ cập nhật sau khi tính discount
+          originalPrice: undefined,
+          discount: 0,
           genreName,
           rating: item.attributes?.rating || 4.5,
           description: item.attributes?.description || "",
@@ -151,7 +164,107 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           bookFormat,
         };
 
-        setBook(bookData);
+        // ✅ Fetch campaign và tính giá giảm
+        try {
+          console.log("🔍 [ProductDetail] Đang fetch campaigns...");
+          const campaignRes = await fetch(
+            "http://localhost:8080/v1/activecampaigns"
+          );
+          if (campaignRes.ok) {
+            const campaignJson = await campaignRes.json();
+            const campaigns = campaignJson.data || [];
+            console.log("📊 [ProductDetail] Tổng số campaigns:", campaigns.length);
+            console.log("📋 [ProductDetail] Campaigns:", campaigns.map((c: any) => ({
+              id: c.id,
+              name: c.attributes?.name,
+              type: c.attributes?.campaignType,
+              percentage: c.attributes?.percentage,
+              maxDiscount: c.attributes?.maxDiscount
+            })));
+            
+            // Tìm campaign PERCENTAGE_DISCOUNT (áp dụng cho tất cả sách)
+            const percentageCampaign = campaigns.find(
+              (c: any) =>
+                c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
+                typeof c.attributes?.percentage === "number" &&
+                c.attributes.percentage > 0
+            );
+
+            let finalPrice = salePrice;
+            let originalPrice = null;
+            let discountPercent = 0;
+            let campaignName = null;
+
+            if (percentageCampaign) {
+              const discount = percentageCampaign.attributes.percentage;
+              const maxDiscount = percentageCampaign.attributes.maxDiscount || null;
+              campaignName = percentageCampaign.attributes.name || null;
+              
+              console.log("✅ [ProductDetail] Tìm thấy campaign:", {
+                name: campaignName,
+                percentage: discount,
+                maxDiscount,
+                salePrice
+              });
+              
+              // Tính giá sau giảm
+              if (discount > 0 && salePrice > 0) {
+                let discountedAmount = salePrice * (discount / 100);
+                console.log("💰 [ProductDetail] Discounted amount (before max):", discountedAmount);
+                
+                // Áp dụng maxDiscount nếu có
+                if (maxDiscount && discountedAmount > maxDiscount) {
+                  discountedAmount = maxDiscount;
+                  console.log("💰 [ProductDetail] Applied maxDiscount:", maxDiscount);
+                }
+                
+                finalPrice = Math.round(salePrice - discountedAmount);
+                console.log("💰 [ProductDetail] Final price calculated:", finalPrice);
+                
+                // Chỉ hiển thị discount nếu thực sự có giảm giá
+                if (finalPrice < salePrice && finalPrice > 0) {
+                  originalPrice = salePrice;
+                  discountPercent = discount;
+                  console.log("✅ [ProductDetail] CÓ GIẢM GIÁ:", {
+                    originalPrice,
+                    finalPrice,
+                    discount: discountPercent + "%"
+                  });
+                } else {
+                  finalPrice = salePrice;
+                  console.log("⚠️ [ProductDetail] KHÔNG CÓ GIẢM GIÁ (finalPrice >= salePrice hoặc <= 0)");
+                }
+              }
+            } else {
+              console.log("⚠️ [ProductDetail] Không tìm thấy PERCENTAGE_DISCOUNT campaign");
+            }
+
+            // Cập nhật bookData với giá đã tính
+            bookData.price = finalPrice;
+            bookData.originalPrice = originalPrice;
+            bookData.discount = discountPercent;
+            
+            console.log("📦 [ProductDetail] Final bookData:", {
+              price: bookData.price,
+              originalPrice: bookData.originalPrice,
+              discount: bookData.discount
+            });
+            
+            setBook(bookData);
+            setCampaignDiscount(discountPercent);
+            setCampaignName(campaignName);
+          } else {
+            console.error("❌ [ProductDetail] API error:", campaignRes.status);
+            setBook(bookData);
+            setCampaignDiscount(0);
+            setCampaignName(null);
+          }
+        } catch (error) {
+          console.error("❌ [ProductDetail] Không thể tải campaign đang hoạt động:", error);
+          setBook(bookData);
+          setCampaignDiscount(0);
+          setCampaignName(null);
+        }
 
         // =============================
         // FETCH SÁCH CHO COMBO THEO CATEGORY/GENRE
@@ -207,10 +320,12 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       .filter(Boolean)
                       .join(", ") || "—";
 
-                  const priceRel = det.supplyPrice || det.price || 0;
+                  // ✅ Lấy salePrice làm giá gốc (giống trang chủ)
+                  const priceRel = det.salePrice || det.supplyPrice || 0;
+                  const stockRel = det.stock || 0;
 
-                  // Chỉ lọc sách có đủ thông tin cơ bản
-                  if (!b.id || !b.attributes?.title || priceRel <= 0) {
+                  // Chỉ lọc sách có đủ thông tin cơ bản VÀ còn hàng
+                  if (!b.id || !b.attributes?.title || priceRel <= 0 || stockRel <= 0) {
                     return null;
                   }
 
@@ -226,6 +341,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                     bookFormat: det.bookFormat || "Khác",
                     year: b.attributes?.year || 0,
                     language: b.attributes?.language || "Không rõ",
+                    sold: stockRel,
                   } as Book;
                 })
                 .filter((b: Book | null): b is Book => b !== null) || []; // Lọc sách hợp lệ
@@ -248,9 +364,8 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
               const diversifiedBooks: Book[] = [];
               const maxPerAuthor = 2;
               const maxComboSize = 6; // Tối đa 6 cuốn trong combo
-              const minComboSize = 2; // Tối thiểu 2 cuốn để có combo
 
-              for (const [author, books] of authorGroups.entries()) {
+              for (const [, books] of authorGroups.entries()) {
                 if (diversifiedBooks.length >= maxComboSize) break;
                 const booksToAdd = books.slice(0, maxPerAuthor);
                 diversifiedBooks.push(...booksToAdd);
@@ -318,10 +433,12 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       .map((id: string) => fallbackIncludedMap.get(`creator-${id}`)?.attributes?.name)
                       .filter(Boolean)
                       .join(", ") || "—";
-                    const priceRel = det.supplyPrice || det.price || 0;
+                    // ✅ Lấy salePrice làm giá gốc (giống trang chủ)
+                    const priceRel = det.salePrice || det.supplyPrice || 0;
+                    const stockRel = det.stock || 0;
 
-                    // Chỉ lọc sách có đủ thông tin cơ bản
-                    if (!b.id || !b.attributes?.title || priceRel <= 0) {
+                    // Chỉ lọc sách có đủ thông tin cơ bản VÀ còn hàng
+                    if (!b.id || !b.attributes?.title || priceRel <= 0 || stockRel <= 0) {
                       return null;
                     }
 
@@ -337,6 +454,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       bookFormat: det.bookFormat || "Khác",
                       year: b.attributes?.year || 0,
                       language: b.attributes?.language || "Không rõ",
+                      sold: stockRel,
                     } as Book;
                   })
                   .filter((b: Book | null): b is Book => b !== null) || [];
@@ -358,7 +476,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                   const maxPerAuthor = 2;
                   const maxComboSize = 6;
 
-                  for (const [author, books] of authorGroups.entries()) {
+                  for (const [, books] of authorGroups.entries()) {
                     if (diversifiedFallback.length >= maxComboSize) break;
                     const booksToAdd = books.slice(0, maxPerAuthor);
                     diversifiedFallback.push(...booksToAdd);
@@ -386,12 +504,84 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           }
         }
 
-        // Đảm bảo luôn set relatedBooks, ngay cả khi rỗng
+        // =============================
+        // TÍNH DISCOUNT CHO SÁCH LIÊN QUAN (giống trang chủ)
+        // =============================
         console.log("📚 Final combo books:", comboBooks.length, "cuốn");
         if (comboBooks.length > 0) {
           console.log("📖 Danh sách sách:", comboBooks.map(b => b.title));
         }
-        setRelatedBooks(comboBooks);
+
+        // Fetch campaign PERCENTAGE_DISCOUNT để tính discount
+        try {
+          console.log("🔍 [RelatedBooks] Đang fetch campaigns để tính discount...");
+          const campaignRes = await fetch("http://localhost:8080/v1/activecampaigns");
+          if (campaignRes.ok) {
+            const campaignJson = await campaignRes.json();
+            const campaigns = campaignJson.data || [];
+            
+            // Tìm campaign PERCENTAGE_DISCOUNT
+            const percentageCampaign = campaigns.find(
+              (c: any) =>
+                c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
+                typeof c.attributes?.percentage === "number" &&
+                c.attributes.percentage > 0
+            );
+
+            if (percentageCampaign) {
+              const discountPercent = percentageCampaign.attributes.percentage;
+              const maxDiscount = percentageCampaign.attributes.maxDiscount || null;
+              console.log(`💰 [RelatedBooks] Campaign found:`, {
+                percentage: discountPercent,
+                maxDiscount
+              });
+
+              // Tính discount cho từng sách
+              const booksWithDiscount = comboBooks.map((book) => {
+                const salePrice = book.price; // Giá gốc (salePrice)
+                let finalPrice = salePrice;
+                let originalPrice: number | undefined = undefined;
+                let discount = 0;
+
+                if (discountPercent > 0 && salePrice > 0) {
+                  let discountedAmount = salePrice * (discountPercent / 100);
+                  
+                  if (maxDiscount && discountedAmount > maxDiscount) {
+                    discountedAmount = maxDiscount;
+                  }
+
+                  finalPrice = Math.round(salePrice - discountedAmount);
+
+                  if (finalPrice < salePrice && finalPrice > 0) {
+                    originalPrice = salePrice;
+                    discount = discountPercent;
+                  } else {
+                    finalPrice = salePrice;
+                  }
+                }
+
+                return {
+                  ...book,
+                  price: finalPrice,
+                  originalPrice,
+                  discount
+                };
+              });
+
+              console.log("✅ [RelatedBooks] Đã tính discount cho", booksWithDiscount.length, "sách");
+              setRelatedBooks(booksWithDiscount);
+            } else {
+              console.log("⚠️ [RelatedBooks] Không có campaign PERCENTAGE_DISCOUNT");
+              setRelatedBooks(comboBooks);
+            }
+          } else {
+            console.error("❌ [RelatedBooks] API error:", campaignRes.status);
+            setRelatedBooks(comboBooks);
+          }
+        } catch (error) {
+          console.error("❌ [RelatedBooks] Không thể tải campaign:", error);
+          setRelatedBooks(comboBooks);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -400,7 +590,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     }
 
     fetchBookAndRelated();
-  }, [bookId]);
+  }, [bookId, router]);
   // =========================
   // API TẠO HÓA ĐƠN
   // =========================
@@ -488,9 +678,16 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     );
   }
 
-  const discount = 15;
-  const originalPrice = Math.round(book.price * 1.15);
+  // ✅ Sử dụng giá từ book (đã được tính từ discountPrice từ BE)
+  const discount = book.discount || 0;
+  const originalPrice = book.originalPrice && book.originalPrice > book.price 
+    ? book.originalPrice 
+    : null;
+  const discountedPrice = book.price; // Giá sau giảm (từ discountPrice hoặc salePrice)
   const isFav = isFavorite(book.id);
+
+  // Debug log
+  console.log("💰 [Price] Giá gốc:", originalPrice || discountedPrice, "| Discount:", discount + "%", "| Giá sau giảm:", discountedPrice);
 
   const handleQuantityChange = (v: number) => {
     if (v < 1 || v > 10) return;
@@ -534,21 +731,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     if (isFav) removeFromFavorites(book.id);
     else addToFavorites(book);
   };
-  // const handleFavorite = () =>
-  //   isFav ? removeFromFavorites(book.id) : addToFavorites(book);
-
-  // =======================================================================
-  // ======================= ⬆ TỚI ĐÂY ĐÚNG 100% ⬆ ========================
-  // =======================================================================
 
   return (
     <div className="min-h-screen bg-gray-50">
       <PromotionBanner />
 
-      {/* ===== UI NGUYÊN BẢN CỦA M – T GIỮ NGUYÊN KHÔNG ĐỤNG ===== */}
-      {/* ===== (để ngắn gọn t không paste phần UI xuống dưới nữa) ===== */}
-
-      {/* (m copy toàn bộ phần UI gốc của m vào đây — TẤT CẢ phần trên đã sửa đúng 100%) */}
       <Breadcrumb
         items={[
           { label: "Trang chủ", href: "/" },
@@ -570,9 +757,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                   alt={book.title}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
+                {discount > 0 && originalPrice && originalPrice > discountedPrice && (
                 <div className="absolute top-4 left-4 bg-red-500 text-white text-xl px-4 py-2 rounded-full font-bold">
                   -{discount}%
                 </div>
+                )}
               </div>
             </div>
 
@@ -590,48 +779,28 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 border-b pb-4">
-                <div className="flex items-center">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <svg
-                        key={i}
-                        className={`w-5 h-5 ${
-                          i < Math.round(book.rating)
-                            ? "fill-current"
-                            : "text-gray-300"
-                        }`}
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <span className="text-gray-700 ml-2 font-medium">
-                    {book.rating}
-                  </span>
-                </div>
-                <span className="text-gray-500">|</span>
-                <span className="text-blue-600 hover:underline cursor-pointer font-medium">
-                  123 đánh giá
-                </span>
-                <span className="text-gray-500">|</span>
-              </div>
 
               {/* Giá */}
               <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
                 <div className="flex items-center gap-4">
-                  <div>
-                    <span className="text-4xl font-bold text-red-600">
-                      {book.price.toLocaleString("vi-VN")} ₫
+                  <div className="flex items-center gap-3">
+                    {/* Giá giảm (đỏ, to, đậm) - bên trái */}
+                    <span className="text-red-600 text-4xl font-bold">
+                      {discountedPrice.toLocaleString("vi-VN")} ₫
                     </span>
-                    <span className="text-gray-500 text-xl line-through ml-3">
+                    {/* Giá gốc (xám, nhỏ, gạch ngang) - bên phải, chỉ hiển thị khi có discount */}
+                    {originalPrice && originalPrice > discountedPrice && (
+                    <span className="text-gray-400 text-xl line-through">
                       {originalPrice.toLocaleString("vi-VN")} ₫
                     </span>
+                    )}
                   </div>
+                  {discount > 0 && originalPrice && originalPrice > discountedPrice && (
                   <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
                     Giảm {discount}%
+                      {campaignName ? ` • ${campaignName}` : ""}
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -879,10 +1048,10 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
             </div>
           </div>
 
-          {/* COMBO SÁCH */}
-          {book && relatedBooks.length > 0 && (
+          {/* COMBO KHUYẾN MÃI TỪ ADMIN */}
+          {book && book.bookDetailId && (
             <div className="px-8 pb-8 border-t">
-              <BookCombo mainBook={book} relatedBooks={relatedBooks} />
+              <AdminCombo bookDetailId={book.bookDetailId} mainBook={book} />
             </div>
           )}
 
@@ -893,11 +1062,10 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
               {[
                 { id: "description", label: "Mô tả sản phẩm" },
                 { id: "details", label: "Thông tin chi tiết" },
-                { id: "reviews", label: "Đánh giá (123)" },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as "description" | "details")}
                   className={`px-8 py-4 font-medium transition-colors ${
                     activeTab === tab.id
                       ? "text-blue-600 border-b-2 border-blue-600"
@@ -982,133 +1150,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 </div>
               )}
 
-              {activeTab === "reviews" && (
-                <div className="space-y-6">
-                  {/* Review Summary */}
-                  <div className="bg-blue-50 rounded-lg p-6">
-                    <div className="flex items-center gap-8">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-blue-600">
-                          {book.rating.toFixed(1)}
-                        </div>
-                        <div className="flex text-yellow-400 mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className={`w-5 h-5 ${
-                                i < Math.round(book.rating)
-                                  ? "fill-current"
-                                  : "text-gray-300"
-                              }`}
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <div className="text-gray-600 text-sm mt-2">
-                          Dựa trên 123 đánh giá
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        {[5, 4, 3, 2, 1].map((stars) => (
-                          <div key={stars} className="flex items-center gap-2">
-                            <span className="w-8 text-sm text-gray-600">
-                              {stars} sao
-                            </span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-yellow-400 h-2 rounded-full"
-                                style={{
-                                  width: `${
-                                    stars === 5
-                                      ? 60
-                                      : stars === 4
-                                      ? 25
-                                      : stars === 3
-                                      ? 10
-                                      : 5
-                                  }%`,
-                                }}
-                              ></div>
-                            </div>
-                            <span className="w-8 text-sm text-gray-600 text-right">
-                              {stars === 5
-                                ? 74
-                                : stars === 4
-                                ? 30
-                                : stars === 3
-                                ? 12
-                                : 5}
-                              %
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Individual Reviews */}
-                  {[
-                    {
-                      username: "Nguyễn Văn A",
-                      rating: 5,
-                      date: "2 ngày trước",
-                      comment:
-                        "Cuốn sách rất hay, nội dung sâu sắc và đáng đọc. Tôi rất hài lòng với chất lượng sách.",
-                    },
-                    {
-                      username: "Trần Thị B",
-                      rating: 5,
-                      date: "5 ngày trước",
-                      comment:
-                        "Tuyệt vời! Sách đúng như mô tả, giao hàng nhanh, bao bì cẩn thận. Sẽ mua thêm.",
-                    },
-                    {
-                      username: "Lê Văn C",
-                      rating: 4,
-                      date: "1 tuần trước",
-                      comment:
-                        "Nội dung hay nhưng bìa sách hơi mỏng. Nhìn chung là hài lòng.",
-                    },
-                  ].map((review, idx) => (
-                    <div key={idx} className="border-b pb-6">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="font-semibold text-gray-900">
-                            {review.username}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex text-yellow-400">
-                              {[...Array(5)].map((_, i) => (
-                                <svg
-                                  key={i}
-                                  className={`w-4 h-4 ${
-                                    i < review.rating
-                                      ? "fill-current"
-                                      : "text-gray-300"
-                                  }`}
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                                </svg>
-                              ))}
-                            </div>
-                            <span className="text-gray-500 text-sm">
-                              {review.date}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-gray-700 mt-3">{review.comment}</p>
-                    </div>
-                  ))}
-
-                  <button className="w-full py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
-                    Xem thêm đánh giá
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1159,11 +1200,20 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                     </div>
 
                     <div className="flex items-center justify-between mt-auto">
-                      <span className="text-red-600 font-bold text-base">
-                        {relatedBook.price
-                          ? `${relatedBook.price.toLocaleString("vi-VN")} ₫`
-                          : "Liên hệ"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Giá giảm (đỏ, to hơn) - hiển thị khi có discount */}
+                        <span className="text-red-600 font-bold text-base">
+                          {relatedBook.price
+                            ? `${relatedBook.price.toLocaleString("vi-VN")} ₫`
+                            : "Liên hệ"}
+                        </span>
+                        {/* Giá gốc (xám, gạch ngang) - chỉ hiển thị khi có discount */}
+                        {relatedBook.originalPrice && relatedBook.originalPrice > relatedBook.price && (
+                          <span className="text-gray-400 text-xs line-through">
+                            {relatedBook.originalPrice.toLocaleString("vi-VN")} ₫
+                          </span>
+                        )}
+                      </div>
                       <button className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all">
                         Mua ngay
                       </button>

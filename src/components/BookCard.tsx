@@ -42,9 +42,11 @@ export default function BookCard({ book }: BookCardProps) {
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorite();
   const isFav = isFavorite(book.id);
 
-  const discount = book.discount || 15;
-  const originalPrice =
-    book.originalPrice || Math.round(book.price * (1 + discount / 100));
+  // ✅ Sử dụng discount và originalPrice từ book (đã được tính từ BE)
+  const discount = book.discount || 0;
+  const originalPrice = book.originalPrice && book.originalPrice > book.price 
+    ? book.originalPrice 
+    : null;
   const soldCount = book.sold || 0;
   const rating = book.rating || 4.5;
 
@@ -168,11 +170,13 @@ export default function BookCard({ book }: BookCardProps) {
 
           {/* Price */}
           <div className="flex items-center gap-2 mb-3">
+            {/* Giá giảm (đỏ, to, đậm) - bên trái */}
             <span className="text-red-600 font-bold text-lg">
               {book.price.toLocaleString("vi-VN")} ₫
             </span>
-            {discount > 0 && (
-              <span className="text-gray-400 text-xs line-through">
+            {/* Giá gốc (xám, nhỏ, gạch ngang) - bên phải, chỉ hiển thị khi có discount */}
+            {originalPrice && originalPrice > book.price && (
+              <span className="text-gray-400 text-sm line-through">
                 {originalPrice.toLocaleString("vi-VN")} ₫
               </span>
             )}
