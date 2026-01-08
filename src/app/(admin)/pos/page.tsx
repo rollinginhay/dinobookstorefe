@@ -44,7 +44,14 @@ function extractBookDetails(books: any[]) {
             ? book.bookCopies.data
             : [];
 
-        return copies.map((bc: any) => ({
+        return copies
+            .filter((bc: any) => {
+                // ✅ Filter: Chỉ lấy sách có stock > 0 VÀ enabled = true
+                const stock = Number(bc.stock ?? 0);
+                const enabled = bc.enabled !== false; // enabled mặc định là true nếu không có
+                return stock > 0 && enabled;
+            })
+            .map((bc: any) => ({
             bookId,
             title: title,
             imageUrl,
@@ -68,18 +75,117 @@ function extractBookDetails(books: any[]) {
 }
 
 function convertCampaigns(campaigns: any[]) {
-    return campaigns.map((c) => {
+    const now = new Date();
+    console.log("convertCampaigns - Input campaigns:", campaigns);
+    
+    const mapped = campaigns.map((c) => {
+        // Xử lý JSON API format (có attributes) hoặc plain object
+        const attrs = c.attributes || c;
+        const mappedCampaign = {
+            id: String(c.id || attrs.id || ""),
+            campaignType: String(attrs.campaignType || c.campaignType || attrs.type || c.type || ""),
+            name: String(attrs.name || c.name || attrs.description || c.description || ""),
+            percentage: Number(attrs.percentage || c.percentage || 0),
+            discount: Number(attrs.discount || c.discount || attrs.flatDiscount || c.flatDiscount || 0),
+            minTotal: Number(attrs.minTotal || c.minTotal || attrs.minOrder || c.minOrder || 0),
+            maxDiscount: Number(attrs.maxDiscount || c.maxDiscount || 0),
+            startDate: attrs.startDate || c.startDate || attrs.start || c.start,
+            endDate: attrs.endDate || c.endDate || attrs.end || c.end,
+            campaignDetails: attrs.campaignDetails || c.campaignDetails,
+        };
+        console.log("Mapped campaign:", mappedCampaign);
+        return mappedCampaign;
+    });
+    
+    console.log("After mapping:", mapped);
+    
+    const dateFiltered = mapped.filter((c) => {
+        // Chỉ lấy campaigns đang hoạt động (trong khoảng startDate - endDate)
+        if (c.startDate && c.endDate) {
+            try {
+                const startDate = new Date(c.startDate);
+                const endDate = new Date(c.endDate);
+                // Thêm 1 ngày vào endDate để bao gồm cả ngày cuối
+                endDate.setHours(23, 59, 59, 999);
+                const isActive = now >= startDate && now <= endDate;
+                console.log(`Campaign ${c.id} date check:`, {
+                    startDate: c.startDate,
+                    endDate: c.endDate,
+                    now: now.toISOString(),
+                    isActive
+                });
+                return isActive;
+            } catch (e) {
+                console.error("Error parsing dates:", e, c.startDate, c.endDate);
+                // Nếu parse lỗi thì giả sử đang hoạt động
+                return true;
+            }
+        }
+        // Nếu không có date thì giả sử đang hoạt động
+        console.log(`Campaign ${c.id} has no dates, assuming active`);
+        return true;
+    });
+    
+    console.log("After date filter:", dateFiltered);
+    
+    // Bỏ filter type - hiển thị TẤT CẢ campaigns đang hoạt động
+    // User muốn thấy tất cả campaigns, không filter theo type
+    const typeFiltered = dateFiltered;
+    
+    console.log("After type filter:", typeFiltered);
+    
+    const final = typeFiltered.map((c) => {
+        // Map campaignType sang type cho POS
+        let type = c.campaignType;
+        if (c.campaignType === "FLAT_DISCOUNT") {
+            type = "FIXED";
+        } else if (c.campaignType === "PERCENTAGE_DISCOUNT" || c.campaignType === "PERCENTAGE_PRODUCT") {
+            // PERCENTAGE_DISCOUNT và PERCENTAGE_PRODUCT cũng là giảm theo phần trăm, map giống PERCENTAGE_RECEIPT
+            type = "PERCENTAGE_RECEIPT";
+        }
+        
+        // Map value: Tất cả loại PERCENTAGE dùng percentage, FLAT_DISCOUNT dùng discount amount
+        let value = 0;
+        if (c.campaignType === "PERCENTAGE_RECEIPT" 
+            || c.campaignType === "PERCENTAGE_DISCOUNT" 
+            || c.campaignType === "PERCENTAGE_PRODUCT") {
+            value = c.percentage || 0;
+        } else if (c.campaignType === "FLAT_DISCOUNT") {
+            value = c.discount || 0;
+        }
+        
+        // Tạo label hiển thị
+        let label = "";
+        if (c.campaignType === "PERCENTAGE_RECEIPT" 
+            || c.campaignType === "PERCENTAGE_DISCOUNT" 
+            || c.campaignType === "PERCENTAGE_PRODUCT") {
+            label = `${c.percentage || 0}%`;
+            if (c.maxDiscount) {
+                label += ` (tối đa ${c.maxDiscount.toLocaleString()}đ)`;
+            }
+        } else if (c.campaignType === "FLAT_DISCOUNT") {
+            label = `${(c.discount || 0).toLocaleString()}đ`;
+        } else {
+            // Fallback cho các loại khác
+            label = c.percentage ? `${c.percentage}%` : `${(c.discount || 0).toLocaleString()}đ`;
+        }
+        
         return {
             id: c.id,
-            label: c.percentage,
-            description: c.name,
-            minTotal: c.minTotal,
-            type: c.campaignType,
-            value: c.percentage,
-            maxDiscount: c.maxDiscount,
+            label: label,
+            description: c.name || "",
+            minTotal: c.minTotal || 0,
+            type: type,
+            value: value,
+            maxDiscount: c.maxDiscount || 0,
             campaignDetails: c.campaignDetails,
+            startDate: c.startDate,
+            endDate: c.endDate,
         };
     });
+    
+    console.log("Final converted campaigns:", final);
+    return final;
 }
 
 // {
@@ -388,7 +494,13 @@ export default function POS() {
     // Giảm giá trực tiếp (POS)
     const [directDiscountInput, setDirectDiscountInput] = useState("");
     const [discountType, setDiscountType] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
-
+    // Dropdown chọn đợt giảm giá
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+    const [showCustomDiscount, setShowCustomDiscount] = useState(false);
+    // Ghi chú lý do giảm giá
+    const [discountReasonType, setDiscountReasonType] = useState<string>("");
+    const [discountReasonNote, setDiscountReasonNote] = useState<string>("");
+    
     // Form chỉnh sửa thông tin giao hàng
     const [isEditingShipping, setIsEditingShipping] = useState(false);
     const [editShippingData, setEditShippingData] = useState({
@@ -417,10 +529,26 @@ export default function POS() {
     }, [bookQuery.dataUpdatedAt]);
 
     const VOUCHERS = useMemo(() => {
-        if (!campaignQuery.isSuccess) return [];
-        const campaigns = convertCampaigns(campaignQuery.data.data);
+        if (!campaignQuery.isSuccess) {
+            console.log("Campaign query not successful:", campaignQuery.error, campaignQuery.status);
+            return [];
+        }
+        
+        const rawCampaigns = campaignQuery.data?.data || campaignQuery.data || [];
+        console.log("Raw campaigns data:", rawCampaigns);
+        console.log("Campaign query data structure:", campaignQuery.data);
+        
+        if (!Array.isArray(rawCampaigns)) {
+            console.error("Campaigns is not an array:", typeof rawCampaigns, rawCampaigns);
+            return [];
+        }
+        
+        const campaigns = convertCampaigns(rawCampaigns);
+        console.log("Converted campaigns for POS:", campaigns);
+        console.log("Number of active campaigns:", campaigns.length);
+        
         return campaigns;
-    }, [campaignQuery.dataUpdatedAt]);
+    }, [campaignQuery.dataUpdatedAt, campaignQuery.isSuccess, campaignQuery.error, campaignQuery.data]);
 
     const USERS = useMemo(() => {
         if (!userQuery.isSuccess) return [];
@@ -539,6 +667,31 @@ export default function POS() {
         }
     }, [activeOrder?.customer]);
 
+    // ➤ Đồng bộ selectedCampaignId khi chuyển đơn hàng
+    useEffect(() => {
+        // Chỉ sync khi chuyển đơn hàng (activeOrderId thay đổi)
+        // Không sync khi chỉ voucherCode thay đổi để tránh conflict với user interaction
+        if (activeOrder?.voucherCode) {
+            if (activeOrder.voucherCode === "CUSTOM") {
+                setSelectedCampaignId("");
+                setShowCustomDiscount(true);
+            } else {
+                setSelectedCampaignId(activeOrder.voucherCode);
+                setShowCustomDiscount(false);
+            }
+        } else {
+            // Reset khi đơn hàng mới không có giảm giá
+            // NHƯNG: không reset showCustomDiscount nếu user đang tương tác (đã tick checkbox)
+            // Chỉ reset nếu thực sự chuyển đơn hàng mới
+            setSelectedCampaignId("");
+            // Chỉ reset showCustomDiscount nếu không có discount nào cả
+            if (!activeOrder?.discountAmount || activeOrder.discountAmount === 0) {
+                setShowCustomDiscount(false);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeOrderId]); // Chỉ sync khi chuyển đơn hàng, không sync khi voucherCode thay đổi
+
     // Nếu vì lý do gì đó không tìm thấy activeOrder
     if (!activeOrder) {
         return <div className="card">Không tìm thấy đơn hàng.</div>;
@@ -642,6 +795,11 @@ export default function POS() {
                 receiptDetails: updated,
             },
         });
+
+        // Tự động xóa giảm giá khi xóa hết sản phẩm
+        if (updated.length === 0) {
+            removeDiscount();
+        }
     };
     // ===============================
     // PAYMENT
@@ -691,7 +849,7 @@ export default function POS() {
 
         const discount = calcDiscountFromVoucher(voucher, subTotal);
         if (discount <= 0) {
-            alert(`Đơn hàng chưa đạt đơn tối thiểu ${voucher.minTotal.toLocaleString()}đ`);
+            alert("Chưa đủ điều kiện áp mã giảm giá");
             return;
         }
 
@@ -699,11 +857,75 @@ export default function POS() {
         setVoucherInput("");
     };
 
-    // Áp dụng giảm giá trực tiếp (POS)
+    // Xử lý khi chọn đợt giảm giá từ dropdown
+    const handleCampaignSelect = (campaignId: string) => {
+        setSelectedCampaignId(campaignId);
+        setShowCustomDiscount(false); // Tắt tùy chỉnh khi chọn đợt
+        
+        if (campaignId === "") {
+            // Không giảm giá
+            removeDiscount();
+            return;
+        }
+        
+        // Áp dụng đợt giảm giá
+        const voucher = VOUCHERS.find((v) => v.id === campaignId);
+        if (!voucher) {
+            alert("Đợt giảm giá không hợp lệ.");
+            return;
+        }
+        
+        const discount = calcDiscountFromVoucher(voucher, subTotal);
+        if (discount <= 0) {
+            alert("Chưa đủ điều kiện áp mã giảm giá");
+            setSelectedCampaignId("");
+            return;
+        }
+        
+        updateOrder({
+            voucherCode: voucher.id,
+            discountAmount: discount,
+            discount: discount
+        });
+    };
+
+    // Xử lý khi tick/untick checkbox tùy chỉnh
+    const handleCustomDiscountToggle = (checked: boolean) => {
+        console.log("Checkbox tùy chỉnh clicked:", checked);
+        setShowCustomDiscount(checked);
+        if (checked) {
+            // Khi bật tùy chỉnh, clear dropdown
+            setSelectedCampaignId("");
+            // Chỉ remove discount nếu đang có discount từ đợt
+            if (activeOrder?.voucherCode && activeOrder.voucherCode !== "CUSTOM") {
+                removeDiscount();
+            }
+        } else {
+            // Khi tắt tùy chỉnh, clear input và remove discount nếu là CUSTOM
+            setDirectDiscountInput("");
+            if (activeOrder?.voucherCode === "CUSTOM") {
+                removeDiscount();
+            }
+        }
+    };
+
+    // Áp dụng giảm giá trực tiếp (POS) - khi chọn tùy chỉnh
     const applyDirectDiscount = () => {
         const value = parseFloat(directDiscountInput.replace(/,/g, "")) || 0;
         if (value <= 0) {
             alert("Vui lòng nhập số tiền giảm giá hợp lệ!");
+            return;
+        }
+
+        // Bắt buộc nhập lý do giảm giá khi dùng tùy chỉnh
+        if (!discountReasonType) {
+            alert("Vui lòng chọn lý do giảm giá!");
+            return;
+        }
+
+        // Nếu chọn "Khác" thì bắt buộc nhập ghi chú
+        if (discountReasonType === "OTHER" && !discountReasonNote.trim()) {
+            alert("Vui lòng nhập ghi chú chi tiết cho lý do giảm giá!");
             return;
         }
 
@@ -717,7 +939,7 @@ export default function POS() {
         }
 
         updateOrder({
-            voucherCode: "",
+            voucherCode: "CUSTOM",
             discountAmount: discount,
             discount: discount
         });
@@ -732,6 +954,10 @@ export default function POS() {
             discount: 0
         });
         setDirectDiscountInput("");
+        setSelectedCampaignId("");
+        setShowCustomDiscount(false);
+        setDiscountReasonType("");
+        setDiscountReasonNote("");
     };
 
 // Lọc sản phẩm theo nội dung tìm kiếm
@@ -989,60 +1215,179 @@ export default function POS() {
                     <div className="card shadow-sm">
                         <h3 className="card-title mb-4">Giảm giá</h3>
 
-                        {/* NHẬP GIẢM GIÁ TRỰC TIẾP (POS) */}
+                        {/* DROPDOWN CHỌN ĐỢT GIẢM GIÁ */}
                         <div className="space-y-3 mb-4">
-                            <div className="flex gap-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="discountType"
-                                        checked={discountType === "AMOUNT"}
-                                        onChange={() => setDiscountType("AMOUNT")}
-                                        className="w-4 h-4"
-                                    />
-                                    <span className="text-sm">Số tiền</span>
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                                    Chọn đợt giảm giá
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="discountType"
-                                        checked={discountType === "PERCENT"}
-                                        onChange={() => setDiscountType("PERCENT")}
-                                        className="w-4 h-4"
-                                    />
-                                    <span className="text-sm">Phần trăm</span>
-                                </label>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder={discountType === "AMOUNT" ? "Nhập số tiền..." : "Nhập %..."}
-                                    className="input flex-1"
-                                    value={directDiscountInput}
-                                    onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9,]/g, "");
-                                        setDirectDiscountInput(value);
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    className="btn btn-primary px-4"
-                                    onClick={applyDirectDiscount}
+                                <select
+                                    className="input w-full"
+                                    value={selectedCampaignId}
+                                    onChange={(e) => handleCampaignSelect(e.target.value)}
+                                    disabled={showCustomDiscount}
                                 >
-                                    Áp dụng
-                                </button>
+                                    <option value="">-- Không giảm giá --</option>
+                                    {VOUCHERS.length === 0 ? (
+                                        <option value="" disabled>Không có đợt giảm giá đang hoạt động</option>
+                                    ) : (
+                                        VOUCHERS.map((v) => {
+                                            const discountText = v.type === "PERCENTAGE_RECEIPT" 
+                                                ? `${v.value}%${v.maxDiscount ? ` (tối đa ${v.maxDiscount.toLocaleString()}đ)` : ""}`
+                                                : `${v.value.toLocaleString()}đ`;
+                                            const minTotalText = v.minTotal > 0 ? ` - Đơn tối thiểu: ${v.minTotal.toLocaleString()}đ` : "";
+                                            return (
+                                                <option key={v.id} value={v.id}>
+                                                    {v.description || v.id} - Giảm {discountText}{minTotalText}
+                                                </option>
+                                            );
+                                        })
+                                    )}
+                                </select>
                             </div>
 
+                            {/* CHECKBOX TÙY CHỈNH */}
+                            <div>
+                                <label 
+                                    className="flex items-center gap-2 cursor-pointer"
+                                    onClick={(e) => {
+                                        // Prevent event bubbling
+                                        e.stopPropagation();
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={showCustomDiscount}
+                                        onChange={(e) => {
+                                            e.stopPropagation();
+                                            handleCustomDiscountToggle(e.target.checked);
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-4 h-4 cursor-pointer"
+                                        disabled={false}
+                                    />
+                                    <span className="text-sm font-medium text-gray-700 select-none">Tùy chỉnh</span>
+                                </label>
+                            </div>
+
+                            {/* FORM TÙY CHỈNH (Ẩn mặc định, hiện khi tick checkbox) */}
+                            {showCustomDiscount && (
+                                <div className="p-4 border-2 border-blue-200 rounded-lg bg-blue-50 space-y-3">
+                                    <div className="flex gap-2">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="discountType"
+                                                checked={discountType === "AMOUNT"}
+                                                onChange={() => setDiscountType("AMOUNT")}
+                                                className="w-4 h-4"
+                                            />
+                                            <span className="text-sm">Số tiền</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="discountType"
+                                                checked={discountType === "PERCENT"}
+                                                onChange={() => setDiscountType("PERCENT")}
+                                                className="w-4 h-4"
+                                            />
+                                            <span className="text-sm">Phần trăm</span>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder={discountType === "AMOUNT" ? "Nhập số tiền..." : "Nhập %..."}
+                                            className="input flex-1"
+                                            value={directDiscountInput}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/[^0-9,]/g, "");
+                                                setDirectDiscountInput(value);
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary px-4"
+                                            onClick={applyDirectDiscount}
+                                        >
+                                            Áp dụng
+                                        </button>
+                                    </div>
+
+                                    {/* GHI CHÚ LÝ DO GIẢM GIÁ (Trong form tùy chỉnh) */}
+                                    <div className="space-y-2 pt-2 border-t border-blue-300">
+                                        <label className="text-sm font-medium text-gray-700">
+                                            Lý do giảm giá
+                                            <span className="text-red-500"> *</span>
+                                        </label>
+                                        <select
+                                            className="input w-full"
+                                            value={discountReasonType}
+                                            onChange={(e) => setDiscountReasonType(e.target.value)}
+                                        >
+                                            <option value="">-- Chọn lý do --</option>
+                                            <option value="DEFECT">Sản phẩm lỗi/kém chất lượng</option>
+                                            <option value="COMPLAINT">Bù đắp khiếu nại khách hàng</option>
+                                            <option value="VIP">Khách hàng VIP</option>
+                                            <option value="SPECIAL">Giảm giá đặc biệt (cần phê duyệt)</option>
+                                            <option value="OTHER">Khác (ghi rõ bên dưới)</option>
+                                        </select>
+                                        
+                                        {discountReasonType === "OTHER" && (
+                                            <textarea
+                                                className="input w-full"
+                                                rows={2}
+                                                placeholder="Nhập ghi chú chi tiết..."
+                                                value={discountReasonNote}
+                                                onChange={(e) => setDiscountReasonNote(e.target.value)}
+                                            />
+                                        )}
+                                        {discountReasonType && discountReasonType !== "OTHER" && (
+                                            <textarea
+                                                className="input w-full"
+                                                rows={2}
+                                                placeholder="Nhập ghi chú chi tiết (tùy chọn)..."
+                                                value={discountReasonNote}
+                                                onChange={(e) => setDiscountReasonNote(e.target.value)}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* HIỂN THỊ GIẢM GIÁ ĐÃ ÁP DỤNG */}
                             {orderDiscount > 0 && (
-                                <div
-                                    className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
-                                    <span className="text-sm text-green-700">
-                                        Đã giảm: <b>{orderDiscount.toLocaleString()}đ</b>
-                                    </span>
+                                // <div
+                                //     className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                                //     <span className="text-sm text-green-700">
+                                //         Đã giảm: <b>{orderDiscount.toLocaleString()}đ</b>
+                                //     </span>
+                                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex-1">
+                                        <div className="text-sm text-green-700 font-semibold mb-1">
+                                            Giảm <b>{subTotal > 0 ? Math.round((orderDiscount / subTotal) * 100) : 0}%</b> - <b>{orderDiscount.toLocaleString()}đ</b>
+                                        </div>
+                                        {selectedCampaignId && selectedCampaignId !== "CUSTOM" && (
+                                            <div className="text-xs text-gray-600">
+                                                Đợt: {VOUCHERS.find(v => v.id === selectedCampaignId)?.description || selectedCampaignId}
+                                            </div>
+                                        )}
+                                        {discountReasonType && (
+                                            <div className="text-xs text-gray-600 mt-1">
+                                                Lý do: {discountReasonType === "CAMPAIGN" ? `Khuyến mãi đợt ${VOUCHERS.find(v => v.id === selectedCampaignId)?.description || selectedCampaignId}` : 
+                                                         discountReasonType === "DEFECT" ? "Sản phẩm lỗi/kém chất lượng" :
+                                                         discountReasonType === "COMPLAINT" ? "Bù đắp khiếu nại khách hàng" :
+                                                         discountReasonType === "VIP" ? "Khách hàng VIP" :
+                                                         discountReasonType === "SPECIAL" ? "Giảm giá đặc biệt" :
+                                                         discountReasonType === "OTHER" ? `Khác: ${discountReasonNote}` : ""}
+                                            </div>
+                                        )}
+                                    </div>
                                     <button
                                         type="button"
-                                        className="text-red-500 text-sm hover:text-red-700"
+                                        className="text-red-500 text-sm hover:text-red-700 font-semibold ml-2"
                                         onClick={removeDiscount}
                                     >
                                         ✕ Xóa
@@ -1050,46 +1395,6 @@ export default function POS() {
                                 </div>
                             )}
                         </div>
-
-                        {/* DANH SÁCH VOUCHER (Tùy chọn) */}
-                        {VOUCHERS.filter(v => v.type === "PERCENTAGE_RECEIPT").length > 0 && (
-                            <>
-                                <div className="divider my-3"/>
-                                <div className="text-xs text-gray-500 mb-2">Hoặc chọn từ danh sách:</div>
-                                <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
-                                    {VOUCHERS
-                                        .filter(v => v.type === "PERCENTAGE_RECEIPT")
-                                        .map((v) => {
-                                            const isApplied = activeOrder.voucherCode === v.id;
-                                            return (
-                                                <button
-                                                    key={v.id}
-                                                    type="button"
-                                                    onClick={() => applyVoucherByCode(v.id)}
-                                                    className={`w-full flex border rounded-lg px-3 py-2 text-left items-center gap-3 text-sm ${
-                                                        isApplied
-                                                            ? "border-[var(--sidebar-primary)] bg-[var(--sidebar-primary-soft)]"
-                                                            : "border-gray-200 bg-white hover:bg-gray-50"
-                                                    }`}
-                                                >
-                                                    <div className="flex-1">
-                                                        <div className="font-semibold text-xs">
-                                                            {v.id}
-                                                        </div>
-                                                        <div className="text-[10px] text-gray-500 mt-0.5">
-                                                            {v.description}
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        className="text-xs font-semibold text-[var(--sidebar-primary)]">
-                                                        {v.label}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                </div>
-                            </>
-                        )}
                     </div>
 
                     {/* NHẬN HÀNG */}
@@ -1462,11 +1767,13 @@ export default function POS() {
                                     return;
                                 }
                             }
-
+                                
                             order.attributes.hasShipping = shippingMethod === "DELIVERY";
                             order.id = 0;
                             order.attributes.discount = order.discount;
                             order.attributes.discountAmount = order.discountAmount;
+                            // Bán hàng tại quầy - KHÔNG có VAT
+                            order.attributes.tax = 0;
                             order.relationships.employee = {
                                 id: user!.id
                             }

@@ -6,6 +6,8 @@ import {createDiscount, updateDiscount} from "@/lib/discount/discount.api";
 import {toast} from "sonner";
 import {CampaignStatus, canEditField, formatDateForInput, getCampaignStatus,} from "@/lib/discount/discount.utils";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import {useBook} from "@/hooks/api-calls/useBook";
+import ProductSelector from "@/app/(admin)/pos/ProductSelector";
 
 type Props = {
   mode: "create" | "edit";
@@ -21,11 +23,13 @@ export default function DiscountForm({ mode, initialData }: Props) {
   const [showEnabledConfirm, setShowEnabledConfirm] = useState(false);
   const [pendingEnabledValue, setPendingEnabledValue] = useState<boolean | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 
   // Parse initialData từ API
   const attributes = initialData?.attributes || initialData || {};
   const relationships = initialData?.relationships || {};
-  const campaignDetails = relationships?.campaignDetails?.data || [];
+  const [campaignDetails, setCampaignDetails] = useState<any[]>([]);
 
   // Key để lưu vào localStorage
   const storageKey = mode === "create" 
@@ -94,6 +98,43 @@ export default function DiscountForm({ mode, initialData }: Props) {
   const initialFormData = useMemo(() => getInitialFormData(), []);
   const [formData, setFormData] = useState(initialFormData);
 
+  // ==== LOAD SÁCH ĐỂ CHỌN CHO COMBO / SALE ĐỢT ====
+  const { bookQuery } = useBook(0, 500, true);
+
+  const comboSelectableProducts = useMemo(() => {
+    if (!bookQuery.isSuccess) return [];
+    const raw = (bookQuery.data as any)?.data || (bookQuery.data as any) || [];
+
+    // Tái sử dụng logic extractBookDetails từ POS
+    const booksArray = Array.isArray(raw) ? raw : [];
+    return booksArray.flatMap((book: any) => {
+      const bookId = String(book.id ?? "");
+      const title = book.title ?? "";
+      const imageUrl = book.imageUrl ?? "";
+
+      const copies = Array.isArray(book.bookCopies?.data)
+        ? book.bookCopies.data
+        : [];
+
+      return copies
+        .filter((bc: any) => {
+          // ✅ Filter: Chỉ lấy sách có stock > 0 VÀ enabled = true
+          const stock = Number(bc.stock ?? 0);
+          const enabled = bc.enabled !== false; // enabled mặc định là true nếu không có
+          return stock > 0 && enabled;
+        })
+        .map((bc: any) => ({
+          bookId,
+          id: String(bc.id ?? ""),
+          title: title + (bc.bookFormat ? ` - ${bc.bookFormat}` : ""),
+          imageUrl,
+          bookFormat: bc.bookFormat ?? "",
+          salePrice: Number(bc.salePrice ?? 0),
+          author: book.authorName || "",
+        }));
+    });
+  }, [bookQuery.data, bookQuery.isSuccess]);
+
   // Xác định trạng thái khi có initialData
   useEffect(() => {
     if (mode === "edit" && initialData) {
@@ -105,11 +146,18 @@ export default function DiscountForm({ mode, initialData }: Props) {
     }
   }, [mode, initialData, attributes.startDate, attributes.endDate]);
 
-  // Kiểm tra xem có thay đổi không
+  // ✅ Lưu selectedProducts ban đầu để so sánh
+  const [initialSelectedProducts, setInitialSelectedProducts] = useState<any[]>([]);
+  
+  // Kiểm tra xem có thay đổi không (bao gồm cả selectedProducts)
   useEffect(() => {
-    const changed = JSON.stringify(initialFormData) !== JSON.stringify(formData);
+    const formDataChanged = JSON.stringify(initialFormData) !== JSON.stringify(formData);
+    // ✅ So sánh selectedProducts: so sánh theo ID để tránh reference issues
+    const selectedProductsChanged = JSON.stringify(initialSelectedProducts.map(p => p.id).sort()) !== 
+                                    JSON.stringify(selectedProducts.map(p => p.id).sort());
+    const changed = formDataChanged || selectedProductsChanged;
     setHasChanges(changed);
-  }, [formData, initialFormData]);
+  }, [formData, initialFormData, selectedProducts, initialSelectedProducts]);
 
   // Lưu formData vào localStorage mỗi khi thay đổi (debounce)
   useEffect(() => {
@@ -120,6 +168,106 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return () => clearTimeout(timer);
     }
   }, [formData, storageKey, hasChanges]);
+
+  // ✅ Fetch campaignDetails riêng từ endpoint relationships để lấy đầy đủ thông tin (có attributes)
+  useEffect(() => {
+    if (mode === "edit" && initialData?.id && formData.campaignType === "PERCENTAGE_PRODUCT") {
+      console.log("🔍 [DiscountForm] Fetching campaignDetails for campaign ID:", initialData.id);
+      // Fetch từ endpoint relationships để lấy đầy đủ thông tin
+      fetch(`http://localhost:8080/v1/campaign/${initialData.id}/relationships/campaignDetail`)
+        .then((res) => res.json())
+        .then((json) => {
+          console.log("🔍 [DiscountForm] Fetched campaignDetails from relationships endpoint:", json);
+          const details = json.data || [];
+          // ✅ CHỈ LẤY campaignDetails với enabled = true
+          const enabledDetails = details.filter((cd: any) => {
+            const enabled = cd.attributes?.enabled !== undefined ? cd.attributes.enabled : cd.enabled;
+            return enabled !== false; // Chỉ lấy enabled = true hoặc undefined (mặc định là true)
+          });
+          console.log("✅ [DiscountForm] Filtered enabled campaignDetails:", enabledDetails);
+          setCampaignDetails(enabledDetails);
+        })
+        .catch((err) => {
+          console.error("❌ [DiscountForm] Error fetching campaignDetails:", err);
+          // Fallback: dùng relationships từ initialData
+          const fallbackDetails = (relationships?.campaignDetails?.data || []).filter((cd: any) => {
+            const enabled = cd.attributes?.enabled !== undefined ? cd.attributes.enabled : cd.enabled;
+            return enabled !== false;
+          });
+          setCampaignDetails(fallbackDetails);
+        });
+    } else {
+      // Nếu không phải edit mode hoặc không phải combo, dùng relationships từ initialData
+      const fallbackDetails = (relationships?.campaignDetails?.data || []).filter((cd: any) => {
+        const enabled = cd.attributes?.enabled !== undefined ? cd.attributes.enabled : cd.enabled;
+        return enabled !== false;
+      });
+      setCampaignDetails(fallbackDetails);
+    }
+  }, [mode, initialData?.id, formData.campaignType, relationships?.campaignDetails?.data]);
+
+  // Load lại selectedProducts từ campaignDetails hoặc note khi edit mode
+  useEffect(() => {
+    if (mode === "edit" && formData.campaignType === "PERCENTAGE_PRODUCT" && comboSelectableProducts.length > 0 && campaignDetails.length > 0) {
+      console.log("🔍 [DiscountForm] Loading selectedProducts from campaignDetails:", campaignDetails);
+      console.log("🔍 [DiscountForm] Available comboSelectableProducts count:", comboSelectableProducts.length);
+      
+      // ✅ Parse đúng: lấy bookDetailId từ attributes hoặc top level
+      const detailIds = campaignDetails
+        .map((cd: any, index: number) => {
+          console.log(`🔍 [DiscountForm] campaignDetails[${index}]:`, JSON.stringify(cd, null, 2));
+          
+          // JSON:API format từ relationships endpoint: { id: "...", attributes: { bookDetailId: "...", enabled: true } }
+          const bookDetailId = cd.attributes?.bookDetailId || cd.bookDetailId;
+          const enabled = cd.attributes?.enabled !== undefined ? cd.attributes.enabled : cd.enabled;
+          
+          // ✅ CHỈ LẤY các entries với enabled = true (đã được filter ở trên, nhưng double-check để chắc chắn)
+          if (enabled === false) {
+            console.log("⚠️ [DiscountForm] Skipping disabled CampaignDetail:", cd);
+            return null;
+          }
+          
+          if (!bookDetailId) {
+            console.warn("⚠️ [DiscountForm] CampaignDetail has no bookDetailId:", cd);
+            return null;
+          }
+          
+          console.log(`✅ [DiscountForm] Extracted bookDetailId: ${bookDetailId} from CampaignDetail:`, cd);
+          return String(bookDetailId);
+        })
+        .filter((id): id is string => id !== null);
+      
+      console.log("🔍 [DiscountForm] Parsed bookDetailIds (enabled only):", detailIds);
+      console.log("🔍 [DiscountForm] comboSelectableProducts IDs (first 10):", comboSelectableProducts.slice(0, 10).map(p => ({ id: p.id, title: p.title })));
+      
+      const matched = comboSelectableProducts.filter((p) => detailIds.includes(String(p.id)));
+      console.log("✅ [DiscountForm] Matched products:", matched.map(p => ({ id: p.id, title: p.title })));
+      
+      if (matched.length > 0) {
+        setSelectedProducts(matched);
+        // ✅ Lưu selectedProducts ban đầu để so sánh (chỉ lần đầu load)
+        setInitialSelectedProducts([...matched]);
+      } else {
+        console.warn("⚠️ [DiscountForm] No products matched! detailIds:", detailIds);
+        // Fallback: parse từ note
+        if (formData.note) {
+          const match = formData.note.match(/COMBO_BOOK_DETAIL_IDS=([0-9,]+)/);
+          if (match) {
+            const ids = match[1].split(",").map((id) => id.trim());
+            const matched = comboSelectableProducts.filter((p) => ids.includes(String(p.id)));
+            if (matched.length > 0) {
+              setSelectedProducts(matched);
+              // ✅ Lưu selectedProducts ban đầu để so sánh
+              setInitialSelectedProducts([...matched]);
+            }
+          }
+        }
+      }
+    } else if (mode === "create") {
+      // ✅ Khi create mode, initialSelectedProducts là mảng rỗng
+      setInitialSelectedProducts([]);
+    }
+  }, [mode, formData.campaignType, formData.note, campaignDetails, comboSelectableProducts]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -188,6 +336,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return false;
     }
 
+    // Combo (PERCENTAGE_PRODUCT) không cần validate ngày
+    if (formData.campaignType !== "PERCENTAGE_PRODUCT") {
     if (!formData.startDate) {
       toast.error("Vui lòng chọn ngày bắt đầu");
       return false;
@@ -226,6 +376,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
       if (endDate < now) {
         toast.error("Ngày kết thúc không được chọn ngày đã qua");
         return false;
+        }
       }
     }
 
@@ -249,14 +400,14 @@ export default function DiscountForm({ mode, initialData }: Props) {
 
     // Validate: PERCENTAGE_PRODUCT bắt buộc phải chọn sản phẩm
     if (formData.campaignType === "PERCENTAGE_PRODUCT") {
-      // TODO: Validate selectedProducts khi có API
-      // if (!selectedProducts || selectedProducts.length === 0) {
-      //   toast.error("Vui lòng chọn ít nhất một sản phẩm để áp dụng giảm giá");
-      //   return false;
-      // }
+      if (!selectedProducts || selectedProducts.length === 0) {
+        toast.error("Vui lòng chọn ít nhất một sản phẩm để áp dụng giảm giá");
+        return false;
+      }
     }
 
-    if (formData.minTotal < 0) {
+    // Combo (PERCENTAGE_PRODUCT) không cần validate minTotal
+    if (formData.campaignType !== "PERCENTAGE_PRODUCT" && formData.minTotal < 0) {
       toast.error("Giá trị đơn hàng tối thiểu không được âm");
       return false;
     }
@@ -302,11 +453,20 @@ export default function DiscountForm({ mode, initialData }: Props) {
       const payloadData: any = {
         name: formData.name.trim(),
         campaignType: formData.campaignType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
         enabled: formData.enabled,
-        minTotal: formData.minTotal || 0,
       };
+
+      // Combo không cần ngày và minTotal
+      if (formData.campaignType !== "PERCENTAGE_PRODUCT") {
+        payloadData.startDate = formData.startDate;
+        payloadData.endDate = formData.endDate;
+        payloadData.minTotal = formData.minTotal || 0;
+      } else {
+        // Combo: set null hoặc không gửi các field này
+        payloadData.startDate = null;
+        payloadData.endDate = null;
+        payloadData.minTotal = 0;
+      }
 
       // Thêm percentage hoặc maxDiscount tùy theo loại
       // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
@@ -321,6 +481,25 @@ export default function DiscountForm({ mode, initialData }: Props) {
       // Thêm note nếu có
       if (formData.note.trim()) {
         payloadData.note = formData.note.trim();
+      }
+
+      // ✅ Gửi relationships.campaignDetails cho combo (thay vì lưu vào note)
+      // ⚠️ QUAN TRỌNG: LUÔN LUÔN gửi campaignDetails khi update combo, kể cả khi không có sản phẩm nào
+      // (để BE có thể soft-delete các CampaignDetail cũ)
+      if (formData.campaignType === "PERCENTAGE_PRODUCT") {
+        if (selectedProducts.length > 0) {
+          // Tạo campaignDetails với bookDetailId - sẽ được serialize thành relationships.campaignDetails
+          payloadData.campaignDetails = selectedProducts.map((p) => ({
+            id: null, // null cho create mới
+            bookDetailId: String(p.id), // Đảm bảo là string
+            value: formData.percentage || null, // Giá trị giảm (có thể dùng percentage)
+          }));
+          console.log("🔍 [DiscountForm] Sending campaignDetails:", payloadData.campaignDetails);
+        } else {
+          // Nếu không có sản phẩm nào được chọn, gửi mảng rỗng để BE soft-delete các CampaignDetail cũ
+          payloadData.campaignDetails = [];
+          console.log("⚠️ [DiscountForm] No products selected, sending empty campaignDetails array");
+        }
       }
 
       // Nếu là edit, thêm id vào payload
@@ -571,7 +750,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
             </div>
           )}
 
-          {/* Giá trị đơn hàng tối thiểu */}
+          {/* Giá trị đơn hàng tối thiểu - Ẩn khi là combo */}
+          {formData.campaignType !== "PERCENTAGE_PRODUCT" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Giá trị đơn hàng tối thiểu (VNĐ)
@@ -605,8 +785,10 @@ export default function DiscountForm({ mode, initialData }: Props) {
               Đơn hàng phải đạt giá trị này mới được áp dụng giảm giá. <span className="font-medium">Nhập 0 nếu không yêu cầu giá trị tối thiểu</span>
             </p>
           </div>
+          )}
 
-          {/* Ngày bắt đầu */}
+          {/* Ngày bắt đầu - Ẩn khi là combo */}
+          {formData.campaignType !== "PERCENTAGE_PRODUCT" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ngày bắt đầu <span className="text-red-500">*</span>
@@ -627,8 +809,10 @@ export default function DiscountForm({ mode, initialData }: Props) {
               </p>
             )}
           </div>
+          )}
 
-          {/* Ngày kết thúc */}
+          {/* Ngày kết thúc - Ẩn khi là combo */}
+          {formData.campaignType !== "PERCENTAGE_PRODUCT" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ngày kết thúc <span className="text-red-500">*</span>
@@ -666,6 +850,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               {(mode === "create" || status === "UPCOMING") && " và không được trong quá khứ"}
             </p>
           </div>
+          )}
 
           {/* Chọn sản phẩm áp dụng - chỉ cho SALE ĐỢT / SALE COMBO */}
           {formData.campaignType === "PERCENTAGE_PRODUCT" && (
@@ -673,26 +858,86 @@ export default function DiscountForm({ mode, initialData }: Props) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Chọn sản phẩm áp dụng <span className="text-red-500">*</span>
               </label>
-              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                <p className="text-sm text-gray-600 mb-3">
-                  Chọn các sản phẩm sẽ được áp dụng giảm giá trong đợt này.
+              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
+                <p className="text-sm text-gray-600">
+                  Chọn các sản phẩm sẽ được áp dụng giảm giá trong đợt này (combo / sale đợt).
                 </p>
-                <div className="space-y-2">
-                  <p className="text-xs text-amber-600">
-                    ⚠️ Tính năng chọn sản phẩm đang được phát triển. Vui lòng chọn sản phẩm sau khi tạo đợt giảm giá.
-                  </p>
-                  {/* TODO: Thêm UI chọn sản phẩm khi có API */}
-                  {/* 
-                  <ProductSelector
-                    selectedProducts={selectedProducts}
-                    onSelect={setSelectedProducts}
-                    disabled={isFieldDisabled("products") || isFormReadOnly}
-                  />
-                  */}
+
+                <button
+                  type="button"
+                  disabled={isFieldDisabled("products") || isFormReadOnly || !bookQuery.isSuccess}
+                  onClick={() => setShowProductSelector(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bookQuery.isLoading ? "Đang tải danh sách sách..." : "+ Chọn sản phẩm"}
+                </button>
+
+                {/* Danh sách sản phẩm đã chọn */}
+                {selectedProducts.length > 0 ? (
+                  <>
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-gray-700">
+                        Đã chọn {selectedProducts.length} sản phẩm
+                      </p>
+                    </div>
+                    <div className="mt-2 border-t pt-3 space-y-2 max-h-60 overflow-y-auto">
+                      {selectedProducts.slice(0, 3).map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between gap-3 text-sm bg-white border rounded-md px-3 py-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            {p.imageUrl && (
+                              <img
+                                src={p.imageUrl}
+                                alt={p.title}
+                                className="w-10 h-14 object-cover rounded"
+                              />
+                            )}
+                            <div>
+                              <div className="font-medium text-gray-900 line-clamp-1">
+                                {p.title}
                 </div>
+                              <div className="text-xs text-gray-500">
+                                {p.bookFormat && `${p.bookFormat} • `}
+                                {p.salePrice
+                                  ? `${p.salePrice.toLocaleString()}đ`
+                                  : "Chưa có giá"}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                            onClick={() => {
+                              setSelectedProducts((prev) => {
+                                const newProducts = prev.filter((sp) => sp.id !== p.id);
+                                console.log("🗑️ [DiscountForm] Removed product:", p.title, "Remaining:", newProducts.length);
+                                return newProducts;
+                              });
+                              // ✅ Đánh dấu có thay đổi khi xóa sản phẩm
+                              setHasChanges(true);
+                            }}
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      ))}
+                      {selectedProducts.length > 3 && (
+                        <p className="text-xs text-gray-500 text-center">
+                          ... và {selectedProducts.length - 3} sản phẩm khác
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Chưa có sản phẩm nào được chọn.
+                  </p>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Bạn có thể quản lý danh sách sản phẩm sau khi tạo đợt giảm giá
+                Bạn có thể quản lý danh sách sản phẩm áp dụng ngay tại đây khi chỉnh sửa đợt giảm giá.
               </p>
             </div>
           )}
@@ -875,6 +1120,22 @@ export default function DiscountForm({ mode, initialData }: Props) {
             confirmButtonColor={pendingEnabledValue ? "green" : "red"}
           />
         )}
+
+        {/* ProductSelector Modal - chỉ hiển thị khi showProductSelector === true */}
+        {showProductSelector && (
+          <ProductSelector
+            multi
+            products={comboSelectableProducts}
+            initialSelectedIds={selectedProducts.map((p) => p.id)}
+            onClose={() => setShowProductSelector(false)}
+            onSelect={(products) => {
+              setSelectedProducts(products as any[]);
+              setShowProductSelector(false);
+              setHasChanges(true);
+            }}
+          />
+        )}
+
       </div>
     </div>
   );

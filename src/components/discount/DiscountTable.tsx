@@ -34,7 +34,19 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
               <td className="px-4 py-3">{d.name}</td>
 
               <td className="px-4 py-3">
-                {d.type === "PERCENT" ? "Phần trăm" : "Tiền mặt"}
+                {(() => {
+                  // @ts-ignore - campaignType có thể không có trong type nhưng có trong data thực tế
+                  const campaignType = d.campaignType;
+                  if (campaignType === "PERCENTAGE_PRODUCT") {
+                    return "Combo";
+                  } else if (campaignType === "PERCENTAGE_DISCOUNT") {
+                    return "Đợt";
+                  } else if (campaignType === "FLAT_DISCOUNT") {
+                    return "Số tiền";
+                  }
+                  // Fallback cho các loại cũ
+                  return d.type === "PERCENT" ? "Phần trăm" : "Tiền mặt";
+                })()}
               </td>
 
               <td className="px-4 py-3">
@@ -65,10 +77,22 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
 
               <td className="px-4 py-3 text-center">
                 {(() => {
+                  // @ts-ignore - campaignType có thể không có trong type nhưng có trong data thực tế
+                  const isCombo = d.campaignType === "PERCENTAGE_PRODUCT";
                   const now = new Date();
                   const start = d.startDate ? new Date(d.startDate) : null;
                   const end = d.endDate ? new Date(d.endDate) : null;
                   
+                  // Combo không có ngày → luôn "Đang diễn ra"
+                  if (isCombo && (!start || !end)) {
+                    return (
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                        Đang diễn ra
+                      </span>
+                    );
+                  }
+                  
+                  // Các loại khác: check ngày như cũ
                   if (!start || !end) {
                     return (
                       <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">

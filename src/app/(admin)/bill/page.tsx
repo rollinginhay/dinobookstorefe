@@ -36,11 +36,11 @@ export default function BillList() {
     const [endDate, setEndDate] = useState<Date | null>(null);
 
 
-    // Load API
-    useEffect(() => {
+1203    // Load API function
+    const loadBills = () => {
         setLoading(true);
         setError(null);
-        BillService.getList()
+        BillService.getList(0, 1000) // Tăng limit lên 1000 để load đủ đơn
             .then((data) => {
                 const sorted = [...data].sort(
                     (a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime()
@@ -58,7 +58,33 @@ export default function BillList() {
             .finally(() => {
                 setLoading(false);
             });
-    }, []); // 👈 load 1 lần duy nhất
+    };
+
+    // Load API on mount
+    useEffect(() => {
+        loadBills();
+    }, []);
+
+    // Refetch when window gains focus or tab becomes visible (user comes back to this tab)
+    useEffect(() => {
+        const handleFocus = () => {
+            loadBills();
+        };
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                loadBills();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
 
 
     // ===========================
