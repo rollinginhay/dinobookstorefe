@@ -64,11 +64,31 @@ export default function DiscountForm({ mode, initialData }: Props) {
             attributes.campaignType || "PERCENTAGE_PRODUCT",
           enabled: attributes.enabled !== undefined ? attributes.enabled : true,
         };
+        // Helper function để lấy ngày theo giờ địa phương
+        const getTodayLocalString = () => {
+          const today = new Date();
+          return today.getFullYear() + '-' + 
+                 String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                 String(today.getDate()).padStart(2, '0');
+        };
+        
+        const getTomorrowLocalString = () => {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          return tomorrow.getFullYear() + '-' + 
+                 String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + 
+                 String(tomorrow.getDate()).padStart(2, '0');
+        };
+
+        // Tạo ngày mặc định cho tạo mới
+        const today = getTodayLocalString();
+        const tomorrowStr = getTomorrowLocalString();
+
         return {
           name: parsed.name || "",
           campaignType: parsed.campaignType || (mode === "create" ? "PERCENTAGE_PRODUCT" : baseData.campaignType),
-          startDate: parsed.startDate || "",
-          endDate: parsed.endDate || "",
+          startDate: parsed.startDate || (mode === "create" ? today : ""),
+          endDate: parsed.endDate || (mode === "create" ? tomorrowStr : ""),
           enabled: parsed.enabled !== undefined ? parsed.enabled : (mode === "create" ? true : baseData.enabled),
           minTotal: parsed.minTotal || 0,
           percentage: parsed.percentage || null,
@@ -80,12 +100,32 @@ export default function DiscountForm({ mode, initialData }: Props) {
       }
     }
 
+    // Helper function để lấy ngày theo giờ địa phương
+    const getTodayLocalString = () => {
+      const today = new Date();
+      return today.getFullYear() + '-' + 
+             String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+             String(today.getDate()).padStart(2, '0');
+    };
+    
+    const getTomorrowLocalString = () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow.getFullYear() + '-' + 
+             String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + 
+             String(tomorrow.getDate()).padStart(2, '0');
+    };
+
+    // Tạo ngày mặc định cho tạo mới
+    const today = getTodayLocalString();
+    const tomorrowStr = getTomorrowLocalString();
+
     return {
       name: attributes.name || "",
       campaignType:
         attributes.campaignType || "PERCENTAGE_PRODUCT",
-      startDate: formatDateForInput(attributes.startDate),
-      endDate: formatDateForInput(attributes.endDate),
+      startDate: mode === "create" ? today : formatDateForInput(attributes.startDate),
+      endDate: mode === "create" ? tomorrowStr : formatDateForInput(attributes.endDate),
       enabled: attributes.enabled !== undefined ? attributes.enabled : true,
       minTotal: attributes.minTotal || 0,
       percentage: attributes.percentage || null,
@@ -300,10 +340,29 @@ export default function DiscountForm({ mode, initialData }: Props) {
       }
       setHasChanges(true);
     } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      // Xử lý đặc biệt cho ngày bắt đầu
+      if (name === "startDate") {
+        setFormData((prev) => {
+          const newFormData = { ...prev, [name]: value };
+          
+          // Nếu ngày kết thúc không có hoặc <= ngày bắt đầu mới, tự động set ngày kết thúc là ngày bắt đầu + 1
+          if (!prev.endDate || prev.endDate <= value) {
+            const startDate = new Date(value + 'T00:00:00'); // Đảm bảo parse theo timezone địa phương
+            const nextDay = new Date(startDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            newFormData.endDate = nextDay.getFullYear() + '-' + 
+                                  String(nextDay.getMonth() + 1).padStart(2, '0') + '-' + 
+                                  String(nextDay.getDate()).padStart(2, '0');
+          }
+          
+          return newFormData;
+        });
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      }
       setHasChanges(true);
     }
   };
@@ -336,8 +395,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return false;
     }
 
-    // Combo (PERCENTAGE_PRODUCT) không cần validate ngày
-    if (formData.campaignType !== "PERCENTAGE_PRODUCT") {
+    // Validate ngày cho tất cả loại voucher
     if (!formData.startDate) {
       toast.error("Vui lòng chọn ngày bắt đầu");
       return false;
@@ -378,7 +436,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
         return false;
         }
       }
-    }
 
     // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
     if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
@@ -456,16 +513,15 @@ export default function DiscountForm({ mode, initialData }: Props) {
         enabled: formData.enabled,
       };
 
-      // Combo không cần ngày và minTotal
+      // Thêm ngày và minTotal cho tất cả loại voucher
+      payloadData.startDate = formData.startDate;
+      payloadData.endDate = formData.endDate;
+      
+      // Chỉ PERCENTAGE_PRODUCT không cần minTotal
       if (formData.campaignType !== "PERCENTAGE_PRODUCT") {
-        payloadData.startDate = formData.startDate;
-        payloadData.endDate = formData.endDate;
         payloadData.minTotal = formData.minTotal || 0;
       } else {
-        // Combo: set null hoặc không gửi các field này
-        payloadData.startDate = null;
-        payloadData.endDate = null;
-        payloadData.minTotal = 0;
+        payloadData.minTotal = 0; // Vẫn set 0 cho PERCENTAGE_PRODUCT
       }
 
       // Thêm percentage hoặc maxDiscount tùy theo loại
@@ -616,9 +672,9 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm (sale đợt / combo)</option>
-              <option value="PERCENTAGE_DISCOUNT">Giảm % toàn đơn</option>
-              <option value="FLAT_DISCOUNT">Giảm tiền cố định theo đơn</option>
+              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm</option>
+              <option value="PERCENTAGE_DISCOUNT">Giảm giá đơn hàng theo %</option>
+              <option value="FLAT_DISCOUNT">Giảm số tiền theo đơn</option>
             </select>
             {isFieldDisabled("campaignType") && (
               <p className="text-xs text-amber-600 mt-1">
@@ -787,8 +843,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
           </div>
           )}
 
-          {/* Ngày bắt đầu - Ẩn khi là combo */}
-          {formData.campaignType !== "PERCENTAGE_PRODUCT" && (
+          {/* Ngày bắt đầu */}
+          {(
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ngày bắt đầu <span className="text-red-500">*</span>
@@ -801,7 +857,12 @@ export default function DiscountForm({ mode, initialData }: Props) {
               onChange={handleChange}
               disabled={isFieldDisabled("startDate") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
-              min={mode === "create" || status === "UPCOMING" ? new Date().toISOString().split("T")[0] : undefined}
+              min={mode === "create" || status === "UPCOMING" ? (() => {
+                const today = new Date();
+                return today.getFullYear() + '-' + 
+                       String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                       String(today.getDate()).padStart(2, '0');
+              })() : undefined}
             />
             {isFieldDisabled("startDate") && (
               <p className="text-xs text-amber-600 mt-1">
@@ -811,8 +872,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
           </div>
           )}
 
-          {/* Ngày kết thúc - Ẩn khi là combo */}
-          {formData.campaignType !== "PERCENTAGE_PRODUCT" && (
+          {/* Ngày kết thúc */}
+          {(
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ngày kết thúc <span className="text-red-500">*</span>
@@ -827,19 +888,9 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 formData.startDate 
                   ? (() => {
                       const startDate = new Date(formData.startDate);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      startDate.setHours(0, 0, 0, 0);
-                      
-                      // Nếu tạo mới hoặc chưa bắt đầu, min là max(today, startDate)
-                      if (mode === "create" || status === "UPCOMING") {
-                        return startDate > today ? formData.startDate : new Date().toISOString().split("T")[0];
-                      }
-                      // Nếu đã bắt đầu, chỉ cần sau startDate
-                      return formData.startDate;
+                      startDate.setDate(startDate.getDate() + 1);
+                      return startDate.toISOString().split("T")[0];
                     })()
-                  : mode === "create" || status === "UPCOMING"
-                  ? new Date().toISOString().split("T")[0]
                   : undefined
               }
               disabled={isFormReadOnly}

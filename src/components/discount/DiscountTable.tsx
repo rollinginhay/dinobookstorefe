@@ -37,11 +37,11 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
                 {(() => {
                   const campaignType = d.campaignType;
                   if (campaignType === "PERCENTAGE_PRODUCT") {
-                    return "Combo";
+                    return "Sản phẩm";
                   } else if (campaignType === "PERCENTAGE_DISCOUNT") {
-                    return "Đợt";
+                    return "Đơn hàng";
                   } else if (campaignType === "FLAT_DISCOUNT") {
-                    return "Số tiền";
+                    return "Đơn hàng";
                   }
                   // Fallback cho các loại cũ
                   return d.type === "PERCENT" ? "Phần trăm" : "Tiền mặt";
@@ -76,21 +76,11 @@ export default function DiscountTable({ data }: { data: Discount[] }) {
 
               <td className="px-4 py-3 text-center">
                 {(() => {
-                  const isCombo = d.campaignType === "PERCENTAGE_PRODUCT";
                   const now = new Date();
                   const start = d.startDate ? new Date(d.startDate) : null;
                   const end = d.endDate ? new Date(d.endDate) : null;
                   
-                  // Combo không có ngày → luôn "Đang diễn ra"
-                  if (isCombo && (!start || !end)) {
-                    return (
-                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
-                        Đang diễn ra
-                      </span>
-                    );
-                  }
-                  
-                  // Các loại khác: check ngày như cũ
+                  // Kiểm tra ngày cho tất cả loại voucher
                   if (!start || !end) {
                     return (
                       <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
