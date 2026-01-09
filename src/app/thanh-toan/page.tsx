@@ -14,12 +14,15 @@ type Ward = { code: number; name: string };
 
 export default function ThanhToan() {
   const router = useRouter();
-  const { selectedCartItems, clearAllCartFromBackend, selectedTotalPrice, clearCart } =
-    useCart();
-  // ✅ Bỏ voucher - không dùng nữa
+  const {
+    selectedCartItems,
+    clearAllCartFromBackend,
+    selectedTotalPrice,
+    clearCart,
+  } = useCart();
   // const { savedVouchers, getVoucherById, calculateDiscount } = useVoucher();
-  // const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
-  // const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [selectedVoucherId, setSelectedVoucherId] = useState<string>("");
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -52,7 +55,8 @@ export default function ThanhToan() {
           return;
         }
 
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+        const API_BASE_URL =
+          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
         const res = await fetch(`${API_BASE_URL}/v1/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -66,7 +70,7 @@ export default function ThanhToan() {
 
         const data = await res.json();
         const userData = data.data?.attributes || data;
-        
+
         // Parse defaultAddress từ note field (nếu có)
         let defaultAddress = null;
         if (userData.note) {
@@ -77,12 +81,16 @@ export default function ThanhToan() {
             console.warn("Không parse được defaultAddress từ note:", e);
           }
         }
-        
+
         // Fill form từ defaultAddress nếu có
         if (defaultAddress && defaultAddress.receiverName) {
           setFormData((prev) => ({
             ...prev,
-            fullName: defaultAddress.receiverName || userData.personName || userData.fullName || "",
+            fullName:
+              defaultAddress.receiverName ||
+              userData.personName ||
+              userData.fullName ||
+              "",
             phone: defaultAddress.phone || userData.phoneNumber || "",
             email: userData.email || "",
             address: defaultAddress.addressLine || "",
@@ -115,8 +123,7 @@ export default function ThanhToan() {
 
     const province = provinces.find(
       (p) =>
-        p.name === formData.city ||
-        String(p.code) === String(formData.city)
+        p.name === formData.city || String(p.code) === String(formData.city)
     );
     if (!province) return;
 
@@ -153,7 +160,13 @@ export default function ThanhToan() {
     };
 
     loadLocation();
-  }, [prefillLocationDone, formData.city, formData.district, formData.ward, provinces]);
+  }, [
+    prefillLocationDone,
+    formData.city,
+    formData.district,
+    formData.ward,
+    provinces,
+  ]);
 
   // Load Provinces
   useEffect(() => {
@@ -165,19 +178,19 @@ export default function ThanhToan() {
 
   // --- Calculate totals ---
   const shipping = selectedTotalPrice >= 299000 ? 0 : 30000;
-  
+
   // ✅ Tạm tính = tổng giá gốc (originalPrice)
   const totalOriginal = selectedCartItems.reduce((sum, item) => {
     if (item.isCombo && item.comboOriginalPrice) {
-      return sum + (item.comboOriginalPrice * item.quantity);
+      return sum + item.comboOriginalPrice * item.quantity;
     }
     const originalPrice = item.originalPrice || item.price;
-    return sum + (originalPrice * item.quantity);
+    return sum + originalPrice * item.quantity;
   }, 0);
-  
+
   // ✅ Số tiền giảm = tổng giá gốc - tổng giá đã giảm
   const discountAmount = totalOriginal - selectedTotalPrice;
-  
+
   // ✅ Tổng cộng = giá đã giảm + phí ship
   const finalTotal = selectedTotalPrice + shipping;
 
@@ -185,7 +198,7 @@ export default function ThanhToan() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    
+
     // Hiển thị confirm modal thay vì window.confirm
     setShowConfirmModal(true);
     setPendingSubmit(true);
@@ -195,26 +208,32 @@ export default function ThanhToan() {
   const handleConfirmOrder = async () => {
     setShowConfirmModal(false);
     setLoading(true);
-    
+
     // Tiếp tục logic đặt hàng
     await processOrder();
   };
 
   const persistDefaultShipping = async () => {
     if (!saveAsDefault) return;
-    
+
     // Lưu địa chỉ mặc định vào backend thay vì localStorage
     try {
       const token = localStorage.getItem("jwtToken");
       if (!token) return;
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
       const selectedCityName =
-        provinces.find((p) => p.name === formData.city || String(p.code) === String(formData.city))?.name ||
-        formData.city;
+        provinces.find(
+          (p) =>
+            p.name === formData.city || String(p.code) === String(formData.city)
+        )?.name || formData.city;
       const selectedDistrictName =
-        districts.find((d) => d.name === formData.district || String(d.code) === String(formData.district))?.name ||
-        formData.district;
+        districts.find(
+          (d) =>
+            d.name === formData.district ||
+            String(d.code) === String(formData.district)
+        )?.name || formData.district;
 
       const payload = {
         data: {
@@ -258,62 +277,72 @@ export default function ThanhToan() {
 
   // Hàm xử lý đặt hàng (tách ra từ handleSubmit)
   const processOrder = async () => {
-
     // Build full address as string
     const fullAddress = `${formData.address}, ${formData.ward}, ${formData.district}, ${formData.city}`;
-    
+
     // Build Receipt Payload
-    // userId sẽ được lấy từ token ở backend, không cần gửi từ FE
-    
+    const userId = localStorage.getItem("userId");
+
     // Tạo included trước để có thể dùng cho relationships
     const receiptDetailsIncluded: any[] = selectedCartItems.flatMap((item) => {
       // Với combo: tạo nhiều receiptDetail (mỗi sách một cái)
       // Với item thường: tạo 1 receiptDetail
       if (item.isCombo && item.comboBooks && item.comboBooks.length > 0) {
         // Lấy combo metadata để lấy thông tin đầy đủ
-        const cartCombos = JSON.parse(localStorage.getItem("cartCombos") || "[]");
-        const comboMeta = cartCombos.find((cm: any) => 
+        const cartCombos = JSON.parse(
+          localStorage.getItem("cartCombos") || "[]"
+        );
+        const comboMeta = cartCombos.find((cm: any) =>
           cm.cartDetailIds.includes(item.cartDetailId)
         );
-        
+
         if (comboMeta && comboMeta.books) {
           // Tạo một receiptDetail cho mỗi sách trong combo
-          return comboMeta.books.map((book: any, index: number) => {
-            const bookDetailIdRaw = (book as any).bookDetailId || book.id;
-            const bookDetailId = typeof bookDetailIdRaw === 'string' ? bookDetailIdRaw : String(bookDetailIdRaw);
-            
-            if (!bookDetailId || bookDetailId.startsWith('combo-')) {
-              console.error('Invalid bookDetailId for combo book:', book);
-              return null;
-            }
-            
-            // Giá mỗi sách = comboPrice / số lượng sách
-            const pricePerBook = comboMeta.comboPrice / comboMeta.books.length;
-            
-            return {
-              type: "receiptDetail",
-              id: String(comboMeta.cartDetailIds[index] || `combo-${comboMeta.comboId}-${index}`),
-              attributes: {
-                quantity: item.quantity,
-                pricePerUnit: Math.round(pricePerBook),
-                bookDetailId: Number(bookDetailId), // Gửi bookDetailId trong attributes để BE map đúng
-              },
-              relationships: {
-                bookCopy: {
-                  data: {
-                    type: "bookCopy",
-                    id: String(bookDetailId),
+          return comboMeta.books
+            .map((book: any, index: number) => {
+              const bookDetailIdRaw = (book as any).bookDetailId || book.id;
+              const bookDetailId =
+                typeof bookDetailIdRaw === "string"
+                  ? bookDetailIdRaw
+                  : String(bookDetailIdRaw);
+
+              if (!bookDetailId || bookDetailId.startsWith("combo-")) {
+                console.error("Invalid bookDetailId for combo book:", book);
+                return null;
+              }
+
+              // Giá mỗi sách = comboPrice / số lượng sách
+              const pricePerBook =
+                comboMeta.comboPrice / comboMeta.books.length;
+
+              return {
+                type: "receiptDetail",
+                id: String(
+                  comboMeta.cartDetailIds[index] ||
+                    `combo-${comboMeta.comboId}-${index}`
+                ),
+                attributes: {
+                  quantity: item.quantity,
+                  pricePerUnit: Math.round(pricePerBook),
+                  bookDetailId: Number(bookDetailId), // Gửi bookDetailId trong attributes để BE map đúng
+                },
+                relationships: {
+                  bookCopy: {
+                    data: {
+                      type: "bookCopy",
+                      id: String(bookDetailId),
+                    },
                   },
                 },
-              },
-            };
-          }).filter((rd: any) => rd !== null);
+              };
+            })
+            .filter((rd: any) => rd !== null);
         } else {
           // Fallback: dùng comboBooks nếu không có comboMeta
           return item.comboBooks.map((book: any, index: number) => {
             const bookDetailId = (book as any).bookDetailId || book.id;
             const pricePerBook = item.price / (item.comboBooks?.length || 1);
-            
+
             return {
               type: "receiptDetail",
               id: String(`combo-${item.cartDetailId}-${index}`),
@@ -337,48 +366,50 @@ export default function ThanhToan() {
         // Item thường: tạo 1 receiptDetail
         const bookDetailIdRaw = item.bookDetailId || item.id;
         let bookDetailId: string | number;
-        
+
         // Kiểm tra và đảm bảo bookDetailId là số hợp lệ
-        if (typeof bookDetailIdRaw === 'string') {
-          if ((bookDetailIdRaw as string).startsWith('combo-')) {
-            console.error('Invalid bookDetailId for item:', item);
+        if (typeof bookDetailIdRaw === "string") {
+          if ((bookDetailIdRaw as string).startsWith("combo-")) {
+            console.error("Invalid bookDetailId for item:", item);
             return [];
           } else {
             const parsed = Number(bookDetailIdRaw);
             if (!isNaN(parsed)) {
               bookDetailId = parsed;
             } else {
-              console.error('Cannot parse bookDetailId:', bookDetailIdRaw);
+              console.error("Cannot parse bookDetailId:", bookDetailIdRaw);
               return [];
             }
           }
-        } else if (typeof bookDetailIdRaw === 'number') {
+        } else if (typeof bookDetailIdRaw === "number") {
           bookDetailId = bookDetailIdRaw;
         } else {
-          console.error('Invalid bookDetailId type:', bookDetailIdRaw);
+          console.error("Invalid bookDetailId type:", bookDetailIdRaw);
           return [];
         }
-        
-            return [{
-              type: "receiptDetail",
-              id: String(item.cartDetailId || item.id),
-              attributes: {
-                quantity: item.quantity,
-                pricePerUnit: item.price,
-                bookDetailId: Number(bookDetailId), // Gửi bookDetailId trong attributes để BE map đúng
-              },
-              relationships: {
-                bookCopy: {
-                  data: {
-                    type: "bookCopy",
-                    id: String(bookDetailId),
-                  },
+
+        return [
+          {
+            type: "receiptDetail",
+            id: String(item.cartDetailId || item.id),
+            attributes: {
+              quantity: item.quantity,
+              pricePerUnit: item.price,
+              bookDetailId: Number(bookDetailId), // Gửi bookDetailId trong attributes để BE map đúng
+            },
+            relationships: {
+              bookCopy: {
+                data: {
+                  type: "bookCopy",
+                  id: String(bookDetailId),
                 },
               },
-            }];
+            },
+          },
+        ];
       }
     });
-    
+
     const receiptPayload = {
       data: {
         type: "receipt",
@@ -429,14 +460,14 @@ export default function ThanhToan() {
     // Lấy bookDetailIds từ các receiptDetail trong included (sau khi đã tạo payload)
     const cartCombos = JSON.parse(localStorage.getItem("cartCombos") || "[]");
     const receiptComboMetadata: any[] = [];
-    
+
     selectedCartItems.forEach((item) => {
       if (item.isCombo) {
         // Tìm combo metadata từ cartCombos
-        const comboMeta = cartCombos.find((cm: any) => 
+        const comboMeta = cartCombos.find((cm: any) =>
           cm.cartDetailIds.includes(item.cartDetailId)
         );
-        
+
         if (comboMeta) {
           // Lấy bookDetailIds từ các receiptDetail trong payload đã tạo
           // Tìm các receiptDetail có cartDetailId tương ứng với cartDetailIds trong combo
@@ -445,24 +476,28 @@ export default function ThanhToan() {
             .filter((rd: any) => {
               // Tìm receiptDetail có id (cartDetailId) trong comboMeta.cartDetailIds
               const rdId = String(rd.id);
-              return comboMeta.cartDetailIds.some((cdId: number) => String(cdId) === rdId);
+              return comboMeta.cartDetailIds.some(
+                (cdId: number) => String(cdId) === rdId
+              );
             });
-          
+
           // Lấy bookDetailIds từ các receiptDetail
-          const bookDetailIds = comboReceiptDetails.map((rd: any) => {
-            const bookDetailId = rd.relationships?.bookCopy?.data?.id || 
-                                 rd.attributes?.bookCopy;
-            return String(bookDetailId);
-          }).filter((id: string) => id && id !== 'null' && id !== 'undefined');
-          
+          const bookDetailIds = comboReceiptDetails
+            .map((rd: any) => {
+              const bookDetailId =
+                rd.relationships?.bookCopy?.data?.id || rd.attributes?.bookCopy;
+              return String(bookDetailId);
+            })
+            .filter((id: string) => id && id !== "null" && id !== "undefined");
+
           console.log("📦 Combo metadata:", {
             comboId: comboMeta.comboId,
             comboName: comboMeta.comboName,
             cartDetailIds: comboMeta.cartDetailIds,
             comboReceiptDetails: comboReceiptDetails,
-            bookDetailIds: bookDetailIds
+            bookDetailIds: bookDetailIds,
           });
-          
+
           receiptComboMetadata.push({
             comboId: comboMeta.comboId,
             bookDetailIds: bookDetailIds, // Lưu bookDetailIds từ receiptDetails trong payload
@@ -493,9 +528,9 @@ export default function ThanhToan() {
           "http://localhost:8080/v1/receipt/createOnline",
           {
             method: "POST",
-            headers: { 
+            headers: {
               "Content-Type": "application/vnd.api+json",
-              "Authorization": `Bearer ${token}`
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(receiptPayload),
           }
@@ -504,13 +539,13 @@ export default function ThanhToan() {
         if (!res.ok) throw new Error("Lỗi tạo đơn hàng COD");
         const receipt = await res.json();
         const receiptId = receipt?.data?.id;
-        
+
         if (!receiptId) {
           throw new Error("Không lấy được ID đơn hàng!");
         }
 
         persistDefaultShipping();
-        
+
         // Lưu combo metadata với receiptId để trang hóa đơn có thể sử dụng
         if (receiptComboMetadata.length > 0) {
           // Fetch receiptDetails từ relationships endpoint để lấy đầy đủ thông tin
@@ -518,88 +553,134 @@ export default function ThanhToan() {
             const receiptDetailsRes = await fetch(
               `http://localhost:8080/v1/receipt/${receiptId}/relationships/receiptDetail?e=true`
             );
-            
+
             if (receiptDetailsRes.ok) {
               const receiptDetailsJson = await receiptDetailsRes.json();
               const receiptDetails = receiptDetailsJson.data || [];
-              
+
               // Map bookDetailIds với receiptDetailIds dựa vào book_copy_id
               // QUAN TRỌNG: Chỉ map đúng các receiptDetail thuộc combo, không map sách lẻ
               // Sử dụng cartDetailIds để map chính xác (nếu có), nếu không thì map theo bookDetailIds với số lượng giới hạn
               receiptComboMetadata.forEach((comboMeta) => {
-                const expectedCount = comboMeta.bookDetailIds.length * (comboMeta.quantity || 1);
+                const expectedCount =
+                  comboMeta.bookDetailIds.length * (comboMeta.quantity || 1);
                 let matchedReceiptDetails: any[] = [];
-                
+
                 // Nếu có cartDetailIds, map dựa vào đó (chính xác hơn)
-                if (comboMeta.cartDetailIds && comboMeta.cartDetailIds.length > 0) {
+                if (
+                  comboMeta.cartDetailIds &&
+                  comboMeta.cartDetailIds.length > 0
+                ) {
                   // Map dựa vào cartDetailIds: tìm receiptDetail có id trùng với cartDetailId
                   // Lưu ý: receiptDetail.id từ backend có thể khác cartDetailId, nên cần map qua bookDetailId
                   const usedReceiptDetailIds = new Set<string>();
-                  
+
                   // Map từng bookDetailId trong combo theo thứ tự
-                  comboMeta.bookDetailIds.forEach((bookDetailId: string, bookIndex: number) => {
-                    // Tìm receiptDetail có bookDetailId trùng và chưa được dùng
-                    // Chỉ map đúng số lượng theo quantity
-                    for (let qty = 0; qty < (comboMeta.quantity || 1); qty++) {
-                      const found = receiptDetails.find((rd: any) => {
-                        const rdBookDetailId = String(
-                          rd.relationships?.bookCopy?.data?.id || 
-                          rd.relationships?.bookDetail?.data?.id ||
-                          rd.attributes?.bookCopy ||
-                          rd.attributes?.bookDetailId
-                        );
-                        return String(bookDetailId) === rdBookDetailId && 
-                               !usedReceiptDetailIds.has(String(rd.id));
-                      });
-                      
-                      if (found) {
-                        matchedReceiptDetails.push(found);
-                        usedReceiptDetailIds.add(String(found.id));
+                  comboMeta.bookDetailIds.forEach(
+                    (bookDetailId: string, bookIndex: number) => {
+                      // Tìm receiptDetail có bookDetailId trùng và chưa được dùng
+                      // Chỉ map đúng số lượng theo quantity
+                      for (
+                        let qty = 0;
+                        qty < (comboMeta.quantity || 1);
+                        qty++
+                      ) {
+                        const found = receiptDetails.find((rd: any) => {
+                          const rdBookDetailId = String(
+                            rd.relationships?.bookCopy?.data?.id ||
+                              rd.relationships?.bookDetail?.data?.id ||
+                              rd.attributes?.bookCopy ||
+                              rd.attributes?.bookDetailId
+                          );
+                          return (
+                            String(bookDetailId) === rdBookDetailId &&
+                            !usedReceiptDetailIds.has(String(rd.id))
+                          );
+                        });
+
+                        if (found) {
+                          matchedReceiptDetails.push(found);
+                          usedReceiptDetailIds.add(String(found.id));
+                        }
                       }
                     }
-                  });
-                  
+                  );
+
                   // Chỉ lấy đúng số lượng expected, không lấy thêm
-                  matchedReceiptDetails = matchedReceiptDetails.slice(0, expectedCount);
+                  matchedReceiptDetails = matchedReceiptDetails.slice(
+                    0,
+                    expectedCount
+                  );
                 } else {
                   // Fallback: map theo bookDetailIds nhưng chỉ lấy đúng số lượng
                   const usedReceiptDetailIds = new Set<string>();
-                  
+
                   comboMeta.bookDetailIds.forEach((bookDetailId: string) => {
                     for (let qty = 0; qty < (comboMeta.quantity || 1); qty++) {
                       const found = receiptDetails.find((rd: any) => {
                         const rdBookDetailId = String(
-                          rd.relationships?.bookCopy?.data?.id || 
-                          rd.relationships?.bookDetail?.data?.id ||
-                          rd.attributes?.bookCopy ||
-                          rd.attributes?.bookDetailId
+                          rd.relationships?.bookCopy?.data?.id ||
+                            rd.relationships?.bookDetail?.data?.id ||
+                            rd.attributes?.bookCopy ||
+                            rd.attributes?.bookDetailId
                         );
-                        return String(bookDetailId) === rdBookDetailId && 
-                               !usedReceiptDetailIds.has(String(rd.id));
+                        return (
+                          String(bookDetailId) === rdBookDetailId &&
+                          !usedReceiptDetailIds.has(String(rd.id))
+                        );
                       });
-                      
-                      if (found && matchedReceiptDetails.length < expectedCount) {
+
+                      if (
+                        found &&
+                        matchedReceiptDetails.length < expectedCount
+                      ) {
                         matchedReceiptDetails.push(found);
                         usedReceiptDetailIds.add(String(found.id));
                       }
                     }
                   });
                 }
-                
-                comboMeta.receiptDetailIds = matchedReceiptDetails.map((rd: any) => String(rd.id));
+
+                comboMeta.receiptDetailIds = matchedReceiptDetails.map(
+                  (rd: any) => String(rd.id)
+                );
+                // const matchedReceiptDetails = receiptDetails.filter(
+                //   (rd: any) => {
+                //     // Lấy bookDetailId từ relationships hoặc attributes
+                //     const bookDetailId = String(
+                //       rd.relationships?.bookCopy?.data?.id ||
+                //         rd.relationships?.bookDetail?.data?.id ||
+                //         rd.attributes?.bookCopy ||
+                //         rd.attributes?.bookDetailId
+                //     );
+                //     return comboMeta.bookDetailIds.includes(bookDetailId);
+                //   }
+                // );
+
+                // comboMeta.receiptDetailIds = matchedReceiptDetails.map(
+                //   (rd: any) => String(rd.id)
+                // );
               });
-              
-              console.log("✅ Combo metadata với receiptDetailIds:", receiptComboMetadata);
+
+              console.log(
+                "✅ Combo metadata với receiptDetailIds:",
+                receiptComboMetadata
+              );
             } else {
-              console.warn("⚠️ Không thể fetch receiptDetails, sẽ map sau khi xem hóa đơn");
+              console.warn(
+                "⚠️ Không thể fetch receiptDetails, sẽ map sau khi xem hóa đơn"
+              );
             }
           } catch (err) {
             console.error("❌ Lỗi fetch receiptDetails:", err);
           }
-          
-          localStorage.setItem(`receiptCombo_${receiptId}`, JSON.stringify(receiptComboMetadata));
+
+          localStorage.setItem(
+            `receiptCombo_${receiptId}`,
+            JSON.stringify(receiptComboMetadata)
+          );
         }
-        
+
         // Xóa TẤT CẢ giỏ hàng từ backend (không chỉ items đã chọn)
         // Đợi xóa xong mới chuyển trang
         await clearAllCartFromBackend();
@@ -620,9 +701,9 @@ export default function ThanhToan() {
             "http://localhost:8080/v1/receipt/createOnline",
             {
               method: "POST",
-              headers: { 
+              headers: {
                 "Content-Type": "application/vnd.api+json",
-                "Authorization": `Bearer ${token}`
+                Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify(receiptPayload),
             }
@@ -647,41 +728,53 @@ export default function ThanhToan() {
               const receiptDetailsRes = await fetch(
                 `http://localhost:8080/v1/receipt/${receiptId}/relationships/receiptDetail?e=true`
               );
-              
+
               if (receiptDetailsRes.ok) {
                 const receiptDetailsJson = await receiptDetailsRes.json();
                 const receiptDetails = receiptDetailsJson.data || [];
-                
+
                 // Map bookDetailIds với receiptDetailIds dựa vào book_copy_id
                 receiptComboMetadata.forEach((comboMeta) => {
-                  const matchedReceiptDetails = receiptDetails.filter((rd: any) => {
-                    // Lấy bookDetailId từ relationships hoặc attributes
-                    const bookDetailId = String(
-                      rd.relationships?.bookCopy?.data?.id || 
-                      rd.relationships?.bookDetail?.data?.id ||
-                      rd.attributes?.bookCopy ||
-                      rd.attributes?.bookDetailId
-                    );
-                    return comboMeta.bookDetailIds.includes(bookDetailId);
-                  });
-                  
-                  comboMeta.receiptDetailIds = matchedReceiptDetails.map((rd: any) => String(rd.id));
+                  const matchedReceiptDetails = receiptDetails.filter(
+                    (rd: any) => {
+                      // Lấy bookDetailId từ relationships hoặc attributes
+                      const bookDetailId = String(
+                        rd.relationships?.bookCopy?.data?.id ||
+                          rd.relationships?.bookDetail?.data?.id ||
+                          rd.attributes?.bookCopy ||
+                          rd.attributes?.bookDetailId
+                      );
+                      return comboMeta.bookDetailIds.includes(bookDetailId);
+                    }
+                  );
+
+                  comboMeta.receiptDetailIds = matchedReceiptDetails.map(
+                    (rd: any) => String(rd.id)
+                  );
                 });
-                
-                console.log("✅ Combo metadata với receiptDetailIds:", receiptComboMetadata);
+
+                console.log(
+                  "✅ Combo metadata với receiptDetailIds:",
+                  receiptComboMetadata
+                );
               } else {
-                console.warn("⚠️ Không thể fetch receiptDetails, sẽ map sau khi xem hóa đơn");
+                console.warn(
+                  "⚠️ Không thể fetch receiptDetails, sẽ map sau khi xem hóa đơn"
+                );
               }
             } catch (err) {
               console.error("❌ Lỗi fetch receiptDetails:", err);
             }
-            
-            localStorage.setItem(`receiptCombo_${receiptId}`, JSON.stringify(receiptComboMetadata));
+
+            localStorage.setItem(
+              `receiptCombo_${receiptId}`,
+              JSON.stringify(receiptComboMetadata)
+            );
           }
 
           // 2. Gọi API tạo URL VNPay
           const vnpayRes = await fetch(
-            `http://localhost:8080/api/vnpay/pay-receipt/${receiptId}?returnUrl=http://localhost:3000/vnpay-return`,
+            `http://localhost:8080/api/vnpay/pay-receipt/${receiptId}?returnUrl=http://localhost:3001/vnpay-return`,
             {
               method: "POST",
             }
@@ -1005,7 +1098,6 @@ export default function ThanhToan() {
                     </select>
                   </div>
                 </div>
-                {/* Địa chỉ chi tiết */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Địa chỉ chi tiết <span className="text-red-600">*</span>
@@ -1151,16 +1243,18 @@ export default function ThanhToan() {
                       {/* Price - Hiển thị giá sale (đỏ, to) và giá gốc (gạch ngang) */}
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-red-600 font-bold text-base">
-                          {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                          {(item.price * item.quantity).toLocaleString("vi-VN")}{" "}
+                          ₫
                         </span>
                         {(() => {
                           // Tính giá gốc: nếu là combo dùng comboOriginalPrice, không thì dùng originalPrice
-                          const originalPrice = item.isCombo && item.comboOriginalPrice
-                            ? item.comboOriginalPrice
-                            : (item.originalPrice || item.price);
+                          const originalPrice =
+                            item.isCombo && item.comboOriginalPrice
+                              ? item.comboOriginalPrice
+                              : item.originalPrice || item.price;
                           const originalAmount = originalPrice * item.quantity;
                           const discountedAmount = item.price * item.quantity;
-                          
+
                           if (originalAmount > discountedAmount) {
                             return (
                               <span className="text-gray-400 text-xs line-through">
@@ -1181,13 +1275,16 @@ export default function ThanhToan() {
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính ({selectedCartItems.length} sản phẩm)</span>
                   <span>
-                    {selectedCartItems.reduce((sum, item) => {
-                      if (item.isCombo && item.comboOriginalPrice) {
-                        return sum + (item.comboOriginalPrice * item.quantity);
-                      }
-                      const originalPrice = item.originalPrice || item.price;
-                      return sum + (originalPrice * item.quantity);
-                    }, 0).toLocaleString("vi-VN")} ₫
+                    {selectedCartItems
+                      .reduce((sum, item) => {
+                        if (item.isCombo && item.comboOriginalPrice) {
+                          return sum + item.comboOriginalPrice * item.quantity;
+                        }
+                        const originalPrice = item.originalPrice || item.price;
+                        return sum + originalPrice * item.quantity;
+                      }, 0)
+                      .toLocaleString("vi-VN")}{" "}
+                    ₫
                   </span>
                 </div>
                 {/* Giảm giá */}
@@ -1263,17 +1360,17 @@ export default function ThanhToan() {
                   </svg>
                 </div>
               </div>
-              
+
               {/* Tiêu đề */}
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 Đặt hàng thành công
               </h2>
-              
+
               {/* Mô tả */}
               <p className="text-gray-600 mb-6 leading-relaxed">
                 Vui lòng kiểm tra email của bạn để xem chi tiết đơn hàng
               </p>
-              
+
               {/* 2 nút */}
               <div className="flex gap-3">
                 <button
@@ -1350,7 +1447,6 @@ export default function ThanhToan() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

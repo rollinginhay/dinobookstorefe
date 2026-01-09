@@ -61,11 +61,15 @@ function ComboItem({
                 <span className="text-xl font-bold text-red-600">
                   {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
                 </span>
-                {item.comboOriginalPrice && item.comboOriginalPrice > item.price && (
-                  <span className="text-gray-400 text-sm line-through">
-                    {(item.comboOriginalPrice * item.quantity).toLocaleString("vi-VN")} ₫
-                  </span>
-                )}
+                {item.comboOriginalPrice &&
+                  item.comboOriginalPrice > item.price && (
+                    <span className="text-gray-400 text-sm line-through">
+                      {(item.comboOriginalPrice * item.quantity).toLocaleString(
+                        "vi-VN"
+                      )}{" "}
+                      ₫
+                    </span>
+                  )}
               </div>
 
               {/* Expand/Collapse button */}
@@ -117,7 +121,7 @@ function ComboItem({
                       <p className="text-gray-500 text-xs">{book.author}</p>
                     </div>
                     <span className="text-gray-600">
-                      {(book.originalPrice || book.price).toLocaleString("vi-VN")} ₫
+                      {book.price.toLocaleString("vi-VN")} ₫
                     </span>
                   </div>
                 ))}
@@ -127,8 +131,13 @@ function ComboItem({
         </div>
       </div>
 
-      {/* Combo Actions */}
-      <div className="flex items-center justify-end mt-4">
+      {/* Combo Price and Actions */}
+      <div className="flex items-center justify-between mt-4">
+        {/* Price */}
+        {/* <span className="text-2xl font-bold text-red-600">
+          {item.amount.toLocaleString("vi-VN")} ₫
+        </span> */}
+
         {/* Actions */}
         <div className="flex items-center gap-4">
           {/* Quantity Selector */}
@@ -460,13 +469,20 @@ export default function GioHang() {
                               {/* Price - Hiển thị giá sale (đỏ, to) và giá gốc (gạch ngang) - dưới tên tác giả */}
                               <div className="flex items-center gap-2 mb-2">
                                 <span className="text-xl font-bold text-red-600">
-                                  {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
+                                  {(item.price * item.quantity).toLocaleString(
+                                    "vi-VN"
+                                  )}{" "}
+                                  ₫
                                 </span>
-                                {item.originalPrice && item.originalPrice > item.price && (
-                                  <span className="text-gray-400 text-sm line-through">
-                                    {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} ₫
-                                  </span>
-                                )}
+                                {item.originalPrice &&
+                                  item.originalPrice > item.price && (
+                                    <span className="text-gray-400 text-sm line-through">
+                                      {(
+                                        item.originalPrice * item.quantity
+                                      ).toLocaleString("vi-VN")}{" "}
+                                      ₫
+                                    </span>
+                                  )}
                               </div>
                             </div>
                           </div>
@@ -587,26 +603,39 @@ export default function GioHang() {
                           Tạm tính ({selectedTotalItems} sản phẩm đã chọn)
                         </span>
                         <span>
-                          {selectedCartItems.reduce((sum, item) => {
-                            const originalPrice = item.originalPrice || item.price;
-                            const originalAmount = originalPrice * item.quantity;
-                            // Nếu là combo, dùng comboOriginalPrice
-                            if (item.isCombo && item.comboOriginalPrice) {
-                              return sum + (item.comboOriginalPrice * item.quantity);
-                            }
-                            return sum + originalAmount;
-                          }, 0).toLocaleString("vi-VN")} ₫
+                          {selectedCartItems
+                            .reduce((sum, item) => {
+                              const originalPrice =
+                                item.originalPrice || item.price;
+                              const originalAmount =
+                                originalPrice * item.quantity;
+                              // Nếu là combo, dùng comboOriginalPrice
+                              if (item.isCombo && item.comboOriginalPrice) {
+                                return (
+                                  sum + item.comboOriginalPrice * item.quantity
+                                );
+                              }
+                              return sum + originalAmount;
+                            }, 0)
+                            .toLocaleString("vi-VN")}{" "}
+                          ₫
                         </span>
                       </div>
                       {/* Số tiền giảm */}
                       {(() => {
-                        const totalOriginal = selectedCartItems.reduce((sum, item) => {
-                          if (item.isCombo && item.comboOriginalPrice) {
-                            return sum + (item.comboOriginalPrice * item.quantity);
-                          }
-                          const originalPrice = item.originalPrice || item.price;
-                          return sum + (originalPrice * item.quantity);
-                        }, 0);
+                        const totalOriginal = selectedCartItems.reduce(
+                          (sum, item) => {
+                            if (item.isCombo && item.comboOriginalPrice) {
+                              return (
+                                sum + item.comboOriginalPrice * item.quantity
+                              );
+                            }
+                            const originalPrice =
+                              item.originalPrice || item.price;
+                            return sum + originalPrice * item.quantity;
+                          },
+                          0
+                        );
                         const totalDiscounted = selectedTotalPrice;
                         const discountAmount = totalOriginal - totalDiscounted;
                         return discountAmount > 0 ? (
@@ -631,16 +660,23 @@ export default function GioHang() {
                         </span>
                       </div>
                       {(() => {
-                        const totalOriginal = selectedCartItems.reduce((sum, item) => {
-                          if (item.isCombo && item.comboOriginalPrice) {
-                            return sum + (item.comboOriginalPrice * item.quantity);
-                          }
-                          const originalPrice = item.originalPrice || item.price;
-                          return sum + (originalPrice * item.quantity);
-                        }, 0);
+                        const totalOriginal = selectedCartItems.reduce(
+                          (sum, item) => {
+                            if (item.isCombo && item.comboOriginalPrice) {
+                              return (
+                                sum + item.comboOriginalPrice * item.quantity
+                              );
+                            }
+                            const originalPrice =
+                              item.originalPrice || item.price;
+                            return sum + originalPrice * item.quantity;
+                          },
+                          0
+                        );
                         const totalDiscounted = selectedTotalPrice;
                         const discountAmount = totalOriginal - totalDiscounted;
-                        const finalTotalWithDiscount = totalDiscounted + shipping;
+                        const finalTotalWithDiscount =
+                          totalDiscounted + shipping;
                         return (
                           <>
                             {totalDiscounted > 0 &&
@@ -657,7 +693,10 @@ export default function GioHang() {
                               <div className="flex justify-between text-lg font-bold text-gray-900">
                                 <span>Tổng cộng</span>
                                 <span className="text-red-600">
-                                  {finalTotalWithDiscount.toLocaleString("vi-VN")} ₫
+                                  {finalTotalWithDiscount.toLocaleString(
+                                    "vi-VN"
+                                  )}{" "}
+                                  ₫
                                 </span>
                               </div>
                             </div>

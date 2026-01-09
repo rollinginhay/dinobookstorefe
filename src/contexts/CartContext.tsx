@@ -275,6 +275,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     //     fetchCart();
     //   }, [userId, token]);
 
+    const getBookDetailById = (id: number): any => {
+      const existedList = localStorage.getItem("allBookData");
+      if (!existedList) {
+        return null;
+      }
+      return JSON.parse(existedList).find((item: any) => item?.id === id);
+    };
+
     const fetchCart = async () => {
       try {
         const res = await fetch(
@@ -290,6 +298,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         const data = await res.json();
 
+        console.log("data -------------------", data);
         // Nếu không có items, không cần fetch thêm
         if (!data.data || data.data.length === 0) {
           setCartItems([]);
@@ -335,18 +344,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}?e=true`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
-              
-              if (!bookDetailRes.ok) {
-                console.warn("Failed to fetch bookDetail:", item.attributes.bookDetailId);
-                return null;
-              }
-              
+              // if (!bookDetailRes.ok) {
+              //   console.warn(
+              //     "Failed to fetch bookDetail:",
+              //     item.attributes.bookDetailId
+              //   );
+              //   return null;
+              // }
+
               const bookDetailData = await bookDetailRes.json();
-              
               // Tìm book trong included
               const included = bookDetailData.included || [];
               let book = included.find((x: any) => x.type === "book");
-              
+
+              console.log("-------------------", book);
               // Nếu không có book trong included, fetch từ relationships
               if (!book && bookDetailData.data?.relationships?.book?.data?.id) {
                 try {
@@ -354,17 +365,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   const bookRes = await fetch(`${BASE_URL}/v1/book/${bookId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                   });
+                  console.log("resp ---------------------", bookRes);
                   if (bookRes.ok) {
                     const bookJson = await bookRes.json();
+                    console.log("got here", bookJson.data);
                     book = bookJson.data;
                   }
                 } catch (err) {
                   console.warn("Failed to fetch book from relationships:", err);
                 }
               }
-              
+
               const bookDetailAttrs = bookDetailData.data?.attributes || {};
-              
+              // console.log("item", item);
+              // console.log("book", book);
               return {
                 cartDetailId: Number(item.id),
                 quantity: Number(item.attributes.quantity ?? 1),
@@ -372,10 +386,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 id: Number(bookDetailData.data.id), // bookDetailId
                 title: book?.attributes?.title || "Sách",
                 author: book?.attributes?.author || "—",
-                price: Number(item.attributes.price || bookDetailAttrs.salePrice || 0),
-                image: book?.attributes?.imageUrl || "/default-book.jpg",
+                price: Number(
+                  item.attributes.price || bookDetailAttrs.salePrice || 0
+                ),
+                image:
+                  book?.attributes?.imageUrl ||
+                  getBookDetailById(item.id)?.image ||
+                  "/default-book.jpg",
                 bookDetailId: Number(bookDetailData.data.id),
-                originalPrice: bookDetailAttrs.salePrice || Number(item.attributes.price || 0),
+                originalPrice:
+                  bookDetailAttrs.salePrice ||
+                  Number(item.attributes.price || 0),
               };
             } catch (err) {
               console.error("Error fetching bookDetail:", err);
@@ -383,48 +404,52 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             }
           })
         );
+        console.log("data", data);
 
         // Lọc bỏ các items null
         let validItems = items.filter(
           (item): item is CartItem => item !== null
         );
-        
+
         // ✅ Nhóm combo items từ localStorage metadata (giống BookCombo)
         const comboMetadata = JSON.parse(
           localStorage.getItem("cartCombos") || "[]"
         );
-        
+
         if (comboMetadata.length > 0) {
           console.log("🔍 Tìm combo items từ metadata:", comboMetadata.length);
-          
+
           const usedCartDetailIds = new Set<number>();
           const comboItems: CartItem[] = [];
-          
+
           // Xử lý từng combo metadata
           for (const comboMeta of comboMetadata) {
             // ✅ Chuyển đổi cartDetailIds sang number để so sánh đúng
-            const comboCartDetailIds = comboMeta.cartDetailIds.map((id: any) => Number(id));
-            
+            const comboCartDetailIds = comboMeta.cartDetailIds.map((id: any) =>
+              Number(id)
+            );
+
             // Kiểm tra xem tất cả cartDetailIds của combo có trong validItems không
             const comboCartDetails = validItems.filter((item) =>
               comboCartDetailIds.includes(item.cartDetailId)
             );
-            
+
             console.log("🔍 Combo:", comboMeta.comboName, {
               metadataIds: comboCartDetailIds,
-              foundItems: comboCartDetails.map(i => i.cartDetailId),
-              matchCount: comboCartDetails.length
+              foundItems: comboCartDetails.map((i) => i.cartDetailId),
+              matchCount: comboCartDetails.length,
             });
-            
+
             if (comboCartDetails.length > 0) {
               // Tìm item đầu tiên làm đại diện (giống logic addComboToCart)
               const firstItem = comboCartDetails[0];
-              
+
               // ✅ Sử dụng comboMeta.books nếu có, nếu không thì dùng firstItem
-              const mainBook = comboMeta.books && comboMeta.books.length > 0 
-                ? comboMeta.books[0] 
-                : firstItem;
-              
+              const mainBook =
+                comboMeta.books && comboMeta.books.length > 0
+                  ? comboMeta.books[0]
+                  : firstItem;
+
               // Tạo combo item (giống logic addComboToCart)
               const comboItem: CartItem = {
                 ...mainBook,
@@ -435,46 +460,64 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 amount: comboMeta.comboPrice * (comboMeta.quantity || 1),
                 cartDetailId: comboCartDetailIds[0], // Dùng ID đầu tiên làm đại diện
                 isCombo: true,
-                comboBooks: comboMeta.books || comboCartDetails.map(item => ({
-                  id: item.id,
-                  title: item.title,
-                  author: item.author,
-                  price: item.price,
-                  image: item.image,
-                  bookDetailId: item.bookDetailId,
-                })),
+                comboBooks:
+                  comboMeta.books ||
+                  comboCartDetails.map((item) => ({
+                    id: item.id,
+                    title: item.title,
+                    author: item.author,
+                    price: item.price,
+                    image: item.image,
+                    bookDetailId: item.bookDetailId,
+                  })),
                 comboName: comboMeta.comboName,
                 comboOriginalPrice: comboMeta.comboOriginalPrice,
                 comboDiscount: comboMeta.comboDiscount,
-                bookDetailId: (mainBook as any).bookDetailId || mainBook.id || firstItem.bookDetailId,
+                bookDetailId:
+                  (mainBook as any).bookDetailId ||
+                  mainBook.id ||
+                  firstItem.bookDetailId,
               };
-              
+
               comboItems.push(comboItem);
-              
+
               // Đánh dấu các cartDetailIds đã được sử dụng
-              comboCartDetailIds.forEach((id: number) => usedCartDetailIds.add(id));
-              
-              console.log("✅ Đã nhóm combo:", comboMeta.comboName, "với", comboCartDetails.length, "items");
+              comboCartDetailIds.forEach((id: number) =>
+                usedCartDetailIds.add(id)
+              );
+
+              console.log(
+                "✅ Đã nhóm combo:",
+                comboMeta.comboName,
+                "với",
+                comboCartDetails.length,
+                "items"
+              );
             } else {
-              console.warn("⚠️ Không tìm thấy items cho combo:", comboMeta.comboName, "IDs:", comboCartDetailIds);
+              console.warn(
+                "⚠️ Không tìm thấy items cho combo:",
+                comboMeta.comboName,
+                "IDs:",
+                comboCartDetailIds
+              );
             }
           }
-          
+
           // Lọc bỏ các items đã được nhóm vào combo, chỉ giữ lại items đơn lẻ
           const standaloneItems = validItems.filter(
             (item) => !usedCartDetailIds.has(item.cartDetailId)
           );
-          
+
           // Kết hợp combo items và standalone items
           validItems = [...comboItems, ...standaloneItems];
-          
+
           console.log("📦 Final cart items:", {
             combos: comboItems.length,
             standalone: standaloneItems.length,
-            total: validItems.length
+            total: validItems.length,
           });
         }
-        
+
         console.log("📦 Fetched cart items:", validItems.length);
         setCartItems(validItems);
       } catch (err) {
@@ -513,7 +556,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             amount: book.price * quantity,
             cartDetailId: -Date.now(), // fake id cho guest
             bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-            originalPrice: book.originalPrice || book.price, // ✅ Lưu giá gốc
+            originalPrice: book.price, // ✅ Lưu giá gốc
           },
         ];
       });
@@ -635,7 +678,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           amount: book.price * quantity,
           price: book.price,
           bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-          originalPrice: book.originalPrice || book.price, // ✅ Lưu giá gốc
+          originalPrice: book.price, // ✅ Lưu giá gốc
         };
 
         setCartItems((prev) => [...prev, newItem]);
@@ -853,19 +896,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // ✅ Tính amount cho từng sách: chia đều và làm tròn
       const pricePerBook = Math.round(comboPrice / books.length); // Làm tròn giá mỗi sách
       const amountPerBook = pricePerBook * quantity; // Tổng amount cho mỗi sách
-      
+
       // ✅ Điều chỉnh để tổng amount = comboPrice * quantity (tránh sai số do làm tròn)
       const totalAmount = comboPrice * quantity;
       const calculatedTotalAmount = amountPerBook * books.length;
       const adjustment = totalAmount - calculatedTotalAmount; // Số tiền cần điều chỉnh
-      
+
       for (let i = 0; i < books.length; i++) {
         const book = books[i];
         // ✅ Thêm adjustment vào sách cuối cùng để tổng đúng
-        const finalAmount = i === books.length - 1 
-          ? amountPerBook + adjustment 
-          : amountPerBook;
-        
+        const finalAmount =
+          i === books.length - 1 ? amountPerBook + adjustment : amountPerBook;
+
         const body = {
           data: {
             type: "cartDetail",
