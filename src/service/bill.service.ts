@@ -68,7 +68,7 @@ export const BillService = {
                     // FE muốn ONLINE / POS
                     orderType: a.orderType === "DIRECT"
                         ? "POS"
-                        : a.orderType === "ONLINE"
+: a.orderType === "ONLINE"
                         ? "ONLINE"
                         : a.orderType || "UNKNOWN",
 
@@ -142,8 +142,7 @@ export const BillService = {
                     const bookDetailJson = await bookDetailRes.json();
                     const bookDetailData = bookDetailJson.data;
                     const bookIdFromRel = bookDetailData?.relationships?.book?.data?.id;
-                    
-                    if (bookIdFromRel) {
+if (bookIdFromRel) {
                         const bookRes = await fetch(`http://localhost:8080/v1/book/${bookIdFromRel}`, {
                             headers: {
                                 "Content-Type": "application/vnd.api+json",
@@ -209,7 +208,7 @@ export const BillService = {
 
             // ✅ Lấy giá gốc từ bookDetail (salePrice) thay vì giá đã giảm từ receiptDetail
             // pricePerUnit trong receiptDetail là giá ĐÃ GIẢM (sau khi áp dụng campaign giảm giá sản phẩm)
-            // Để tính tổng tiền hàng gốc, cần dùng salePrice từ bookDetail
+// Để tính tổng tiền hàng gốc, cần dùng salePrice từ bookDetail
             const originalPrice = bd?.attributes?.salePrice ?? rd.attributes?.pricePerUnit ?? 0;
             const discountedPrice = rd.attributes?.pricePerUnit ?? 0; // Giá đã giảm (nếu có)
             
@@ -279,7 +278,7 @@ export const BillService = {
     // ============================================
     // UPDATE RECEIPT (JSON:API) — PUT /v1/receipt/update
     // ============================================
-    async updateReceipt(id: number, payload: any) {
+async updateReceipt(id: number, payload: any) {
         const body = {
             data: {
                 type: "receipt",
@@ -358,7 +357,7 @@ export const BillService = {
     // ============================================
     // GET PAYMENT HISTORY (paymentDetail) — /v1/receipt/{id}/relationships/paymentDetail
     // ============================================
-    async getPaymentHistory(id: number) {
+async getPaymentHistory(id: number) {
         const res = await fetch(
             `http://localhost:8080/v1/receipt/${id}/relationships/paymentDetail`,
             {

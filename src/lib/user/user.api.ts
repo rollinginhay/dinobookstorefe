@@ -1,9 +1,10 @@
 import {api, jsonApi} from "@/lib/api";
 import {API_ROUTES} from "@/lib/routes";
+import { clippingParents } from "@popperjs/core";
 
 export async function fetchUsers() {
   const res = await api.get(API_ROUTES.GET_USERS);
-  
+  console.log("---------------------------",res)
   // BE trả về JSON:API format: { data: [...], included: [...], links: {...} }
   let users: any[] = [];
   let included: any[] = [];
@@ -19,6 +20,7 @@ export async function fetchUsers() {
     // Nếu không có data.data, thử deserialize
     try {
       const deserialized = jsonApi.deserialise(res.data);
+      
       if (Array.isArray(deserialized)) {
         users = deserialized;
       } else if (deserialized && Array.isArray(deserialized.data)) {
@@ -27,6 +29,7 @@ export async function fetchUsers() {
           included = Array.isArray(deserialized.included) ? deserialized.included : [];
         }
       }
+      console.log("deserialized",deserialized)
       console.log(`fetchUsers: Deserialized ${users.length} users with ${included.length} included resources`);
     } catch (e) {
       console.warn("Failed to deserialize, using raw data:", e);

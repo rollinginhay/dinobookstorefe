@@ -7,14 +7,11 @@ import {fetchUsers} from "@/lib/user/user.api";
 import {mapUserList} from "@/lib/user/user.mapper";
 import {toast} from "sonner";
 
-const PAGE_SIZE = 10;
-
 export default function StaffPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,10 +38,16 @@ export default function StaffPage() {
                && !roleNames.includes("ROLE_ADMIN");
       });
       
-      console.log(`Loaded ${staffUsers.length} staff users (managers + employees) from ${mapped.length} total users`);
-      setData(staffUsers);
-      setFilteredData(staffUsers);
-      setPage(1); // Reset về trang 1 khi reload
+      // Sắp xếp theo createdAt giảm dần (mới nhất lên đầu)
+      const sortedStaffUsers = staffUsers.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA; // Giảm dần (mới nhất lên đầu)
+      });
+      
+      console.log(`Loaded ${sortedStaffUsers.length} staff users (managers + employees) from ${mapped.length} total users`);
+      setData(sortedStaffUsers);
+      setFilteredData(sortedStaffUsers);
     } catch (err: any) {
       console.error("Error fetching staff:", err);
       setError("Có lỗi xảy ra khi tải dữ liệu quản lý");
@@ -166,14 +169,16 @@ export default function StaffPage() {
     }
 
     setFilteredData(filtered);
-    setPage(1);
   }, [searchTerm, data]);
 
-  const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
-  const pageData = filteredData.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  // Thêm STT cho mỗi user (từ lớn đến nhỏ, mới nhất = STT 1)
+  const dataWithSTT = filteredData.map((user, index) => ({
+    ...user,
+    stt: index + 1
+  }));
+  
+  // Không phân trang nữa, hiển thị tất cả
+  const pageData = dataWithSTT;
 
   return (
     <div className="space-y-4">
@@ -247,61 +252,8 @@ export default function StaffPage() {
       ) : (
         <>
           <UserTable data={pageData} basePath="/users/staff" />
-
-          {totalPages > 0 && (
-            <div className="flex items-center justify-between bg-white rounded-xl border p-4">
-              <div className="text-sm text-gray-700 font-medium">
-                Trang {page} / {totalPages}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  «
-                </button>
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  ‹
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                      page === pageNum
-                        ? "bg-blue-600 text-white"
-                        : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  ›
-                </button>
-                <button
-                  onClick={() => setPage(totalPages)}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  »
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
   );
 }
-

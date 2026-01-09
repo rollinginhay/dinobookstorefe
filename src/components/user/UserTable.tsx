@@ -13,7 +13,7 @@ export default function UserTable({ data, basePath = "/users" }: UserTableProps)
       <table className="w-full border-collapse">
         <thead className="bg-gray-50 text-sm">
           <tr>
-            <th className="px-4 py-3 text-left">ID</th>
+            <th className="px-4 py-3 text-left">STT</th>
             <th className="px-4 py-3 text-left">Tên người dùng</th>
             <th className="px-4 py-3 text-left">Email</th>
             <th className="px-4 py-3 text-left">Họ tên</th>
@@ -28,7 +28,7 @@ export default function UserTable({ data, basePath = "/users" }: UserTableProps)
           {data.map((user) => (
             <tr key={user.id} className="border-t text-sm hover:bg-gray-50 transition-colors">
               <td className="px-4 py-3 font-medium text-gray-700">
-                #{user.id}
+                #{(user as any).stt || user.id}
               </td>
 
               <td className="px-4 py-3">
@@ -98,4 +98,3 @@ export default function UserTable({ data, basePath = "/users" }: UserTableProps)
     </div>
   );
 }
-

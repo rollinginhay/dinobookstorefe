@@ -42,7 +42,7 @@ export default function UserForm({ mode, initialData }: Props) {
 
   // Parse initialData từ API
   const attributes = initialData?.attributes || initialData || {};
-
+  console.log("attributes-----",attributes)
   // Key để lưu vào localStorage
   const storageKey = mode === "create" 
     ? "user_form_draft" 
@@ -50,16 +50,29 @@ export default function UserForm({ mode, initialData }: Props) {
 
   // Khôi phục dữ liệu từ localStorage hoặc dùng initialData
   const getInitialFormData = () => {
+    // Lấy roles từ initialData (đã được map) hoặc từ attributes (raw data)
+    // initialData có thể có roles ở root level (từ mapped data) hoặc trong attributes (từ raw response)
+    const initialRolesRaw = initialData?.roles || attributes?.roles || [];
+    
+    // Helper để normalize role thành format chuẩn (chỉ khi có availableRoles, nếu không sẽ normalize sau)
+    const normalizeRoles = (roles: any[]): any[] => {
+      if (!Array.isArray(roles) || roles.length === 0) return [];
+      // Trả về raw roles, sẽ được normalize trong useEffect khi availableRoles đã load
+      return roles;
+    };
+    
+    const initialRoles = normalizeRoles(initialRolesRaw);
+    
     if (typeof window === "undefined") {
       return {
-        email: attributes.email || "",
-        username: attributes.username || "",
-        personName: attributes.personName || "",
-        phoneNumber: attributes.phoneNumber || "",
-        address: attributes.address || "",
-        enabled: attributes.enabled !== undefined ? attributes.enabled : true,
-        note: attributes.note || "",
-        roles: attributes.roles || [],
+        email: attributes.email || initialData?.email || "",
+        username: attributes.username || initialData?.username || "",
+        personName: attributes.personName || initialData?.personName || "",
+        phoneNumber: attributes.phoneNumber || initialData?.phoneNumber || "",
+        address: attributes.address || initialData?.address || "",
+        enabled: attributes.enabled !== undefined ? attributes.enabled : (initialData?.enabled !== undefined ? initialData.enabled : true),
+        note: attributes.note || initialData?.note || "",
+        roles: initialRoles,
       };
     }
 
@@ -69,6 +82,15 @@ export default function UserForm({ mode, initialData }: Props) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          // Nếu roles trong localStorage có format không chuẩn, fallback về initialRoles
+          const savedRoles = parsed.roles || [];
+          const normalizedSavedRoles = Array.isArray(savedRoles) && savedRoles.length > 0 && 
+                                       typeof savedRoles[0] === 'object' && 
+                                       savedRoles[0].id && 
+                                       savedRoles[0].name 
+                                       ? savedRoles 
+                                       : initialRoles;
+          
           return {
             email: parsed.email || "",
             username: parsed.username || "",
@@ -77,7 +99,7 @@ export default function UserForm({ mode, initialData }: Props) {
             address: parsed.address || "",
             enabled: parsed.enabled !== undefined ? parsed.enabled : true,
             note: parsed.note || "",
-            roles: parsed.roles || [],
+            roles: normalizedSavedRoles, // Normalize nếu cần
           };
         } catch (e) {
           console.warn("Failed to parse saved form data:", e);
@@ -87,14 +109,14 @@ export default function UserForm({ mode, initialData }: Props) {
     // Khi create, không lấy từ localStorage (để role được set đúng trong useEffect)
 
     return {
-      email: attributes.email || "",
-      username: attributes.username || "",
-      personName: attributes.personName || "",
-      phoneNumber: attributes.phoneNumber || "",
-      address: attributes.address || "",
-      enabled: attributes.enabled !== undefined ? attributes.enabled : true,
-      note: attributes.note || "",
-      roles: attributes.roles || [],
+      email: attributes.email || initialData?.email || "",
+      username: attributes.username || initialData?.username || "",
+      personName: attributes.personName || initialData?.personName || "",
+      phoneNumber: attributes.phoneNumber || initialData?.phoneNumber || "",
+      address: attributes.address || initialData?.address || "",
+      enabled: attributes.enabled !== undefined ? attributes.enabled : (initialData?.enabled !== undefined ? initialData.enabled : true),
+      note: attributes.note || initialData?.note || "",
+      roles: initialRoles,
     };
   };
 
@@ -195,11 +217,16 @@ export default function UserForm({ mode, initialData }: Props) {
               }
             }
             setFormData(prev => {
-              // Luôn set role là Quản lý khi tạo mới
-              console.log("Auto-setting role to ROLE_MANAGER:", managerRole);
+              // ✅ Luôn normalize role thành format chuẩn khi auto-set
+              const normalizedRole: Role = {
+                id: String(managerRole.id),
+                name: managerRole.name,
+                enabled: managerRole.enabled
+              };
+              console.log("✅ Auto-setting normalized role to ROLE_MANAGER:", normalizedRole);
               return {
                 ...prev,
-                roles: [managerRole]
+                roles: [normalizedRole]
               };
             });
           }
@@ -227,10 +254,18 @@ export default function UserForm({ mode, initialData }: Props) {
     if (mode === "edit" && initialData) {
       // Lấy role từ initialData (từ API) - ưu tiên mapped data trước
       const initialRoles = initialData.roles || attributes.roles || [];
+      console.log("=== Role sync check ===");
+      console.log("initialData:", initialData);
+      console.log("attributes:", attributes);
+      console.log("initialRoles:", initialRoles);
+      console.log("availableRoles:", availableRoles);
+      
       if (initialRoles.length > 0) {
         const initialRole = initialRoles[0];
         const roleId = initialRole.id || initialRole.attributes?.id || initialRole;
         const roleName = initialRole.name || initialRole.attributes?.name;
+        
+        console.log("Initial role from API:", { roleId, roleName, initialRole });
         
         // Tìm role tương ứng trong availableRoles
         const matchedRole = availableRoles.find(r => 
@@ -238,12 +273,14 @@ export default function UserForm({ mode, initialData }: Props) {
           r.name === roleName
         );
         
+        console.log("Matched role:", matchedRole);
+        
         if (matchedRole) {
-          // Lưu role ban đầu từ API vào ref để so sánh sau này
+          // ✅ Lưu role ban đầu từ API vào ref (đã là object Role chuẩn từ availableRoles)
           initialRoleFromAPI.current = matchedRole;
           
-          // Đảm bảo formData có role đúng từ availableRoles (chỉ sync lần đầu)
-          // Chỉ sync nếu formData chưa có role hoặc role hiện tại không phải là role object đầy đủ từ availableRoles
+          // ✅ Đảm bảo formData có role đúng từ availableRoles (chỉ sync lần đầu)
+          // Normalize role thành format chuẩn: { id: string, name: string, enabled?: boolean }
           setFormData(prev => {
             const currentRole = prev.roles?.[0];
             const currentRoleId = currentRole?.id ? String(currentRole.id) : "";
@@ -260,16 +297,43 @@ export default function UserForm({ mode, initialData }: Props) {
                              typeof currentRole === 'number';
             
             if (needsSync) {
-              console.log("Initial sync: Setting role from", currentRole, "to", matchedRole);
+              // ✅ Normalize role thành format chuẩn
+              const normalizedRole: Role = {
+                id: String(matchedRole.id),
+                name: matchedRole.name,
+                enabled: matchedRole.enabled
+              };
+              console.log("✅ Initial sync: Setting normalized role from", currentRole, "to", normalizedRole);
               return {
                 ...prev,
-                roles: [matchedRole]
+                roles: [normalizedRole]
+              };
+            }
+            // Nếu không cần sync, vẫn normalize role hiện tại nếu chưa đúng format
+            if (currentRole && (typeof currentRole === 'string' || typeof currentRole === 'number' || !currentRole.id || !currentRole.name)) {
+              console.log("⚠️ Normalizing existing role format");
+              const normalizedRole: Role = {
+                id: String(matchedRole.id),
+                name: matchedRole.name,
+                enabled: matchedRole.enabled
+              };
+              return {
+                ...prev,
+                roles: [normalizedRole]
               };
             }
             return prev;
           });
           hasSyncedInitialRole.current = true;
+        } else {
+          // Fallback: Nếu không tìm thấy trong availableRoles, vẫn giữ role từ initialData
+          // (sẽ được xử lý trong handleConfirmSubmit)
+          console.warn("⚠️ Role from API not found in availableRoles, keeping original role");
+          console.warn("Original role:", initialRole);
+          initialRoleFromAPI.current = initialRole;
         }
+      } else {
+        console.warn("No roles found in initialData or attributes");
       }
     } else if (mode === "create") {
       // Với create mode, đánh dấu đã sync sau khi auto-set role
@@ -478,26 +542,81 @@ export default function UserForm({ mode, initialData }: Props) {
         payloadData.note = formData.note && formData.note.trim() ? formData.note.trim() : null;
         
         // Xử lý roles - Format đúng JSON:API với relationships
+        // ✅ QUAN TRỌNG: Luôn normalize và validate role trước khi gửi
         let rolesToSend: any[] = [];
         
-        if (formData.roles && Array.isArray(formData.roles) && formData.roles.length > 0) {
-          // Lấy role từ formData (đã được chọn trong combobox)
-          const selectedRole = formData.roles[0];
-          console.log("Selected role from formData:", selectedRole);
+        // Helper function để extract roleId từ bất kỳ format nào
+        const extractRoleId = (role: any): string | null => {
+          if (!role) return null;
           
-          // Đảm bảo role có id hợp lệ
-          const roleId = selectedRole.id || selectedRole.attributes?.id;
+          // Nếu là string hoặc number, convert sang string
+          if (typeof role === "string" || typeof role === "number") {
+            return String(role);
+          }
+          
+          // Nếu là object, lấy id
+          if (typeof role === "object") {
+            // Ưu tiên id ở root level
+            if (role.id) {
+              return String(role.id);
+            }
+            // Fallback: attributes.id
+            if (role.attributes?.id) {
+              return String(role.attributes.id);
+            }
+          }
+          
+          return null;
+        };
+        
+        // Helper function để tìm role object chuẩn từ availableRoles theo ID
+        const findRoleById = (roleId: string): Role | null => {
+          return availableRoles.find(r => String(r.id) === String(roleId)) || null;
+        };
+        
+        if (formData.roles && Array.isArray(formData.roles) && formData.roles.length > 0) {
+          // ✅ Lấy role từ formData (đã được normalized khi user chọn)
+          const selectedRole = formData.roles[0];
+          console.log("✅ Selected role from formData:", selectedRole);
+          console.log("Role type:", typeof selectedRole, "Is object:", typeof selectedRole === "object");
+          
+          // Extract roleId (handle mọi format)
+          let roleId = extractRoleId(selectedRole);
+          
+          // Nếu không extract được từ formData.roles, thử tìm trong availableRoles
+          if (!roleId && typeof selectedRole === "object" && selectedRole.name) {
+            const foundRole = availableRoles.find(r => r.name === selectedRole.name);
+            if (foundRole) {
+              roleId = String(foundRole.id);
+              console.log("Found role by name, using ID:", roleId);
+            }
+          }
+          
           console.log("Extracted roleId:", roleId);
           
           if (roleId) {
-            rolesToSend = [{
-              id: String(roleId),
-              type: "role",
-            }];
-            console.log("Roles to send:", rolesToSend);
+            // ✅ Validate: Đảm bảo roleId tồn tại trong availableRoles
+            const validatedRole = findRoleById(roleId);
+            if (validatedRole) {
+              rolesToSend = [{
+                id: String(roleId),
+                type: "role",
+              }];
+              console.log("✅ Roles to send (validated):", rolesToSend);
+            } else {
+              console.error("❌ Role ID không tồn tại trong availableRoles:", roleId);
+              toast.error(`Vai trò không hợp lệ (ID: ${roleId})`);
+              setLoading(false);
+              return;
+            }
           } else {
-            console.error("Role không có ID hợp lệ:", selectedRole);
-            toast.error("Vai trò không hợp lệ");
+            console.error("❌ Không thể extract roleId từ:", selectedRole);
+            console.error("Selected role details:", {
+              type: typeof selectedRole,
+              value: selectedRole,
+              keys: typeof selectedRole === "object" ? Object.keys(selectedRole) : "N/A"
+            });
+            toast.error("Vai trò không hợp lệ. Vui lòng chọn lại vai trò.");
             setLoading(false);
             return;
           }
@@ -509,16 +628,67 @@ export default function UserForm({ mode, initialData }: Props) {
               id: String(managerRole.id),
               type: "role",
             }];
+            console.log("✅ Using default ROLE_MANAGER for create:", rolesToSend);
           } else {
+            console.error("❌ Không tìm thấy ROLE_MANAGER trong availableRoles");
             toast.error("Không tìm thấy vai trò mặc định");
             setLoading(false);
             return;
           }
         } else if (mode === "edit") {
-          // Khi edit, BẮT BUỘC phải có role
-          console.error("ERROR: No role in formData when editing!");
-          console.error("formData.roles:", formData.roles);
-          toast.error("Vui lòng chọn vai trò");
+          // ❌ Khi edit, BẮT BUỘC phải có role trong formData hoặc initialData
+          console.warn("⚠️ No role in formData when editing, trying to get from initialData");
+          console.log("formData.roles:", formData.roles);
+          console.log("initialData:", initialData);
+          console.log("attributes:", attributes);
+          
+          // Thử lấy role từ initialData hoặc attributes
+          const existingRoles = initialData?.roles || attributes?.roles || [];
+          if (Array.isArray(existingRoles) && existingRoles.length > 0) {
+            const firstRole = existingRoles[0];
+            let roleId = extractRoleId(firstRole);
+            
+            // Nếu không extract được, thử tìm theo name
+            if (!roleId && typeof firstRole === "object" && firstRole.name) {
+              const foundRole = availableRoles.find(r => r.name === firstRole.name);
+              if (foundRole) {
+                roleId = String(foundRole.id);
+              }
+            }
+            
+            if (roleId) {
+              // Validate roleId
+              const validatedRole = findRoleById(roleId);
+              if (validatedRole) {
+                rolesToSend = [{
+                  id: String(roleId),
+                  type: "role",
+                }];
+                console.log("✅ Using role from initialData (validated):", rolesToSend);
+              } else {
+                console.error("❌ Role ID từ initialData không tồn tại trong availableRoles:", roleId);
+                toast.error("Vai trò hiện tại không hợp lệ. Vui lòng chọn lại vai trò.");
+                setLoading(false);
+                return;
+              }
+            } else {
+              console.error("❌ Không thể extract roleId từ initialData:", firstRole);
+              toast.error("Không thể lấy vai trò từ dữ liệu hiện tại. Vui lòng chọn lại vai trò.");
+              setLoading(false);
+              return;
+            }
+          } else {
+            console.error("❌ ERROR: No role found in formData or initialData when editing!");
+            toast.error("Vui lòng chọn vai trò trước khi cập nhật");
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // ✅ FINAL VALIDATION: Đảm bảo rolesToSend không rỗng
+        if (!rolesToSend || rolesToSend.length === 0) {
+          console.error("❌ CRITICAL: rolesToSend is empty after processing!");
+          toast.error("Không thể xác định vai trò. Vui lòng chọn lại vai trò.");
           setLoading(false);
           return;
         }
@@ -548,7 +718,17 @@ export default function UserForm({ mode, initialData }: Props) {
         payload.id = String(initialData.id || attributes.id);
       }
       
-      console.log("Final payload before serialization:", payload);
+      // ✅ FINAL VALIDATION: Đảm bảo roles luôn có trong payload khi không phải customer form
+      if (!isCustomerForm && (!payload.roles || !Array.isArray(payload.roles) || payload.roles.length === 0)) {
+        console.error("❌ CRITICAL: payload.roles is empty or invalid!");
+        console.error("Payload:", payload);
+        toast.error("Không thể xác định vai trò. Vui lòng thử lại.");
+        setLoading(false);
+        return;
+      }
+      
+      console.log("✅ Final payload before serialization:", JSON.stringify(payload, null, 2));
+      console.log("✅ Payload roles:", payload.roles);
 
       if (mode === "create") {
         await createUser(payload);
@@ -748,6 +928,22 @@ export default function UserForm({ mode, initialData }: Props) {
             />
           </div>
 
+          {/* Note - chỉ hiển thị khi không phải form khách hàng */}
+          {/* {!isCustomerForm && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ghi chú
+              </label>
+              <textarea
+                name="note"
+                value={formData.note || ""}
+                onChange={handleChange}
+                className="input w-full"
+                rows={3}
+                placeholder="Ghi chú về nhân viên..."
+              />
+            </div>
+          )} */}
 
           {/* Roles Selection - chỉ hiển thị khi không phải form khách hàng */}
           {!isCustomerForm && (
@@ -763,13 +959,21 @@ export default function UserForm({ mode, initialData }: Props) {
                 <select
                   name="selectedRole"
                   value={
-                    formData.roles && formData.roles.length > 0
-                      ? String(
-                          formData.roles[0]?.id ||
-                          formData.roles[0]?.attributes?.id ||
-                          formData.roles[0] ||
-                          ""
-                        )
+                    formData.roles && formData.roles.length > 0 && formData.roles[0]
+                      ? (() => {
+                          const currentRole = formData.roles[0];
+                          // ✅ Extract roleId từ mọi format có thể
+                          if (typeof currentRole === "string" || typeof currentRole === "number") {
+                            return String(currentRole);
+                          }
+                          if (typeof currentRole === "object" && currentRole.id) {
+                            return String(currentRole.id);
+                          }
+                          if (typeof currentRole === "object" && currentRole.attributes?.id) {
+                            return String(currentRole.attributes.id);
+                          }
+                          return "";
+                        })()
                       : ""
                   }
                   onFocus={() => {
@@ -784,36 +988,42 @@ export default function UserForm({ mode, initialData }: Props) {
                     console.log("availableRoles:", availableRoles);
                     console.log("Current formData.roles:", formData.roles);
                     
-                    // Tìm role trong availableRoles
+                    // Tìm role trong availableRoles (PHẢI là object Role chuẩn từ availableRoles)
                     const selectedRole = availableRoles.find(r => {
                       const roleIdStr = String(r.id);
-                      console.log(`Comparing: ${roleIdStr} === ${selectedRoleId}?`, roleIdStr === selectedRoleId);
                       return roleIdStr === selectedRoleId;
                     });
                     
                     console.log("Found selectedRole:", selectedRole);
                     
                     if (selectedRole) {
-                      console.log("Setting new role:", selectedRole);
-                      // Đánh dấu đã sync để ngăn useEffect ghi đè
+                      console.log("Setting new role (normalized):", selectedRole);
+                      // Đánh dấu user đã chọn role thủ công (không phải từ sync)
                       hasSyncedInitialRole.current = true;
                       
-                      // Cập nhật formData với role mới
+                      // ✅ QUAN TRỌNG: Luôn set role là object Role chuẩn từ availableRoles
+                      // Đảm bảo format nhất quán: { id: string, name: string, enabled?: boolean }
                       setFormData(prev => {
+                        const normalizedRole: Role = {
+                          id: String(selectedRole.id),
+                          name: selectedRole.name,
+                          enabled: selectedRole.enabled
+                        };
                         const newFormData = {
                           ...prev,
-                          roles: [selectedRole]
+                          roles: [normalizedRole]
                         };
-                        console.log("New formData will be:", newFormData);
+                        console.log("New formData.roles (normalized):", newFormData.roles);
                         return newFormData;
                       });
                       
                       // Đánh dấu đã có thay đổi
                       setHasChanges(true);
-                      console.log("Role updated successfully");
+                      console.log("✅ Role updated successfully with normalized format");
                     } else {
-                      console.error("ERROR: Could not find role with ID:", selectedRoleId);
+                      console.error("❌ ERROR: Could not find role with ID:", selectedRoleId);
                       console.error("Available role IDs:", availableRoles.map(r => ({ id: r.id, name: r.name, idType: typeof r.id })));
+                      toast.error("Không tìm thấy vai trò được chọn");
                     }
                   }}
                   className="input w-full"
@@ -1048,4 +1258,3 @@ export default function UserForm({ mode, initialData }: Props) {
     </div>
   );
 }
-
