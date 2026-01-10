@@ -445,7 +445,13 @@ export default function DiscountForm({ mode, initialData }: Props) {
       }
 
     // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
-    if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
+    if (formData.campaignType === "PERCENTAGE_PRODUCT") {
+      // Cho combo: chỉ cần số tiền giảm cho từng sản phẩm
+      if (!formData.maxDiscount || formData.maxDiscount <= 0) {
+        toast.error("Vui lòng nhập số tiền giảm cho từng sản phẩm");
+        return false;
+      }
+    } else if (formData.campaignType === "PERCENTAGE_DISCOUNT") {
       if (!formData.percentage || formData.percentage <= 0 || formData.percentage > 100) {
         toast.error("Phần trăm giảm giá phải từ 1% đến 100%");
         return false;
@@ -533,7 +539,11 @@ export default function DiscountForm({ mode, initialData }: Props) {
 
       // Thêm percentage hoặc maxDiscount tùy theo loại
       // Đợt giảm giá: PERCENTAGE_PRODUCT, PERCENTAGE_DISCOUNT, FLAT_DISCOUNT
-      if (formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") {
+      if (formData.campaignType === "PERCENTAGE_PRODUCT") {
+        // Combo: chỉ cần maxDiscount (số tiền giảm cho từng sản phẩm)
+        payloadData.maxDiscount = formData.maxDiscount;
+        payloadData.percentage = null; // Không dùng percentage cho combo
+      } else if (formData.campaignType === "PERCENTAGE_DISCOUNT") {
         payloadData.percentage = formData.percentage;
         payloadData.maxDiscount = formData.maxDiscount; // Giữ maxDiscount cho giảm %
       } else if (formData.campaignType === "FLAT_DISCOUNT") {
@@ -552,12 +562,13 @@ export default function DiscountForm({ mode, initialData }: Props) {
       if (formData.campaignType === "PERCENTAGE_PRODUCT") {
         if (selectedProducts.length > 0) {
           // Tạo campaignDetails với bookDetailId - sẽ được serialize thành relationships.campaignDetails
+          // ✅ SỬA: Dùng maxDiscount (số tiền giảm cố định) thay vì percentage
           payloadData.campaignDetails = selectedProducts.map((p) => ({
             id: null, // null cho create mới
             bookDetailId: String(p.id), // Đảm bảo là string
-            value: formData.percentage || null, // Giá trị giảm (có thể dùng percentage)
+            value: formData.maxDiscount || null, // ✅ Số tiền giảm cố định cho từng sản phẩm (VD: 20000)
           }));
-          console.log("🔍 [DiscountForm] Sending campaignDetails:", payloadData.campaignDetails);
+          console.log("🔍 [DiscountForm] Sending campaignDetails with fixed discount per product:", payloadData.campaignDetails);
         } else {
           // Nếu không có sản phẩm nào được chọn, gửi mảng rỗng để BE soft-delete các CampaignDetail cũ
           payloadData.campaignDetails = [];
@@ -679,7 +690,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm</option>
+              <option value="PERCENTAGE_PRODUCT">Giảm số tiền cố định cho từng sản phẩm</option>
               <option value="PERCENTAGE_DISCOUNT">Giảm giá đơn hàng theo %</option>
               <option value="FLAT_DISCOUNT">Giảm số tiền theo đơn</option>
             </select>
@@ -691,7 +702,52 @@ export default function DiscountForm({ mode, initialData }: Props) {
           </div>
 
           {/* Giá trị giảm */}
-          {(formData.campaignType === "PERCENTAGE_PRODUCT" || formData.campaignType === "PERCENTAGE_DISCOUNT") && (
+          {formData.campaignType === "PERCENTAGE_PRODUCT" && (
+            <>
+              {/* Số tiền giảm cho từng sản phẩm - Chỉ cho PERCENTAGE_PRODUCT */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Số tiền giảm cho từng sản phẩm (VNĐ) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    name="maxDiscount"
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={formData.maxDiscount !== null && formData.maxDiscount !== undefined ? formData.maxDiscount : ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setFormData(prev => ({ ...prev, maxDiscount: null }));
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num) && num >= 0) {
+                          setFormData(prev => ({ ...prev, maxDiscount: num }));
+                        }
+                      }
+                    }}
+                    disabled={isFieldDisabled("maxDiscount") || isFormReadOnly}
+                    className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="Ví dụ: 20000"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    đ
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Mỗi sản phẩm trong combo sẽ được giảm số tiền này (ví dụ: 20,000đ cho mỗi cuốn sách)
+                </p>
+                {isFieldDisabled("maxDiscount") && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Số tiền giảm không thể thay đổi khi đợt giảm giá đang diễn ra
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          {formData.campaignType === "PERCENTAGE_DISCOUNT" && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -918,7 +974,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               </label>
               <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
                 <p className="text-sm text-gray-600">
-                  Chọn các sản phẩm sẽ được áp dụng giảm giá trong đợt này (combo / sale đợt).
+                  Chọn các sản phẩm sẽ được giảm số tiền cố định trong đợt này. Mỗi sản phẩm được chọn sẽ giảm {formData.maxDiscount ? `${formData.maxDiscount.toLocaleString()}đ` : 'X đồng'}.
                 </p>
 
                 <button
@@ -995,7 +1051,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Bạn có thể quản lý danh sách sản phẩm áp dụng ngay tại đây khi chỉnh sửa đợt giảm giá.
+                Mỗi sản phẩm được chọn sẽ được giảm số tiền cố định đã thiết lập ở trên. Bạn có thể quản lý danh sách sản phẩm áp dụng ngay tại đây.
               </p>
             </div>
           )}

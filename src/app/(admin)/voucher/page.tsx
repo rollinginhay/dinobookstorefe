@@ -108,7 +108,7 @@ export default function VoucherPage() {
         <div>
           <h1 className="text-lg font-semibold">Đợt giảm giá</h1>
           <p className="text-sm text-gray-500">
-            Quản lý các chương trình giảm giá theo thời gian
+            {/* Quản lý các chương trình giảm giá theo thời gian */}
           </p>
         </div>
 

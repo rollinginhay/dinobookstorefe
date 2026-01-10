@@ -10,6 +10,8 @@ interface ProductSelectorProps {
     products: any[];
     multi?: boolean;
     initialSelectedIds?: string[];
+    // ✅ THÊM: Truyền campaigns để tính giá giảm
+    campaigns?: any[];
 }
 
 export default function ProductSelector({
@@ -18,6 +20,7 @@ export default function ProductSelector({
                                             products,
                                             multi = false,
                                             initialSelectedIds = [],
+                                            campaigns = [],
                                         }: ProductSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
@@ -28,6 +31,44 @@ export default function ProductSelector({
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 9;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialSelectedIds));
+
+    // ✅ THÊM: Function tính giá đã giảm cho sản phẩm
+    const calculateDiscountedPrice = (product: any) => {
+        if (!campaigns || campaigns.length === 0) {
+            return { 
+                discountedPrice: product.salePrice, 
+                originalPrice: product.salePrice, 
+                hasDiscount: false 
+            };
+        }
+
+        // Tìm campaign giảm giá theo sản phẩm (combo)
+        const prodVouchers = campaigns.filter(v => v.type === "PERCENTAGE_PRODUCT");
+        const applicable = prodVouchers.filter((v) => {
+            const campaignDetails = v.campaignDetails?.data || v.campaignDetails || [];
+            return Array.isArray(campaignDetails) && 
+                   campaignDetails.some((detail: any) => {
+                       const bookDetailId = detail.attributes?.bookDetailId || detail.bookDetailId;
+                       return String(bookDetailId) === String(product.id);
+                   });
+        });
+
+        if (applicable.length > 0) {
+            const discountAmount = applicable[0].value || 0;
+            const discountedPrice = Math.max(0, product.salePrice - discountAmount);
+            return {
+                discountedPrice: discountedPrice,
+                originalPrice: product.salePrice,
+                hasDiscount: discountedPrice < product.salePrice
+            };
+        }
+
+        return { 
+            discountedPrice: product.salePrice, 
+            originalPrice: product.salePrice, 
+            hasDiscount: false 
+        };
+    };
 
     // Lấy danh sách unique values cho filters
     const uniqueBookFormats = useMemo(() => {
@@ -308,8 +349,22 @@ export default function ProductSelector({
                                         {item.bookFormat}
                                     </div>
                                 )}
-                                <div className="text-center text-blue-600 font-bold mt-1">
-                                    {item.salePrice.toLocaleString()}đ
+                                <div className="text-center mt-1">
+                                    {(() => {
+                                        const { discountedPrice, originalPrice, hasDiscount } = calculateDiscountedPrice(item);
+                                        return (
+                                            <div className="space-y-1">
+                                                <div className="text-red-600 font-bold">
+                                                    {discountedPrice.toLocaleString()}đ
+                                                </div>
+                                                {hasDiscount && (
+                                                    <div className="text-gray-500 text-xs line-through">
+                                                        {originalPrice.toLocaleString()}đ
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="text-center text-xs gray-500 mt-1 font-semibold">
                                     {"Còn: " + (item.stock ?? 0)}

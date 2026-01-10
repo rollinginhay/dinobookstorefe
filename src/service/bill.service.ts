@@ -44,13 +44,13 @@ export const BillService = {
                     }
                 }
 
-                // ✅ Fetch detail để tính lại grandTotal từ giá gốc
+                // ✅ Fetch detail để tính lại grandTotal từ giá đã giảm
                 let correctGrandTotal = a.grandTotal ?? 0;
                 try {
                     const detailRes = await BillService.getById(Number(item.id));
-                    // Tính lại từ originalPrice (giá gốc)
+                    // ✅ SỬA: Tính từ pricePerUnit (giá đã giảm) thay vì originalPrice
                     const correctSubTotal = detailRes.items.reduce(
-                        (sum: number, it: any) => sum + (it.originalPrice || it.pricePerUnit) * it.quantity,
+                        (sum: number, it: any) => sum + it.pricePerUnit * it.quantity,
                         0
                     );
                     correctGrandTotal = correctSubTotal + detailRes.shippingFee - detailRes.discount;
@@ -72,7 +72,7 @@ export const BillService = {
                         ? "ONLINE"
                         : a.orderType || "UNKNOWN",
 
-                    // ✅ Dùng giá đã tính lại từ detail (từ originalPrice)
+                    // ✅ SỬA: Dùng giá đã tính lại từ pricePerUnit (giá đã giảm)
                     totalAmount: correctGrandTotal,
 
                     // FE muốn ngày tạo

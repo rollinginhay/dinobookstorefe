@@ -685,17 +685,22 @@ export default function BillDetailPage() {
   }, [receiptId]);
 
     // ---------- TÍNH TIỀN ----------
-    // Tổng tiền hàng: chỉ tính tiền sách GỐC (chưa trừ giảm giá / cộng phí ship)
-    // ✅ Dùng originalPrice (giá gốc từ bookDetail) thay vì pricePerUnit (giá đã giảm)
+    // Tổng tiền hàng: tính từ giá đã giảm (pricePerUnit)
+    // ✅ SỬA: Dùng pricePerUnit (giá đã giảm) để tính tổng
     const subTotal = items.reduce(
+        (sum, it) => sum + it.pricePerUnit * it.quantity,
+        0
+    );
+
+    // ✅ THÊM: Tính tổng tiền gốc để so sánh
+    const originalSubTotal = items.reduce(
         (sum, it) => sum + (it.originalPrice || it.pricePerUnit) * it.quantity,
         0
     );
 
     // Thành tiền: số tiền cuối cùng khách phải trả
-    // ✅ Backend không có field voucher riêng, chỉ có discount
-    // ✅ Công thức backend: grandTotal = subtotal - discount + serviceCost (không có VAT)
-    // ✅ Luôn tính lại từ dữ liệu hiện tại để đảm bảo chính xác
+    // ✅ SỬA: Bây giờ subTotal đã là giá đã giảm, chỉ cần cộng phí ship
+    // ✅ discount có thể là giảm giá thêm (voucher) ngoài giảm giá combo
     const finalTotal = subTotal + shippingFee - discount;
 
     // ---------- HANDLERS ----------
@@ -990,8 +995,18 @@ export default function BillDetailPage() {
                                 </td>
 
                                 <td className="px-3 py-2 text-center">
-                                    {/* ✅ Hiển thị giá gốc (chưa sale) thay vì giá đã giảm */}
-                                    {(item.originalPrice || item.pricePerUnit).toLocaleString("vi-VN")} đ
+                                    <div className="flex flex-col items-center">
+                                        {/* ✅ Giá đã giảm (ưu tiên pricePerUnit) */}
+                                        <div className="text-red-600 font-semibold">
+                                            {item.pricePerUnit.toLocaleString("vi-VN")} đ
+                                        </div>
+                                        {/* ✅ Giá gốc bị gạch (nếu có giảm giá) */}
+                                        {item.originalPrice && item.pricePerUnit < item.originalPrice && (
+                                            <div className="text-gray-500 text-xs line-through">
+                                                {item.originalPrice.toLocaleString("vi-VN")} đ
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
 
                                 <td className="px-3 py-2 text-center">
@@ -1002,8 +1017,18 @@ export default function BillDetailPage() {
                                 </td>
 
                                 <td className="px-3 py-2 text-center font-medium">
-                                    {/* ✅ Tính thành tiền từ giá gốc (chưa sale) */}
-                                    {((item.originalPrice || item.pricePerUnit) * item.quantity).toLocaleString("vi-VN")} đ
+                                    <div className="flex flex-col items-center">
+                                        {/* ✅ Thành tiền đã giảm */}
+                                        <div className="text-red-600 font-bold">
+                                            {(item.pricePerUnit * item.quantity).toLocaleString("vi-VN")} đ
+                                        </div>
+                                        {/* ✅ Thành tiền gốc bị gạch (nếu có giảm giá) */}
+                                        {item.originalPrice && item.pricePerUnit < item.originalPrice && (
+                                            <div className="text-gray-500 text-xs line-through">
+                                                {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} đ
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -1062,12 +1087,19 @@ export default function BillDetailPage() {
                           </span>
                         </div>
 
-                        {/* Tổng tiền hàng: tổng giá sách, chưa tính giảm giá / ship */}
+                        {/* Tổng tiền hàng: tổng giá đã giảm */}
                         <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Tổng tiền hàng:</span>
-                          <span className="font-semibold">
-                            {subTotal.toLocaleString("vi-VN")} đ
-                          </span>
+                          <div className="text-right">
+                            <div className="font-semibold text-red-600">
+                              {subTotal.toLocaleString("vi-VN")} đ
+                            </div>
+                            {originalSubTotal > subTotal && (
+                              <div className="text-gray-500 text-xs line-through">
+                                {originalSubTotal.toLocaleString("vi-VN")} đ
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Giảm giá - luôn hiển thị */}

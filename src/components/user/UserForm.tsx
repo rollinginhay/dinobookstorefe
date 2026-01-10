@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useRef, useState} from "react";
 import {usePathname, useRouter} from "next/navigation";
-import {createUser, fetchUsers, resetUserPassword, updateUser} from "@/lib/user/user.api";
+import {createUser, fetchUsers, updateUser} from "@/lib/user/user.api";
 import {fetchRoles} from "@/lib/user/role.api";
 import {getRoleDisplayName} from "@/lib/user/role.utils";
 import {mapUserList} from "@/lib/user/user.mapper";
@@ -22,14 +22,13 @@ export default function UserForm({ mode, initialData }: Props) {
   const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showResetPasswordConfirm, setShowResetPasswordConfirm] = useState(false);
   const [showEnabledConfirm, setShowEnabledConfirm] = useState(false);
   const [pendingEnabledValue, setPendingEnabledValue] = useState<boolean | null>(null);
-  const [resettingPassword, setResettingPassword] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
   const hasSyncedInitialRole = useRef(false);
   const initialRoleFromAPI = useRef<Role | null>(null);
 
@@ -64,16 +63,17 @@ export default function UserForm({ mode, initialData }: Props) {
     const initialRoles = normalizeRoles(initialRolesRaw);
     
     if (typeof window === "undefined") {
-      return {
-        email: attributes.email || initialData?.email || "",
-        username: attributes.username || initialData?.username || "",
-        personName: attributes.personName || initialData?.personName || "",
-        phoneNumber: attributes.phoneNumber || initialData?.phoneNumber || "",
-        address: attributes.address || initialData?.address || "",
-        enabled: attributes.enabled !== undefined ? attributes.enabled : (initialData?.enabled !== undefined ? initialData.enabled : true),
-        note: attributes.note || initialData?.note || "",
-        roles: initialRoles,
-      };
+    return {
+      email: attributes.email || initialData?.email || "",
+      username: attributes.username || initialData?.username || "",
+      personName: attributes.personName || initialData?.personName || "",
+      phoneNumber: attributes.phoneNumber || initialData?.phoneNumber || "",
+      address: attributes.address || initialData?.address || "",
+      enabled: attributes.enabled !== undefined ? attributes.enabled : (initialData?.enabled !== undefined ? initialData.enabled : true),
+      note: attributes.note || initialData?.note || "",
+      password: "", // Luôn để trống (không hiển thị mật khẩu hiện tại)
+      roles: initialRoles,
+    };
     }
 
     // Chỉ lấy từ localStorage khi edit
@@ -99,6 +99,7 @@ export default function UserForm({ mode, initialData }: Props) {
             address: parsed.address || "",
             enabled: parsed.enabled !== undefined ? parsed.enabled : true,
             note: parsed.note || "",
+            password: "", // Luôn để trống khi load từ localStorage
             roles: normalizedSavedRoles, // Normalize nếu cần
           };
         } catch (e) {
@@ -116,6 +117,7 @@ export default function UserForm({ mode, initialData }: Props) {
       address: attributes.address || initialData?.address || "",
       enabled: attributes.enabled !== undefined ? attributes.enabled : (initialData?.enabled !== undefined ? initialData.enabled : true),
       note: attributes.note || initialData?.note || "",
+      password: "", // Luôn để trống (không hiển thị mật khẩu hiện tại)
       roles: initialRoles,
     };
   };
@@ -136,6 +138,8 @@ export default function UserForm({ mode, initialData }: Props) {
     if (formData.address?.trim() !== (initialFormData.address || "").trim()) changed = true;
     if (formData.enabled !== initialFormData.enabled) changed = true;
     if (formData.note?.trim() !== (initialFormData.note || "").trim()) changed = true;
+    // Kiểm tra password - chỉ khi có thay đổi (vì initialFormData.password luôn là "")
+    if (formData.password && formData.password.trim() !== "") changed = true;
     
     // So sánh role - so sánh id của role
     if (!isCustomerForm) {
@@ -482,6 +486,35 @@ export default function UserForm({ mode, initialData }: Props) {
       return false;
     }
 
+    // Validation cho password
+    if (mode === "create") {
+      // Khi tạo mới, password là bắt buộc
+      if (!formData.password || formData.password.trim() === "") {
+        toast.error("Vui lòng nhập mật khẩu");
+        return false;
+      }
+    }
+
+    // Nếu có nhập password (tạo mới hoặc thay đổi), validate độ dài và độ mạnh
+    if (formData.password && formData.password.trim()) {
+      if (formData.password.length < 6) {
+        toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+        return false;
+      }
+
+      if (formData.password.length > 100) {
+        toast.error("Mật khẩu không được vượt quá 100 ký tự");
+        return false;
+      }
+
+      // Có thể thêm validation mạnh hơn nếu cần
+      // const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      // if (!passwordRegex.test(formData.password)) {
+      //   toast.error("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt");
+      //   return false;
+      // }
+    }
+
     return true;
   };
 
@@ -533,8 +566,17 @@ export default function UserForm({ mode, initialData }: Props) {
         enabled: formData.enabled,
       };
 
-      // Không cho phép thay đổi password trong form này
-      // Password chỉ được thay đổi trong form đăng nhập/đổi mật khẩu
+      // Xử lý password
+      if (mode === "create") {
+        // Khi tạo mới, luôn gửi password (đã validate ở trên)
+        payloadData.password = formData.password.trim();
+      } else if (mode === "edit") {
+        // Khi sửa, chỉ gửi password nếu người dùng đã nhập
+        if (formData.password && formData.password.trim()) {
+          payloadData.password = formData.password.trim();
+        }
+        // Nếu không nhập password, không gửi field này lên server
+      }
 
       // Xử lý note và roles
       if (!isCustomerForm) {
@@ -743,6 +785,14 @@ export default function UserForm({ mode, initialData }: Props) {
       } else {
         await updateUser(payload);
         toast.success(isCustomerForm ? "Cập nhật khách hàng thành công!" : "Cập nhật nhân viên thành công!");
+        
+        // Reset password field về trống sau khi cập nhật thành công
+        setFormData(prev => ({
+          ...prev,
+          password: ""
+        }));
+        setHasChanges(false);
+        
         if (typeof window !== "undefined") {
           localStorage.removeItem(storageKey);
           sessionStorage.setItem("shouldReloadStaff", "true");
@@ -787,30 +837,6 @@ export default function UserForm({ mode, initialData }: Props) {
     }
   };
 
-  const handleResetPassword = async () => {
-    setResettingPassword(true);
-    setShowResetPasswordConfirm(false);
-
-    try {
-      const userId = initialData?.id || attributes.id;
-      if (!userId) {
-        toast.error("Không tìm thấy ID người dùng");
-        return;
-      }
-
-      await resetUserPassword(userId);
-      toast.success("Reset mật khẩu thành công! Người dùng sẽ nhận được email với mật khẩu tạm và cần đổi mật khẩu khi đăng nhập lại.");
-    } catch (error: any) {
-      console.error("Error resetting password:", error);
-      const errorMessage =
-        error?.response?.data?.errors?.[0]?.title ||
-        error?.response?.data?.errors?.[0]?.detail ||
-        "Có lỗi xảy ra khi reset mật khẩu";
-      toast.error(errorMessage);
-    } finally {
-      setResettingPassword(false);
-    }
-  };
 
   const handleConfirmEnabledChange = () => {
     if (pendingEnabledValue !== null) {
@@ -823,6 +849,7 @@ export default function UserForm({ mode, initialData }: Props) {
     }
     setShowEnabledConfirm(false);
   };
+
 
 
   return (
@@ -926,6 +953,49 @@ export default function UserForm({ mode, initialData }: Props) {
               rows={3}
               placeholder="Địa chỉ chi tiết..."
             />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mật khẩu {mode === "create" ? <span className="text-red-500">*</span> : ""}
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password || ""}
+                onChange={handleChange}
+                className="input w-full pr-12"
+                placeholder={
+                  mode === "create" 
+                    ? "Nhập mật khẩu" 
+                    : "Để trống nếu không muốn thay đổi mật khẩu"
+                }
+                required={mode === "create"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L12 12m3.878-3.878L21 21m-6.878-6.878L12 12m3.878-3.878a3 3 0 00-4.243-4.243M12 12l-3.878 3.878" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {mode === "create" 
+                ? "Mật khẩu phải có ít nhất 6 ký tự" 
+                : "Ô này luôn trắng. Nhập mật khẩu mới sẽ thay đổi mật khẩu của nhân viên."}
+            </p>
           </div>
 
           {/* Note - chỉ hiển thị khi không phải form khách hàng */}
@@ -1086,7 +1156,7 @@ export default function UserForm({ mode, initialData }: Props) {
           <button
             type="button"
             onClick={handleBack}
-            disabled={loading || resettingPassword}
+            disabled={loading}
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
           >
             <svg
@@ -1105,41 +1175,17 @@ export default function UserForm({ mode, initialData }: Props) {
             Quay lại danh sách
           </button>
           <div className="flex gap-3">
-            {/* Reset Password Button - chỉ hiển thị cho admin, khi edit, và không phải form khách hàng */}
-            {mode === "edit" && isAdmin() && !isCustomerForm && (
-              <button
-                type="button"
-                onClick={() => setShowResetPasswordConfirm(true)}
-                disabled={loading || resettingPassword}
-                className="px-5 py-2.5 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                  />
-                </svg>
-                Reset mật khẩu
-              </button>
-            )}
             <button
               type="button"
               onClick={handleBack}
-              disabled={loading || resettingPassword}
+              disabled={loading}
               className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={loading || resettingPassword}
+              disabled={loading}
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {loading
@@ -1176,6 +1222,14 @@ export default function UserForm({ mode, initialData }: Props) {
                 <p><span className="font-medium">Địa chỉ:</span> {formData.address}</p>
               )}
               <p><span className="font-medium">Trạng thái:</span> {formData.enabled ? "Hoạt động" : "Vô hiệu hóa"}</p>
+              {formData.password && formData.password.trim() && (
+                <p><span className="font-medium">Mật khẩu:</span> 
+                  {mode === "create" ? "Sẽ được thiết lập" : "Sẽ được cập nhật"}
+                </p>
+              )}
+              {mode === "edit" && (!formData.password || formData.password.trim() === "") && (
+                <p><span className="font-medium">Mật khẩu:</span> Không thay đổi</p>
+              )}
             </div>
           </div>
         }
@@ -1187,35 +1241,6 @@ export default function UserForm({ mode, initialData }: Props) {
       />
 
 
-      {/* Reset Password Confirm Dialog - chỉ hiển thị khi không phải form khách hàng */}
-      {!isCustomerForm && (
-        <ConfirmDialog
-          isOpen={showResetPasswordConfirm}
-          onClose={() => setShowResetPasswordConfirm(false)}
-          onConfirm={handleResetPassword}
-          title="Xác nhận reset mật khẩu"
-          message={
-            <div className="space-y-2">
-              <p className="font-medium">
-                Bạn có chắc muốn reset mật khẩu cho người dùng này?
-              </p>
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-1 text-sm">
-                <p className="font-medium text-orange-800">Lưu ý:</p>
-                <ul className="list-disc list-inside space-y-1 text-orange-700">
-                  <li>Hệ thống sẽ tạo mật khẩu tạm hoặc gửi link reset qua email</li>
-                  <li>Người dùng bắt buộc phải đổi mật khẩu khi đăng nhập lại</li>
-                  <li>Hành động này sẽ được ghi vào audit log</li>
-                </ul>
-              </div>
-            </div>
-          }
-          confirmText="Xác nhận reset"
-          cancelText="Hủy"
-          confirmButtonColor="orange"
-          loading={resettingPassword}
-          loadingText="Đang reset mật khẩu..."
-        />
-      )}
 
       {/* Enabled Status Change Confirm Dialog - chỉ hiển thị khi edit */}
       {mode === "edit" && (

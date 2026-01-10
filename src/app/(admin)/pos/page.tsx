@@ -110,9 +110,10 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
             maxDiscount: Number(attrs.maxDiscount || c.maxDiscount || 0),
             startDate: attrs.startDate || c.startDate || attrs.start || c.start,
             endDate: attrs.endDate || c.endDate || attrs.end || c.end,
-            campaignDetails: attrs.campaignDetails || c.campaignDetails,
+            campaignDetails: attrs.campaignDetails || c.campaignDetails || c.relationships?.campaignDetails,
         };
-        console.log("Mapped campaign:", mappedCampaign);
+        console.log("🔍 [convertCampaigns] Mapped campaign:", mappedCampaign);
+        console.log("🔍 [convertCampaigns] Campaign details:", mappedCampaign.campaignDetails);
         return mappedCampaign;
     });
     
@@ -158,30 +159,37 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
         let type = c.campaignType;
         if (c.campaignType === "FLAT_DISCOUNT") {
             type = "FIXED";
-        } else if (c.campaignType === "PERCENTAGE_DISCOUNT" || c.campaignType === "PERCENTAGE_PRODUCT") {
-            // PERCENTAGE_DISCOUNT và PERCENTAGE_PRODUCT cũng là giảm theo phần trăm, map giống PERCENTAGE_RECEIPT
+        } else if (c.campaignType === "PERCENTAGE_DISCOUNT") {
+            // PERCENTAGE_DISCOUNT vẫn là giảm theo phần trăm
             type = "PERCENTAGE_RECEIPT";
+        } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
+            // ✅ SỬA: PERCENTAGE_PRODUCT bây giờ là giảm cố định, giữ type riêng
+            type = "PERCENTAGE_PRODUCT";
         }
         
-        // Map value: Tất cả loại PERCENTAGE dùng percentage, FLAT_DISCOUNT dùng discount amount
+        // Map value: 
         let value = 0;
-        if (c.campaignType === "PERCENTAGE_RECEIPT" 
-            || c.campaignType === "PERCENTAGE_DISCOUNT" 
-            || c.campaignType === "PERCENTAGE_PRODUCT") {
+        if (c.campaignType === "PERCENTAGE_RECEIPT" || c.campaignType === "PERCENTAGE_DISCOUNT") {
+            // Giảm theo phần trăm
             value = c.percentage || 0;
+        } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
+            // ✅ SỬA: Combo giảm cố định - lấy từ maxDiscount
+            value = c.maxDiscount || 0;
         } else if (c.campaignType === "FLAT_DISCOUNT") {
             value = c.discount || 0;
         }
         
         // Tạo label hiển thị
         let label = "";
-        if (c.campaignType === "PERCENTAGE_RECEIPT" 
-            || c.campaignType === "PERCENTAGE_DISCOUNT" 
-            || c.campaignType === "PERCENTAGE_PRODUCT") {
+        if (c.campaignType === "PERCENTAGE_RECEIPT" || c.campaignType === "PERCENTAGE_DISCOUNT") {
+            // Giảm theo phần trăm với tối đa
             label = `${c.percentage || 0}%`;
             if (c.maxDiscount) {
                 label += ` (tối đa ${c.maxDiscount.toLocaleString()}đ)`;
             }
+        } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
+            // ✅ SỬA: Combo giảm cố định - hiển thị số tiền giảm
+            label = `Giảm ${(c.maxDiscount || 0).toLocaleString()}đ/sp`;
         } else if (c.campaignType === "FLAT_DISCOUNT") {
             label = `${(c.discount || 0).toLocaleString()}đ`;
         } else {
@@ -189,7 +197,7 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
             label = c.percentage ? `${c.percentage}%` : `${(c.discount || 0).toLocaleString()}đ`;
         }
         
-        return {
+        const finalCampaign = {
             id: c.id,
             label: label,
             description: c.name || "",
@@ -201,6 +209,13 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
             startDate: c.startDate,
             endDate: c.endDate,
         };
+        
+        console.log("🔍 [convertCampaigns] Final campaign:", finalCampaign);
+        if (finalCampaign.type === "PERCENTAGE_PRODUCT") {
+            console.log("🎯 [convertCampaigns] PERCENTAGE_PRODUCT campaign details:", finalCampaign.campaignDetails);
+        }
+        
+        return finalCampaign;
     });
     
     console.log("Final converted campaigns:", final);
@@ -544,8 +559,19 @@ export default function POS() {
         }
         
         const rawCampaigns = campaignQuery.data?.data || campaignQuery.data || [];
-        console.log("Raw campaigns data:", rawCampaigns);
-        console.log("Campaign query data structure:", campaignQuery.data);
+        console.log("🔍 [VOUCHERS] Raw campaigns data:", rawCampaigns);
+        console.log("🔍 [VOUCHERS] Campaign query data structure:", campaignQuery.data);
+        
+        // ✅ DEBUG: Kiểm tra cấu trúc của từng campaign
+        rawCampaigns.forEach((campaign: any, index: number) => {
+            console.log(`🔍 [VOUCHERS] Campaign ${index}:`, {
+                id: campaign.id,
+                type: campaign.type,
+                attributes: campaign.attributes,
+                relationships: campaign.relationships,
+                campaignDetails: campaign.campaignDetails || campaign.attributes?.campaignDetails || campaign.relationships?.campaignDetails
+            });
+        });
         
         if (!Array.isArray(rawCampaigns)) {
             console.error("Campaigns is not an array:", typeof rawCampaigns, rawCampaigns);
@@ -553,8 +579,12 @@ export default function POS() {
         }
         
         const campaigns = convertCampaigns(rawCampaigns);
-        console.log("Converted campaigns for POS:", campaigns);
-        console.log("Number of active campaigns:", campaigns.length);
+        console.log("🔍 [VOUCHERS] Converted campaigns for POS:", campaigns);
+        console.log("🔍 [VOUCHERS] Number of active campaigns:", campaigns.length);
+        
+        // ✅ DEBUG: Log các campaign PERCENTAGE_PRODUCT
+        const productCampaigns = campaigns.filter(c => c.type === "PERCENTAGE_PRODUCT");
+        console.log("🎯 [VOUCHERS] PERCENTAGE_PRODUCT campaigns:", productCampaigns);
         
         return campaigns;
     }, [campaignQuery.dataUpdatedAt, campaignQuery.isSuccess, campaignQuery.error, campaignQuery.data]);
@@ -817,8 +847,63 @@ export default function POS() {
                     : e
             );
         } else {
+            console.log("🔍 [POS] Thêm sản phẩm mới vào giỏ hàng:", {
+                productId: product.id,
+                productTitle: product.title,
+                salePrice: product.salePrice,
+                availableVouchers: VOUCHERS.length
+            });
+
+            // ✅ DEBUG: Log tất cả campaigns để kiểm tra
+            console.log("🔍 [POS] All VOUCHERS:", VOUCHERS);
+
+            // ✅ SỬA: Tìm campaign giảm giá theo sản phẩm (combo)
             const prodVouchers = VOUCHERS.filter(v => v.type === "PERCENTAGE_PRODUCT");
-            const applicable = prodVouchers.filter((v) => v.campaignDetails.data.some((e: any) => e.bookDetailId === product.id));
+            console.log("🔍 [POS] Product vouchers:", prodVouchers);
+
+            const applicable = prodVouchers.filter((v) => {
+                // ✅ Kiểm tra campaignDetails có tồn tại và có data
+                const campaignDetails = v.campaignDetails?.data || v.campaignDetails || [];
+                console.log("🔍 [POS] Campaign details for", v.id, ":", campaignDetails);
+                
+                const hasMatch = Array.isArray(campaignDetails) && 
+                       campaignDetails.some((detail: any) => {
+                           // ✅ Lấy bookDetailId từ attributes hoặc top level
+                           const bookDetailId = detail.attributes?.bookDetailId || detail.bookDetailId;
+                           console.log("🔍 [POS] Checking detail:", {
+                               bookDetailId: bookDetailId,
+                               productId: product.id,
+                               matches: String(bookDetailId) === String(product.id)
+                           });
+                           return String(bookDetailId) === String(product.id);
+                       });
+                
+                console.log("🔍 [POS] Campaign", v.id, "hasMatch:", hasMatch);
+                return hasMatch;
+            });
+
+            console.log("🔍 [POS] Applicable campaigns:", applicable);
+
+            let pricePerUnit = product.salePrice;
+            
+            if (applicable.length > 0) {
+                // ✅ SỬA: Giảm giá cố định thay vì phần trăm
+                // Logic mới: pricePerUnit = salePrice - discountAmount
+                const discountAmount = applicable[0].value || 0; // value là số tiền giảm cố định (VD: 20000)
+                pricePerUnit = Math.max(0, product.salePrice - discountAmount);
+                
+                console.log("🎯 [POS] Áp dụng giảm giá combo:", {
+                    productId: product.id,
+                    productTitle: product.title,
+                    originalPrice: product.salePrice,
+                    discountAmount: discountAmount,
+                    finalPrice: pricePerUnit,
+                    campaignId: applicable[0].id,
+                    campaign: applicable[0]
+                });
+            } else {
+                console.log("⚠️ [POS] Không có campaign nào áp dụng cho sản phẩm:", product.id);
+            }
 
             updatedItems = [
                 ...current,
@@ -826,10 +911,12 @@ export default function POS() {
                     id: Date.now(),
                     bookCopy: product,
                     quantity: 1,
-                    pricePerUnit: applicable.length > 0 ? product.salePrice * (100 - applicable[0].value) / 100 : product.salePrice,
+                    pricePerUnit: pricePerUnit,
                     originalPrice: product.salePrice
                 }
             ];
+
+            console.log("🎯 [POS] Updated items:", updatedItems);
         }
 
         updateOrder({
@@ -939,6 +1026,19 @@ export default function POS() {
                                     + Thêm
                                 </button>
                             )}
+                            
+                            {/* DEBUG: Nút xóa cache */}
+                            {/* <button
+                                type="button"
+                                onClick={() => {
+                                    localStorage.removeItem("posOrders");
+                                    window.location.reload();
+                                }}
+                                className="btn bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1.5"
+                                title="Xóa cache và reload"
+                            >
+                                🔄 Reset
+                            </button> */}
                         </div>
 
 
@@ -989,20 +1089,9 @@ export default function POS() {
                                         <td className="align-middle">
                                             <div className="flex flex-col justify-center">
                                                 <span className="font-semibold">{receiptDetail.bookCopy.title + " - " + receiptDetail.bookCopy.bookFormat}</span>
-                                                <span className="text-gray-500 text-xs mt-1">
-                                                    Đơn giá:{" "}
-                                                    <b className="text-red-500">
-                                                        {receiptDetail.pricePerUnit.toLocaleString()}đ
-                                                    </b>
-                                                    {receiptDetail.pricePerUnit < receiptDetail.originalPrice && (
-                                                        <>
-                                                            <span className="line-through">
-                                                                {" "}
-                                                                {receiptDetail.originalPrice.toLocaleString()}đ
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </span>
+                                                {/* <span className="text-gray-500 text-xs mt-1">
+                                                    Đơn giá: {receiptDetail.pricePerUnit.toLocaleString()}đ
+                                                </span> */}
                                             </div>
                                         </td>
                                         <td className="text-center align-middle">
@@ -1049,9 +1138,18 @@ export default function POS() {
                                             </div>
                                         </td>
 
-                                        <td className="text-center align-middle font-semibold text-blue-600">
-                                            <div className="flex items-center justify-center">
-                                                {(receiptDetail.quantity * receiptDetail.pricePerUnit).toLocaleString()}đ
+                                        <td className="text-center align-middle font-semibold">
+                                            <div className="flex flex-col items-center justify-center">
+                                                {/* Giá đã giảm (tổng tiền sau giảm) */}
+                                                <div className="text-red-500 font-bold">
+                                                    {(receiptDetail.quantity * receiptDetail.pricePerUnit).toLocaleString()}đ
+                                                </div>
+                                                {/* Giá gốc bị gạch (nếu có giảm giá) */}
+                                                {receiptDetail.pricePerUnit < receiptDetail.originalPrice && (
+                                                    <div className="text-gray-500 text-xs line-through mt-1">
+                                                        {(receiptDetail.quantity * receiptDetail.originalPrice).toLocaleString()}đ
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
 
@@ -1128,7 +1226,7 @@ export default function POS() {
                     </div>
 
                     {/* GIẢM GIÁ - TỰ ĐỘNG ÁP DỤNG CAMPAIGN TỐT NHẤT */}
-                    <div className="card shadow-sm">
+                    {/* <div className="card shadow-sm">
                         <h3 className="card-title mb-4">Giảm giá</h3>
                         <div className="border-t border-gray-300 pt-4 mt-2">
                             {findBestCampaign && subTotal >= findBestCampaign.minTotal && orderDiscount > 0 ? (
@@ -1154,10 +1252,10 @@ export default function POS() {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* NHẬN HÀNG */}
-                    <div className="card shadow-sm">
+                    {/* <div className="card shadow-sm">
                         <h3 className="card-title mb-4">Nhận hàng</h3>
                         <div className="space-y-3">
                             <label
@@ -1189,9 +1287,9 @@ export default function POS() {
                                     {shippingMethod === "DELIVERY" && (
                                         <div className="mt-4 p-4 border rounded-lg bg-gray-50 space-y-3 ml-6">
                                             {!isEditingShipping ? (
-                                                <>
+                                                <> */}
                                                     {/* Hiển thị thông tin (read-only) */}
-                                                    <div className="space-y-3">
+                                                    {/* <div className="space-y-3">
                                                         <div>
                                                             <label className="text-sm font-medium text-gray-500">Tên
                                                                 người nhận</label>
@@ -1223,9 +1321,9 @@ export default function POS() {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <>
+                                                <> */}
                                                     {/* Form chỉnh sửa */}
-                                                    <div className="space-y-3">
+                                                    {/* <div className="space-y-3">
                                                         <div>
                                                             <label className="text-sm font-medium">
                                                                 Tên người nhận <span className="text-red-600">*</span>
@@ -1256,10 +1354,10 @@ export default function POS() {
                                                                 }))}
                                                                 placeholder="Nhập số điện thoại"
                                                             />
-                                                        </div>
+                                                        </div> */}
 
                                                         {/* Địa chỉ - Tỉnh/Thành phố, Quận/Huyện, Phường/Xã (nằm ngang) */}
-                                                        <div className="grid grid-cols-3 gap-3">
+                                                        {/* <div className="grid grid-cols-3 gap-3">
                                                             <div>
                                                                 <label className="text-sm font-medium">
                                                                     Tỉnh/Thành phố <span
@@ -1356,12 +1454,12 @@ export default function POS() {
                                                     </div>
                                                 </>
                                             )}
-                                        </div>
-                                    )}
-                                </div>
-                            </label>
-                        </div>
-                    </div>
+                                        </div> */}
+                                    {/* )} */}
+                                {/* </div>
+                            </label> */}
+                        {/* </div> */}
+                    {/* </div> */}
                 </div>
 
                 {/* =======================================
@@ -1561,8 +1659,22 @@ export default function POS() {
                             }
                             // Nếu không phải TRANSFER hoặc chưa xác nhận, để backend tự xử lý
 
-                            console.log(order);
-                            console.log(serializeReceipt(order));
+                            console.log("🎯 [POS] Final order before submit:", order);
+                            console.log("🎯 [POS] Receipt details before serialize:", order.relationships.receiptDetails);
+                            
+                            // ✅ DEBUG: Kiểm tra giá trong receiptDetails
+                            order.relationships.receiptDetails.forEach((detail: any, index: number) => {
+                                console.log(`🎯 [POS] Item ${index + 1}:`, {
+                                    title: detail.bookCopy.title,
+                                    pricePerUnit: detail.pricePerUnit,
+                                    originalPrice: detail.originalPrice,
+                                    quantity: detail.quantity,
+                                    total: detail.pricePerUnit * detail.quantity
+                                });
+                            });
+                            
+                            const serializedOrder = serializeReceipt(order);
+                            console.log("🎯 [POS] Serialized order:", serializedOrder);
                             const saved = await receiptCreate.mutateAsync(order);
                             console.log(saved.data.id);
 
@@ -1616,6 +1728,7 @@ export default function POS() {
                             setShowProductPopup(false);
                         }}
                         products={SEARCH_PRODUCTS}
+                        campaigns={VOUCHERS}
                     />
                 )
             }
