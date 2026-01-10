@@ -84,10 +84,16 @@ api.interceptors.response.use(
             throw error;
         }
 
-        if (error.status !== 400) {
-            const err = deserialise(error.response.data).errors[0];
-            toast.error(err.title);
-            return Promise.reject(error);
+        if (error.status !== 400 && error.response?.data) {
+            try {
+                const err = deserialise(error.response.data).errors[0];
+                toast.error(err.title);
+                return Promise.reject(error);
+            } catch (e) {
+                // If deserialization fails, show generic error
+                toast.error(error.response?.data?.message || error.message || 'An error occurred');
+                return Promise.reject(error);
+            }
         }
 
         console.error("[Axios Error]", {

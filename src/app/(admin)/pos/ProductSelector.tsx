@@ -312,7 +312,7 @@ export default function ProductSelector({
                                     {item.salePrice.toLocaleString()}đ
                                 </div>
                                 <div className="text-center text-xs gray-500 mt-1 font-semibold">
-                                    {"Còn: " + item.stock}
+                                    {"Còn: " + (item.stock ?? 0)}
                                 </div>
 
                             </div>

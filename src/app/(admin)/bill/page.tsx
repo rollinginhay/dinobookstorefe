@@ -42,9 +42,17 @@ export default function BillList() {
         setError(null);
         BillService.getList(0, 1000) // Tăng limit lên 1000 để load đủ đơn
             .then((data) => {
-                const sorted = [...data].sort(
-                    (a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime()
-                );
+                const sorted = [...data].sort((a, b) => {
+                    // ✅ Đơn yêu cầu trả hàng (returnStatus === "REQUESTED") lên trên
+                    const aHasReturnRequest = a.returnStatus === "REQUESTED";
+                    const bHasReturnRequest = b.returnStatus === "REQUESTED";
+                    
+                    if (aHasReturnRequest && !bHasReturnRequest) return -1;
+                    if (!aHasReturnRequest && bHasReturnRequest) return 1;
+                    
+                    // Nếu cả hai đều có hoặc không có yêu cầu trả hàng, sắp xếp theo ngày (mới nhất trước)
+                    return new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime();
+                });
 
                 setBills(sorted);
                 setFilteredBills(sorted);
@@ -105,7 +113,10 @@ export default function BillList() {
                 return data.filter((b) => b.status === "PAID");
 
             case "CANCELLED":
-                return data.filter((b) => b.status === "CANCELLED" || b.status === "FAILED");
+                return data.filter((b) => b.status === "CANCELLED");
+            
+            case "FAILED":
+                return data.filter((b) => b.status === "FAILED");
 
 
             case "REFUNDED":
@@ -185,8 +196,10 @@ export default function BillList() {
                 break;
 
             case "CANCELLED":
-            case "FAILED":   // 👈 gộp chung vào đây
                 statusBadge = <span className="badge bg-red-100 text-red-600">Đã hủy</span>;
+                break;
+            case "FAILED":
+                statusBadge = <span className="badge bg-orange-100 text-orange-600">Thất bại</span>;
                 break;
 
             case "REFUNDED":
@@ -310,6 +323,7 @@ export default function BillList() {
                     { key: "IN_TRANSIT", label: "Đang vận chuyển" },
                     { key: "PAID", label: "Hoàn thành" },
                     { key: "CANCELLED", label: "Đã hủy" },
+                    { key: "FAILED", label: "Thất bại" },
                     { key: "REFUNDED", label: "Hoàn tiền" },
                 ].map((tab) => (
                     <button

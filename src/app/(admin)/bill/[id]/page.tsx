@@ -12,6 +12,7 @@ type OrderStatus =
   | "CANCELLED"
   | "FAILED"
   | "REFUNDED"
+  | "RETURNED"
   | "UNKNOWN";
 
 type OrderType = "POS" | "ONLINE" | "UNKNOWN";
@@ -120,9 +121,12 @@ function renderStatusBadge(status: OrderStatus) {
         <span className="badge bg-green-100 text-green-600">Hoàn thành</span>
       );
     case "CANCELLED":
-    case "FAILED":
       return (
         <span className="badge bg-red-100 text-red-600">Đã hủy</span>
+      );
+    case "FAILED":
+      return (
+        <span className="badge bg-orange-100 text-orange-600">Thất bại</span>
       );
     case "REFUNDED":
       return (
@@ -142,24 +146,21 @@ function getNextStatus(
 
   const { orderType, paymentType, hasShipping } = opts;
 
-  // POS có ship → đi full flow
-  if (orderType === "POS" && hasShipping === true) {
+  // ✅ MUA POS: Chỉ bán tại quầy, hoàn thành luôn (không qua trạng thái khác)
+  // POS đã được set PAID ngay khi tạo, không có chuyển trạng thái
+  if (orderType === "POS") {
+    return current; // POS không có chuyển trạng thái, giữ nguyên
+  }
+
+  // ✅ MUA ONLINE (luôn có ship)
+  // COD: PENDING -> AUTHORIZED -> IN_TRANSIT -> PAID
+  // Chuyển khoản trước: PENDING -> AUTHORIZED (trừ số lượng luôn) -> IN_TRANSIT -> PAID
+  if (orderType === "ONLINE") {
     if (current === "PENDING") return "AUTHORIZED";
     if (current === "AUTHORIZED") return "IN_TRANSIT";
     if (current === "IN_TRANSIT") return "PAID";
     return current;
   }
-
-  // POS không ship → PENDING → PAID
-  if (orderType === "POS" && hasShipping === false) {
-    if (current === "PENDING") return "PAID";
-    return current;
-  }
-
-  // ONLINE (luôn ship)
-  if (current === "PENDING") return "AUTHORIZED";
-  if (current === "AUTHORIZED") return "IN_TRANSIT";
-  if (current === "IN_TRANSIT") return "PAID";
 
   return current;
 }
@@ -167,139 +168,175 @@ function getNextActionLabel(
   current: OrderStatus,
   opts: { orderType: OrderType; paymentType: PaymentType; hasShipping: boolean }
 ): string | null {
-  const { paymentType, hasShipping } = opts;
+  const { orderType } = opts;
 
-  if (!hasShipping) {
+  // ✅ MUA POS: Không có nút chuyển trạng thái (đã hoàn thành luôn khi tạo)
+  if (orderType === "POS") {
+    return null; // POS không có chuyển trạng thái
+  }
+
+  // ✅ MUA ONLINE: Luồng đầy đủ
+  if (orderType === "ONLINE") {
     if (current === "PENDING") {
-      return paymentType === "CASH"
-        ? "Xác nhận & Thanh toán"
-        : "Xác nhận đơn & Hoàn tất thanh toán";
+      return "Xác nhận đơn";
+    }
+    if (current === "AUTHORIZED") {
+      return "Giao cho vận chuyển";
+    }
+    if (current === "IN_TRANSIT") {
+      return "Xác nhận giao thành công";
     }
     return null;
-  }
-
-  if (current === "PENDING") {
-    if (paymentType === "COD") return "Xác nhận đơn COD";
-    return "Xác nhận đơn đã thanh toán";
-  }
-
-  if (current === "AUTHORIZED") {
-    return "Giao cho vận chuyển";
-  }
-
-  if (current === "IN_TRANSIT") {
-    return "Xác nhận giao thành công";
   }
 
   return null;
 }
 
 
-function StatusTimeline({
-  status,
-  hasShipping,
-}: {
-  status: OrderStatus;
-  hasShipping: boolean;
-}) {
-  const LABEL: Record<OrderStatus, string> = {
-    PENDING: "Chờ xác nhận",
-    AUTHORIZED: "Đã xác nhận",
-    IN_TRANSIT: "Đang vận chuyển",
-    PAID: "Hoàn thành",
-    FAILED: "Thất bại",
-    CANCELLED: "Đã hủy",
-    REFUNDED: "Hoàn tiền",
-    UNKNOWN: "Không xác định",
-  };
+// ✅ Mapping chữ hiển thị
+const STATUS_TEXT: Record<string, string> = {
+  PENDING: "Chờ xác nhận",
+  AUTHORIZED: "Đã xác nhận",
+  IN_TRANSIT: "Đang vận chuyển",
+  PAID: "Hoàn thành",
+  CANCELLED: "Đã huỷ",
+  REFUNDED: "Đã hoàn tiền",
+  FAILED: "Giao thất bại",
+  RETURNED: "Trả hàng",
+};
 
-  // ================== SUY LUẬN FLOW THEO LUỒNG M ĐÃ NÓI ==================
-  function buildTimeline(st: OrderStatus, hasShipping: boolean): OrderStatus[] {
-  // Đơn không ship: PENDING -> PAID
-  if (!hasShipping) {
-    switch (st) {
-      case "PENDING":
-        return ["PENDING"];
-      case "PAID":
-        return ["PENDING", "PAID"];
-      case "CANCELLED":
-        // chỉ có thể hủy khi còn pending -> ["PENDING", "CANCELLED"]
-        return ["PENDING", "CANCELLED"];
-      case "REFUNDED":
-        // chắc chắn đã từng PAID rồi mới refund
-        return ["PENDING", "PAID", "REFUNDED"];
-      default:
-        return ["PENDING", st];
-    }
-  }
-
-  // Có ship: PENDING -> AUTHORIZED -> IN_TRANSIT -> PAID
-  switch (st) {
-    case "PENDING":
-      return ["PENDING"];
-
-    case "AUTHORIZED":
-      return ["PENDING", "AUTHORIZED"];
-
-    case "IN_TRANSIT":
-      return ["PENDING", "AUTHORIZED", "IN_TRANSIT"];
-
-    case "PAID":
-      return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "PAID"];
-
-    case "FAILED":
-      // chỉ nhảy từ IN_TRANSIT, không bao giờ qua PAID
-      return ["PENDING", "AUTHORIZED", "IN_TRANSIT", "FAILED"];
-
-    case "CANCELLED":
-      // FE chỉ cho hủy khi PENDING hoặc AUTHORIZED
-      return ["PENDING", "AUTHORIZED", "CANCELLED"];
-
-    case "REFUNDED":
-      // 👉 luôn show: Đang VC -> Thất bại -> Hoàn tiền
-      return [
-        "PENDING",
-        "AUTHORIZED",
-        "IN_TRANSIT",
-        "FAILED",
-        "REFUNDED",
-      ];
-
-    default:
-      return ["PENDING"];
-  }
+// ✅ Interface cho ReceiptHistory
+interface ReceiptHistory {
+  oldStatus: string | null;
+  newStatus: string;
+  updatedAt?: string;
+  createdAt?: string;
 }
 
+// ✅ Build timeline - CỰC ĐƠN GIẢN
+function buildTimeline(history: ReceiptHistory[]) {
+  if (!history || history.length === 0) return [];
+  
+  return [...history]
+    .sort(
+      (a, b) =>
+        new Date(a.updatedAt || a.createdAt || 0).getTime() -
+        new Date(b.updatedAt || b.createdAt || 0).getTime()
+    )
+    .map(h => ({
+      time: h.updatedAt || h.createdAt || "",
+      text: STATUS_TEXT[h.newStatus] || h.newStatus,
+    }));
+}
 
-  const steps = buildTimeline(status, hasShipping);
+// ✅ Component timeline - ngang với node tròn đẹp
+function StatusTimeline({
+  status,
+  receiptHistory,
+  orderType,
+}: {
+  status: OrderStatus;
+  receiptHistory?: Array<{oldStatus: string | null, newStatus: string, createdAt: string, updatedAt?: string}>;
+  orderType?: "ONLINE" | "POS" | "UNKNOWN";
+}) {
+  // Convert receiptHistory sang format chuẩn
+  const history: ReceiptHistory[] = (receiptHistory || []).map((h) => ({
+    oldStatus: h.oldStatus,
+    newStatus: h.newStatus || "",
+    updatedAt: h.updatedAt || h.createdAt,
+    createdAt: h.createdAt || "",
+  }));
 
+  // Build timeline
+  const timeline = buildTimeline(history);
 
-  const getColor = (st: OrderStatus) => {
-    if (st === "FAILED") return "bg-red-600";
-    if (st === "CANCELLED") return "bg-red-500";
-    if (st === "REFUNDED") return "bg-gray-800";
-    return "bg-blue-600";
+  // Format datetime: HH:mm DD/MM/YYYY
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${hours}:${minutes} ${day}/${month}/${year}`;
+    } catch {
+      return dateStr;
+    }
   };
 
+  // Get icon cho từng trạng thái
+  const getIcon = (statusText: string) => {
+    if (statusText.includes("Chờ xác nhận")) return "📋";
+    if (statusText.includes("Đã xác nhận") || statusText.includes("Chuẩn bị")) return "✓";
+    if (statusText.includes("Đang vận chuyển") || statusText.includes("Đang giao")) return "🚚";
+    if (statusText.includes("Hoàn thành")) return "✓";
+    if (statusText.includes("Đã huỷ")) return "✕";
+    if (statusText.includes("Giao thất bại")) return "⚠";
+    if (statusText.includes("Đã hoàn tiền")) return "💰";
+    return "•";
+  };
+
+  // Get màu cho node
+  const getNodeColor = (statusText: string, isLast: boolean) => {
+    if (statusText.includes("Đã huỷ") || statusText.includes("Giao thất bại")) {
+      return "bg-red-500";
+    }
+    if (statusText.includes("Đã hoàn tiền")) {
+      return "bg-purple-500";
+    }
+    if (isLast) {
+      return "bg-green-600"; // Trạng thái cuối cùng - màu xanh lá đậm
+    }
+    return "bg-blue-500"; // Các trạng thái đã qua - màu xanh dương
+  };
+
+  if (timeline.length === 0) {
+    return (
+      <div className="py-4 text-center text-gray-500">
+        Chưa có lịch sử trạng thái
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-6">
-      {steps.map((st, i) => (
-        <div key={st} className="flex items-center gap-3">
-          <div
-            className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${getColor(
-              st
-            )}`}
-          >
-            ✓
-          </div>
+    <div className="py-6 px-4">
+      <div className="flex items-center justify-center relative">
+        {timeline.map((item, idx) => {
+          const isLast = idx === timeline.length - 1;
+          const isReached = true; // Tất cả items trong timeline đều đã reached
+          const nodeColor = getNodeColor(item.text, isLast);
+          
+          return (
+            <div key={idx} className="flex items-center">
+              {/* Node circle */}
+              <div className="flex flex-col items-center relative z-10">
+                <div
+                  className={`w-14 h-14 rounded-full ${nodeColor} text-white flex items-center justify-center text-xl font-semibold shadow-lg transition-all`}
+                >
+                  {getIcon(item.text)}
+                </div>
+                
+                {/* Label và timestamp */}
+                <div className="flex flex-col items-center mt-3 min-w-[140px] max-w-[160px]">
+                  <span className="font-medium text-sm text-gray-800 text-center">
+                    {item.text}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1 text-center">
+                    {formatDateTime(item.time)}
+                  </span>
+                </div>
+              </div>
 
-          <span className="font-medium">{LABEL[st]}</span>
-
-          {i < steps.length - 1 && (
-            <div className="w-10 h-px bg-gray-300"></div>
-          )}
-        </div>
-      ))}
+              {/* Connector line */}
+              {idx < timeline.length - 1 && (
+                <div className={`w-20 h-1 mx-2 ${isReached ? "bg-green-500" : "bg-gray-300"} transition-all`}></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -521,6 +558,7 @@ export default function BillDetailPage() {
   const [showProductModal, setShowProductModal] = useState(false);
 
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  const [receiptHistory, setReceiptHistory] = useState<Array<{oldStatus: string | null, newStatus: string, createdAt: string, updatedAt?: string}>>([]);
 
     
     const { id } = useParams();
@@ -537,6 +575,15 @@ export default function BillDetailPage() {
 
         const res = await BillService.getById(receiptId);
         const payments = await BillService.getPaymentHistory(receiptId);
+        
+        // ✅ Fetch history riêng, nếu lỗi thì bỏ qua (không làm hỏng toàn bộ)
+        let history = [];
+        try {
+          history = await BillService.getHistory(receiptId);
+        } catch (historyError) {
+          console.warn("Không lấy được lịch sử đơn hàng:", historyError);
+          history = [];
+        }
 
         setStatus(res.status as OrderStatus);
         // Service đã chuyển "DIRECT" → "POS" rồi, nên chỉ cần kiểm tra "POS" hoặc "ONLINE"
@@ -572,16 +619,21 @@ export default function BillDetailPage() {
           }
         }
 
-        let detectedHasShipping = res.hasShipping;
+        // ✅ MUA POS: Không có ship (chỉ bán tại quầy)
+        // ✅ MUA ONLINE: Luôn có ship
+        let detectedHasShipping = false;
+        if (detectedOrderType === "POS") {
+          // POS không có ship
+          detectedHasShipping = false;
+        } else if (detectedOrderType === "ONLINE") {
+          // ONLINE luôn có ship
+          detectedHasShipping = true;
+        } else {
+          // Fallback: dùng giá trị từ backend
+          detectedHasShipping = res.hasShipping || false;
+        }
 
-if (res.orderType === "DIRECT") {
-  if (["AUTHORIZED", "IN_TRANSIT", "PAID", "FAILED", "REFUNDED"].includes(res.status)) {
-    detectedHasShipping = true;
-  }
-}
-
-
-setHasShipping(detectedHasShipping);
+        setHasShipping(detectedHasShipping);
 
 
         setItems(res.items);
@@ -597,6 +649,28 @@ setHasShipping(detectedHasShipping);
         setOrderNote(res.orderNote ?? "");
 
         setPaymentHistory(payments);
+        
+        // ✅ Parse receipt history từ API response
+        // BillService.getHistory đã parse sẵn, chỉ cần map lại format
+        try {
+          if (Array.isArray(history) && history.length > 0) {
+            const parsedHistory = history.map((h: any) => ({
+              oldStatus: h.oldStatus || null,
+              newStatus: h.newStatus || "",
+              createdAt: h.createdAt || "",
+              updatedAt: h.updatedAt || h.createdAt || "",
+            }));
+            console.log("Receipt history from API:", history);
+            console.log("Parsed receipt history:", parsedHistory);
+            setReceiptHistory(parsedHistory);
+          } else {
+            console.log("No history data received:", history);
+            setReceiptHistory([]);
+          }
+        } catch (e) {
+          console.error("Lỗi parse receipt history:", e);
+          setReceiptHistory([]);
+        }
 
         setShowTimeline(true);
       } catch (e) {
@@ -697,9 +771,34 @@ setHasShipping(detectedHasShipping);
     }
   };
 
-    const handleConfirmAction = async () => {
+  // ✅ Function để fetch lại receipt history
+  const refreshReceiptHistory = async () => {
+    if (!receiptId || Number.isNaN(receiptId)) return;
+    try {
+      const history = await BillService.getHistory(receiptId);
+      if (Array.isArray(history) && history.length > 0) {
+        const parsedHistory = history.map((h: any) => ({
+          oldStatus: h.oldStatus || null,
+          newStatus: h.newStatus || "",
+          createdAt: h.createdAt || "",
+          updatedAt: h.updatedAt || h.createdAt || "",
+        }));
+        setReceiptHistory(parsedHistory);
+      }
+    } catch (e) {
+      console.error("Lỗi refresh receipt history:", e);
+    }
+  };
+
+  const handleConfirmAction = async () => {
   if (!confirmState.action) return;
   if (!receiptId || Number.isNaN(receiptId)) return;
+  
+  // ✅ Prevent double click: nếu đang update thì return ngay
+  if (isUpdatingStatus) {
+    console.warn("Đang xử lý, vui lòng đợi...");
+    return;
+  }
 
   try {
     setIsUpdatingStatus(true);
@@ -713,14 +812,22 @@ setHasShipping(detectedHasShipping);
 
       await BillService.updateStatus(receiptId, next);
       setStatus(next);
+      // ✅ Fetch lại history để timeline tự động cập nhật
+      await refreshReceiptHistory();
     }
 
     // =========================
     // CANCEL — chỉ khi còn PENDING / AUTHORIZED
     // =========================
     else if (confirmState.action === "CANCEL") {
+      // ✅ Prevent double click: disable button ngay lập tức
+      if (isUpdatingStatus) return;
+      
       await BillService.updateStatus(receiptId, "CANCELLED");
       setStatus("CANCELLED");
+      
+      // ✅ Fetch lại history để timeline tự động cập nhật
+      await refreshReceiptHistory();
     }
 
     // =========================
@@ -734,10 +841,12 @@ setHasShipping(detectedHasShipping);
 
       await BillService.updateStatus(receiptId, "FAILED");
       setStatus("FAILED");
+      // ✅ Fetch lại history để timeline tự động cập nhật
+      await refreshReceiptHistory();
     }
 
     // =========================
-    // REFUND — chỉ cho prepaid (không COD) + PAID hoặc FAILED
+    // REFUND — chỉ cho prepaid (không COD) + PAID, FAILED, hoặc CANCELLED (nếu đã thanh toán trước)
     // =========================
     else if (confirmState.action === "REFUND") {
       if (paymentType === "COD") {
@@ -745,13 +854,16 @@ setHasShipping(detectedHasShipping);
         return;
       }
 
-      if (status !== "PAID" && status !== "FAILED") {
-        alert("Chỉ hoàn tiền cho đơn đã thanh toán hoặc giao thất bại.");
+      // Cho phép hoàn tiền từ: PAID (trả hàng), FAILED (giao thất bại), CANCELLED (hủy sau khi đã thanh toán)
+      if (status !== "PAID" && status !== "FAILED" && status !== "CANCELLED") {
+        alert("Chỉ hoàn tiền cho đơn đã thanh toán, giao thất bại, hoặc đã hủy sau khi thanh toán.");
         return;
       }
 
       await BillService.updateStatus(receiptId, "REFUNDED");
       setStatus("REFUNDED");
+      // ✅ Fetch lại history để timeline tự động cập nhật
+      await refreshReceiptHistory();
     }
 
   } catch (e) {
@@ -787,19 +899,17 @@ setHasShipping(detectedHasShipping);
       <div className="card space-y-6">
         <h3 className="card-title">Trạng thái đơn hàng</h3>
 
-        <div className="flex justify-center">{renderStatusBadge(status)}</div>
-
         {showTimeline && (
           <div className="flex justify-center pt-2">
-            <StatusTimeline status={status} hasShipping={hasShipping} />
+            <StatusTimeline status={status} receiptHistory={receiptHistory} orderType={orderType} />
           </div>
         )}
 
         {/* Nút hành động */}
         <div className="flex gap-3 pt-4 flex-wrap">
 
-  {/* NEXT */}
-  {["PENDING", "AUTHORIZED", "IN_TRANSIT"].includes(status) && (
+  {/* NEXT - POS không có nút này vì đã hoàn thành luôn */}
+  {orderType !== "POS" && ["PENDING", "AUTHORIZED", "IN_TRANSIT"].includes(status) && (
   <button
     className="btn btn-primary"
     disabled={isUpdatingStatus}
@@ -811,8 +921,8 @@ setHasShipping(detectedHasShipping);
 )}
 
 
-  {/* CANCEL chỉ cho PENDING + AUTHORIZED */}
-  {(status === "PENDING" || status === "AUTHORIZED") && (
+  {/* CANCEL chỉ cho PENDING + AUTHORIZED, không cho POS (đã hoàn thành) */}
+  {orderType !== "POS" && (status === "PENDING" || status === "AUTHORIZED") && (
     <button
       className="btn bg-pink-600 text-white hover:bg-pink-700"
       disabled={isUpdatingStatus}
@@ -833,17 +943,7 @@ setHasShipping(detectedHasShipping);
     </button>
   )}
 
-  {/* REFUND: chỉ prepaid */}
-  {(status === "PAID" || status === "FAILED") &&
-    paymentType !== "COD" && (
-      <button
-        className="btn bg-gray-800 text-white hover:bg-black"
-        disabled={isUpdatingStatus}
-        onClick={() => handleOpenConfirm("REFUND")}
-      >
-        Hoàn tiền
-      </button>
-    )}
+  {/* ✅ Tạm thời bỏ nút hoàn tiền */}
 
 </div>
 

@@ -47,30 +47,36 @@ function extractBookDetails(books: any[]) {
         return copies
             .filter((bc: any) => {
                 // ✅ Filter: Chỉ lấy sách có stock > 0 VÀ enabled = true
-                const stock = Number(bc.stock ?? 0);
-                const enabled = bc.enabled !== false; // enabled mặc định là true nếu không có
+                // Xử lý cả JSON:API format (có attributes) và plain object
+                const attrs = bc.attributes || bc;
+                const stock = Number(attrs.stock ?? bc.stock ?? 0);
+                const enabled = (attrs.enabled ?? bc.enabled) !== false; // enabled mặc định là true nếu không có
                 return stock > 0 && enabled;
             })
-            .map((bc: any) => ({
-            bookId,
-            title: title,
-            imageUrl,
-            id: String(bc.id ?? ""),
+            .map((bc: any) => {
+                // Xử lý cả JSON:API format (có attributes) và plain object
+                const attrs = bc.attributes || bc;
+                return {
+                    bookId,
+                    title: title,
+                    imageUrl,
+                    id: String(bc.id ?? attrs.id ?? ""),
 
-            createdAt: bc.createdAt ?? "",
-            updatedAt: bc.updatedAt ?? "",
-            enabled: bc.enabled ?? false,
-            note: bc.note ?? "",
+                    createdAt: attrs.createdAt ?? bc.createdAt ?? "",
+                    updatedAt: attrs.updatedAt ?? bc.updatedAt ?? "",
+                    enabled: attrs.enabled ?? bc.enabled ?? false,
+                    note: attrs.note ?? bc.note ?? "",
 
-            isbn: bc.isbn ?? "",
-            bookFormat: bc.bookFormat ?? "",
-            dimensions: bc.dimensions ?? "",
-            printLength: Number(bc.printLength ?? 0),
-            stock: Number(bc.stock ?? 0),
-            supplyPrice: Number(bc.supplyPrice ?? 0),
-            salePrice: Number(bc.salePrice ?? 0),
-            bookCondition: bc.bookCondition ?? "",
-        }));
+                    isbn: attrs.isbn ?? bc.isbn ?? "",
+                    bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
+                    dimensions: attrs.dimensions ?? bc.dimensions ?? "",
+                    printLength: Number(attrs.printLength ?? bc.printLength ?? 0),
+                    stock: Number(attrs.stock ?? bc.stock ?? 0),
+                    supplyPrice: Number(attrs.supplyPrice ?? bc.supplyPrice ?? 0),
+                    salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
+                    bookCondition: attrs.bookCondition ?? bc.bookCondition ?? "",
+                };
+            });
     });
 }
 
@@ -1544,13 +1550,16 @@ export default function POS() {
                                 };
                             }
 
-                            // Set order status dựa trên phương thức thanh toán
+                            // ✅ Backend sẽ tự động set status:
+                            // - POS không ship (hasShipping = false) → PAID
+                            // - POS có ship (hasShipping = true) → IN_TRANSIT
+                            // Không cần set status ở frontend nữa
+                            // Chỉ set status nếu là TRANSFER và đã xác nhận thanh toán
                             const finalPaymentType = existingPaymentDetail?.paymentType || paymentMethod;
-                            if (finalPaymentType === "CASH") {
-                                order.attributes.orderStatus = "PENDING";
-                            } else if (finalPaymentType === "TRANSFER" && isPaymentConfirmed) {
+                            if (finalPaymentType === "TRANSFER" && isPaymentConfirmed) {
                                 order.attributes.orderStatus = "PAID";
                             }
+                            // Nếu không phải TRANSFER hoặc chưa xác nhận, để backend tự xử lý
 
                             console.log(order);
                             console.log(serializeReceipt(order));

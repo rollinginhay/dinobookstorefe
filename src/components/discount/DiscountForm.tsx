@@ -159,19 +159,26 @@ export default function DiscountForm({ mode, initialData }: Props) {
       return copies
         .filter((bc: any) => {
           // ✅ Filter: Chỉ lấy sách có stock > 0 VÀ enabled = true
-          const stock = Number(bc.stock ?? 0);
-          const enabled = bc.enabled !== false; // enabled mặc định là true nếu không có
+          // Xử lý cả JSON:API format (có attributes) và plain object
+          const attrs = bc.attributes || bc;
+          const stock = Number(attrs.stock ?? bc.stock ?? 0);
+          const enabled = (attrs.enabled ?? bc.enabled) !== false; // enabled mặc định là true nếu không có
           return stock > 0 && enabled;
         })
-        .map((bc: any) => ({
-          bookId,
-          id: String(bc.id ?? ""),
-          title: title + (bc.bookFormat ? ` - ${bc.bookFormat}` : ""),
-          imageUrl,
-          bookFormat: bc.bookFormat ?? "",
-          salePrice: Number(bc.salePrice ?? 0),
-          author: book.authorName || "",
-        }));
+        .map((bc: any) => {
+          // Xử lý cả JSON:API format (có attributes) và plain object
+          const attrs = bc.attributes || bc;
+          return {
+            bookId,
+            id: String(bc.id ?? attrs.id ?? ""),
+            title: title + ((attrs.bookFormat ?? bc.bookFormat) ? ` - ${attrs.bookFormat ?? bc.bookFormat}` : ""),
+            imageUrl,
+            bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
+            salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
+            stock: Number(attrs.stock ?? bc.stock ?? 0),
+            author: book.authorName || "",
+          };
+        });
     });
   }, [bookQuery.data, bookQuery.isSuccess]);
 
