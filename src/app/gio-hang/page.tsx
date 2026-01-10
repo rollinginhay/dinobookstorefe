@@ -597,56 +597,15 @@ export default function GioHang() {
                 <div className="space-y-4 mb-6">
                   {selectedTotalItems > 0 ? (
                     <>
-                      {/* Tạm tính = tổng giá gốc (originalPrice) */}
+                      {/* Tạm tính = tổng giá hiện tại (đã giảm) */}
                       <div className="flex justify-between text-gray-600">
                         <span>
                           Tạm tính ({selectedTotalItems} sản phẩm đã chọn)
                         </span>
                         <span>
-                          {selectedCartItems
-                            .reduce((sum, item) => {
-                              const originalPrice =
-                                item.originalPrice || item.price;
-                              const originalAmount =
-                                originalPrice * item.quantity;
-                              // Nếu là combo, dùng comboOriginalPrice
-                              if (item.isCombo && item.comboOriginalPrice) {
-                                return (
-                                  sum + item.comboOriginalPrice * item.quantity
-                                );
-                              }
-                              return sum + originalAmount;
-                            }, 0)
-                            .toLocaleString("vi-VN")}{" "}
-                          ₫
+                          {selectedTotalPrice.toLocaleString("vi-VN")} ₫
                         </span>
                       </div>
-                      {/* Số tiền giảm */}
-                      {(() => {
-                        const totalOriginal = selectedCartItems.reduce(
-                          (sum, item) => {
-                            if (item.isCombo && item.comboOriginalPrice) {
-                              return (
-                                sum + item.comboOriginalPrice * item.quantity
-                              );
-                            }
-                            const originalPrice =
-                              item.originalPrice || item.price;
-                            return sum + originalPrice * item.quantity;
-                          },
-                          0
-                        );
-                        const totalDiscounted = selectedTotalPrice;
-                        const discountAmount = totalOriginal - totalDiscounted;
-                        return discountAmount > 0 ? (
-                          <div className="flex justify-between text-green-600">
-                            <span>Số tiền giảm</span>
-                            <span className="font-medium">
-                              -{discountAmount.toLocaleString("vi-VN")} ₫
-                            </span>
-                          </div>
-                        ) : null;
-                      })()}
                       <div className="flex justify-between text-gray-600">
                         <span>Phí vận chuyển</span>
                         <span>
@@ -660,30 +619,15 @@ export default function GioHang() {
                         </span>
                       </div>
                       {(() => {
-                        const totalOriginal = selectedCartItems.reduce(
-                          (sum, item) => {
-                            if (item.isCombo && item.comboOriginalPrice) {
-                              return (
-                                sum + item.comboOriginalPrice * item.quantity
-                              );
-                            }
-                            const originalPrice =
-                              item.originalPrice || item.price;
-                            return sum + originalPrice * item.quantity;
-                          },
-                          0
-                        );
-                        const totalDiscounted = selectedTotalPrice;
-                        const discountAmount = totalOriginal - totalDiscounted;
                         const finalTotalWithDiscount =
-                          totalDiscounted + shipping;
+                          selectedTotalPrice + shipping;
                         return (
                           <>
-                            {totalDiscounted > 0 &&
-                              totalDiscounted < 299000 && (
+                            {selectedTotalPrice > 0 &&
+                              selectedTotalPrice < 299000 && (
                                 <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
                                   Mua thêm{" "}
-                                  {(299000 - totalDiscounted).toLocaleString(
+                                  {(299000 - selectedTotalPrice).toLocaleString(
                                     "vi-VN"
                                   )}{" "}
                                   ₫ để được miễn phí ship

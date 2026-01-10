@@ -1271,31 +1271,13 @@ export default function ThanhToan() {
               </div>
 
               <div className="border-t pt-4 space-y-3">
-                {/* Tạm tính = tổng giá gốc */}
+                {/* Tạm tính = tổng giá hiện tại (đã giảm) */}
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính ({selectedCartItems.length} sản phẩm)</span>
                   <span>
-                    {selectedCartItems
-                      .reduce((sum, item) => {
-                        if (item.isCombo && item.comboOriginalPrice) {
-                          return sum + item.comboOriginalPrice * item.quantity;
-                        }
-                        const originalPrice = item.originalPrice || item.price;
-                        return sum + originalPrice * item.quantity;
-                      }, 0)
-                      .toLocaleString("vi-VN")}{" "}
-                    ₫
+                    {selectedTotalPrice.toLocaleString("vi-VN")} ₫
                   </span>
                 </div>
-                {/* Giảm giá */}
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Giảm giá</span>
-                    <span className="font-medium">
-                      -{discountAmount.toLocaleString("vi-VN")} ₫
-                    </span>
-                  </div>
-                )}
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>
                   <span>

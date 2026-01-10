@@ -382,22 +382,7 @@ export default function HoaDon() {
   const { info, items, shipping, voucherDiscount, subTotal, finalTotal, note, createdAt, orderCode, orderType, status } =
     order;
 
-  // ✅ Tính "Tổng tiền hàng" = tổng giá gốc của tất cả sách
-  const totalOriginalPrice = items.reduce((total: number, item: any) => {
-    if (item.isCombo && item.totalOriginalPrice) {
-      // Combo: dùng totalOriginalPrice (tổng giá gốc combo)
-      return total + item.totalOriginalPrice;
-    } else if (item.isCombo && item.comboOriginalPrice) {
-      // Combo: comboOriginalPrice * quantity
-      return total + (item.comboOriginalPrice || 0) * (item.quantity || 1);
-    } else {
-      // Item đơn lẻ: originalPrice * quantity (nếu có), nếu không thì dùng price
-      const originalPrice = item.originalPrice || item.price || 0;
-      return total + originalPrice * (item.quantity || 1);
-    }
-  }, 0);
-
-  // ✅ Tính "Tổng giá đã giảm" = tổng giá đã giảm của tất cả sách
+  // ✅ Tổng giá hiện tại (đã giảm) của tất cả sách
   const totalDiscountedPrice = items.reduce((total: number, item: any) => {
     if (item.isCombo && item.totalPrice) {
       // Combo: dùng totalPrice đã tính sẵn
@@ -428,9 +413,6 @@ export default function HoaDon() {
       </span>
     );
   };
-
-  // ✅ Tính "Giảm giá" = tổng giá gốc - tổng giá đã giảm
-  const totalDiscount = totalOriginalPrice - totalDiscountedPrice;
 
   // ✅ Tính "Thành tiền" = Tổng giá đã giảm + Phí ship
   const calculatedFinalTotal = totalDiscountedPrice + shipping;
@@ -517,12 +499,6 @@ export default function HoaDon() {
                     <span className="text-red-600 font-bold">{orderCode}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-800 min-w-[160px]">Loại đơn hàng:</span>
-                    <span className="text-red-600 font-semibold">
-                      {orderType === "ONLINE" ? "Trực tuyến" : orderType === "POS" ? "Tại cửa hàng" : orderType}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Phương thức thanh toán:</span>
                     <span className="text-red-600 font-semibold">
                       {info.paymentMethod === "COD"
@@ -538,7 +514,7 @@ export default function HoaDon() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Tổng tiền hàng:</span>
-                    <span className="text-gray-700 font-semibold">{totalOriginalPrice.toLocaleString("vi-VN")} ₫</span>
+                    <span className="text-gray-700 font-semibold">{totalDiscountedPrice.toLocaleString("vi-VN")} ₫</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[160px]">Phí ship:</span>
@@ -548,12 +524,6 @@ export default function HoaDon() {
                       <span className="text-gray-700">{shipping.toLocaleString("vi-VN")} ₫</span>
                     )}
                   </div>
-                  {totalDiscount > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800 min-w-[160px]">Giảm giá:</span>
-                      <span className="text-red-600 font-semibold">-{totalDiscount.toLocaleString("vi-VN")} ₫</span>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2 pt-2 border-t-2 border-red-200">
                     <span className="font-bold text-gray-800 min-w-[160px] text-lg">Thành tiền:</span>
                     <span className="text-red-500 font-bold text-2xl">

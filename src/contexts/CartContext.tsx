@@ -126,157 +126,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.log("🔄 Đã hết thời gian chờ, cho phép fetch lại giỏ hàng");
     }
 
-    //     const fetchCart = async () => {
-    //       try {
-    //         const res = await fetch(
-    //           `${BASE_URL}/v1/user/${userId}/relationships/cartDetail`,
-    //           { headers: { Authorization: `Bearer ${token}` } }
-    //         );
-
-    //         if (!res.ok) {
-    //           console.error("Failed to fetch cart:", res.status);
-    //           setCartItems([]);
-    //           return;
-    //         }
-
-    //         const data = await res.json();
-
-    //         // Nếu không có items, không cần fetch thêm
-    //         if (!data.data || data.data.length === 0) {
-    //           setCartItems([]);
-    //           return;
-    //         }
-
-    //         // const items: CartItem[] = await Promise.all(
-    //         //   data.data.map(async (item: any) => {
-    //         //     try {
-    //         //       const bookRes = await fetch(
-    //         //         `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
-    //         //         { headers: { Authorization: `Bearer ${token}` } }
-    //         //       );
-    //         //       if (!bookRes.ok) {
-    //         //         console.warn('Failed to fetch bookDetail:', item.attributes.bookDetailId);
-    //         //         return null;
-    //         //       }
-    //         //       const bookData = await bookRes.json();
-    //         //       return {
-    //         //         cartDetailId: Number(item.id),
-    //         //         quantity: Number(item.quantity ?? 1),
-    //         //         amount: Number(item.attributes.amount),
-    //         //         id: Number(bookData.data.id),
-    //         //         title: bookData.data.attributes.title,
-    //         //         author: bookData.data.attributes.author,
-    //         //         price: Number(
-    //         //           String(bookData.data.attributes.supplyPrice).replace(
-    //         //             /[^0-9]/g,
-    //         //             ""
-    //         //           )
-    //         //         ),
-    //         //         image: bookData.data.attributes.image,
-    //         //       };
-    //         //     } catch (err) {
-    //         //       console.error("Error fetching bookDetail:", err);
-    //         //       return null;
-    //         //     }
-    //         const items: CartItem[] = await Promise.all(
-    //           data.data.map(async (item: any) => {
-    // <<<<<<< Updated upstream
-    //             // const bookRes = await fetch(
-    //             //   `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
-    //             //   { headers: { Authorization: `Bearer ${token}` } }
-    //             // );
-    //             // const bookData = await bookRes.json();
-    //             // return {
-    //             //   cartDetailId: Number(item.id),
-    //             //   quantity: Number(item.quantity ?? 1),
-    //             //   amount: Number(item.attributes.amount),
-    //             //   id: Number(bookData.data.id),
-    //             //   title: bookData.data.attributes.title,
-    //             //   author: bookData.data.attributes.author,
-    //             //   price: Number(
-    //             //     String(bookData.data.attributes.supplyPrice).replace(
-    //             //       /[^0-9]/g,
-    //             //       ""
-    //             //     )
-    //             //   ),
-    //             //   image: bookData.data.attributes.image,
-    //             // };
-    // =======
-    //             try {
-    //               // Fetch bookDetail với ?e=true để lấy book trong included
-    //               const bookDetailRes = await fetch(
-    //                 `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}?e=true`,
-    //                 { headers: { Authorization: `Bearer ${token}` } }
-    //               );
-
-    //               if (!bookDetailRes.ok) {
-    //                 console.warn(
-    //                   "Failed to fetch bookDetail:",
-    //                   item.attributes.bookDetailId
-    //                 );
-    //                 return null;
-    //               }
-
-    //               const bookDetailData = await bookDetailRes.json();
-
-    //               // Tìm book trong included
-    //               const included = bookDetailData.included || [];
-    //               let book = included.find((x: any) => x.type === "book");
-
-    //               // Nếu không có book trong included, fetch từ relationships
-    //               if (!book && bookDetailData.data?.relationships?.book?.data?.id) {
-    //                 try {
-    //                   const bookId = bookDetailData.data.relationships.book.data.id;
-    //                   const bookRes = await fetch(`${BASE_URL}/v1/book/${bookId}`, {
-    //                     headers: { Authorization: `Bearer ${token}` },
-    //                   });
-    //                   if (bookRes.ok) {
-    //                     const bookJson = await bookRes.json();
-    //                     book = bookJson.data;
-    //                   }
-    //                 } catch (err) {
-    //                   console.warn("Failed to fetch book from relationships:", err);
-    //                 }
-    //               }
-
-    //               return {
-    //                 cartDetailId: Number(item.id),
-    //                 quantity: Number(item.quantity ?? 1),
-    //                 amount: Number(item.attributes.amount),
-    //                 id: Number(bookDetailData.data.id), // bookDetailId
-    //                 title: book?.attributes?.title || "Sách",
-    //                 author: book?.attributes?.author || "—",
-    //                 price: Number(
-    //                   String(bookDetailData.data.attributes.supplyPrice).replace(
-    //                     /[^0-9]/g,
-    //                     ""
-    //                   )
-    //                 ),
-    //                 image: book?.attributes?.imageUrl || "/default-book.jpg",
-    //                 bookDetailId: Number(bookDetailData.data.id),
-    //               };
-    //             } catch (err) {
-    //               console.error("Error fetching bookDetail:", err);
-    //               return null;
-    //             }
-    // >>>>>>> Stashed changes
-    //           })
-    //         );
-
-    //         // Lọc bỏ các items null
-    //         const validItems = items.filter(
-    //           (item): item is CartItem => item !== null
-    //         );
-    //         console.log("📦 Fetched cart items:", validItems.length);
-    //         setCartItems(validItems);
-    //       } catch (err) {
-    //         console.error("Failed to fetch cart", err);
-    //         setCartItems([]);
-    //       }
-    //     };
-    //     fetchCart();
-    //   }, [userId, token]);
-
     const getBookDetailById = (id: number): any => {
       const existedList = localStorage.getItem("allBookData");
       if (!existedList) {
@@ -284,7 +133,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return JSON.parse(existedList).find((item: any) => item?.id === id);
     };
-
     const fetchCart = async () => {
       try {
         const res = await fetch(
@@ -306,38 +154,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setCartItems([]);
           return;
         }
-
-        // const items: CartItem[] = await Promise.all(
-        //   data.data.map(async (item: any) => {
-        //     try {
-        //       const bookRes = await fetch(
-        //         `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}`,
-        //         { headers: { Authorization: `Bearer ${token}` } }
-        //       );
-        //       if (!bookRes.ok) {
-        //         console.warn('Failed to fetch bookDetail:', item.attributes.bookDetailId);
-        //         return null;
-        //       }
-        //       const bookData = await bookRes.json();
-        //       return {
-        //         cartDetailId: Number(item.id),
-        //         quantity: Number(item.quantity ?? 1),
-        //         amount: Number(item.attributes.amount),
-        //         id: Number(bookData.data.id),
-        //         title: bookData.data.attributes.title,
-        //         author: bookData.data.attributes.author,
-        //         price: Number(
-        //           String(bookData.data.attributes.supplyPrice).replace(
-        //             /[^0-9]/g,
-        //             ""
-        //           )
-        //         ),
-        //         image: bookData.data.attributes.image,
-        //       };
-        //     } catch (err) {
-        //       console.error("Error fetching bookDetail:", err);
-        //       return null;
-        //     }
         const items: CartItem[] = await Promise.all(
           data.data.map(async (item: any) => {
             try {
@@ -346,13 +162,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 `${BASE_URL}/v1/bookDetail/${item.attributes.bookDetailId}?e=true`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
-              // if (!bookDetailRes.ok) {
-              //   console.warn(
-              //     "Failed to fetch bookDetail:",
-              //     item.attributes.bookDetailId
-              //   );
-              //   return null;
-              // }
 
               const bookDetailData = await bookDetailRes.json();
               // Tìm book trong included
@@ -393,7 +202,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 ),
                 image:
                   book?.attributes?.imageUrl ||
-                  getBookDetailById(item.id)?.image ||
+                  getBookDetailById(item.attributes.bookDetailId)?.image ||
                   "/default-book.jpg",
                 bookDetailId: Number(bookDetailData.data.id),
                 originalPrice:
@@ -564,65 +373,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
       return;
     }
-
-    // =====================
-    // 🟢 ĐÃ LOGIN → API (GIỮ NGUYÊN CODE CŨ)
-    // =====================
-    //     return [...prevItems, { ...book, quantity }];
-    //   });
-
-    //   // 2. Gọi API để đồng bộ giỏ hàng (luôn gọi dù đã login hay chưa)
-    //   if (typeof window === 'undefined') return;
-    //   const accessToken = window.localStorage.getItem('accessToken');
-    //   const guestIdKey = 'guestId';
-
-    //   // Tạo guest id nếu chưa có — giúp backend nhận diện giỏ hàng khách......
-    //   let guestId = window.localStorage.getItem(guestIdKey);
-    //   if (!guestId) {
-    //     guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    //     window.localStorage.setItem(guestIdKey, guestId);
-    //   }
-
-    //   if (!API_BASE_URL) return;
-
-    //   // Gửi request nền, không chặn UI. Gửi header Authorization chỉ khi có token.....
-    //   (async () => {
-    //     try {
-    //       const headers: Record<string, string> = {
-    //         'Content-Type': 'application/json',
-    //         'X-Guest-Id': guestId,
-    //       };
-
-    //       if (accessToken) {
-    //         headers.Authorization = `Bearer ${accessToken}`;
-    //       }
-
-    //       const res = await fetch(`${API_BASE_URL}/v1/cart/items`, {
-    //         method: 'POST',
-    //         headers,
-    //         body: JSON.stringify({ bookId: book.id, quantity }),
-    //       });
-
-    //       // Nếu backend trả về giỏ hàng đồng bộ (ví dụ { items: [...] } ),
-    //       // cập nhật lại local state để giữ nhất quán.
-    //       if (res.ok) {
-    //         try {
-    //           const data = await res.json();
-    //           // Hỗ trợ nhiều dạng response: items array hoặc data.data
-    //           const items = data?.items || data?.data || null;
-    //           if (Array.isArray(items)) {
-    //             // Nếu items có cấu trúc khác, bạn có thể map lại cho phù hợp.
-    //             setCartItems(items);
-    //           }
-    //         } catch (e) {
-    //           // Không parse được JSON — bỏ qua, không chặn UI
-    //         }
-    //       }
-    //     } catch (e) {
-    //       // Nếu API lỗi, vẫn giữ giỏ hàng local, không chặn flow người dùng.
-    //     }
-    //   })();
-    // };
 
     // Kiểm tra sản phẩm đã có trong giỏ chưa
     const existingItem = cartItems.find((item) => item.id === book.id);
