@@ -4,13 +4,15 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { BookDetail } from "./ReceiptContext";
 
-// Định nghĩa kiểu Book
+// Định nghĩa kiểu Book (DTO kết hợp dữ liệu từ bảng book + bookDetail)
+// ⚠️ LƯU Ý: price ở đây KHÔNG phải từ bảng book (bảng book không có cột giá)
+//           mà là từ bookDetail.salePrice hoặc giá đã giảm từ cartDetail
 export interface Book {
-  id: number;
-  title: string;
-  author: string;
-  price: number;
-  image?: string;
+  id: number; // bookDetailId (không phải bookId)
+  title: string; // từ book.title
+  author: string; // từ book.author
+  price: number; // từ bookDetail.salePrice hoặc cartDetail.price (giá đã giảm)
+  image?: string; // từ book.imageUrl
 }
 
 // Kiểu dữ liệu cho CartItem
@@ -556,7 +558,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             amount: book.price * quantity,
             cartDetailId: -Date.now(), // fake id cho guest
             bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-            originalPrice: book.price, // ✅ Lưu giá gốc
+            originalPrice: book.price, // Lưu giá (vì Book không có originalPrice)
           },
         ];
       });
@@ -678,7 +680,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           amount: book.price * quantity,
           price: book.price,
           bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-          originalPrice: book.price, // ✅ Lưu giá gốc
+          originalPrice: book.price, // Lưu giá (vì Book không có originalPrice)
         };
 
         setCartItems((prev) => [...prev, newItem]);
