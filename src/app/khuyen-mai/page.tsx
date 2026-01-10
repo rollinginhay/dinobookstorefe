@@ -221,15 +221,7 @@ export default function KhuyenMaiPage() {
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  {isActive && (
-                    <Link
-                      href="/"
-                      className="mt-4 block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg text-center transition-colors"
-                    >
-                      Mua ngay
-                    </Link>
-                  )}
+                  {/* Action Button - bỏ nút Mua ngay, chỉ giữ thông tin khuyến mãi */}
                   {isUpcoming && (
                     <button
                       disabled

@@ -15,7 +15,7 @@ type SortOption =
 
 type ViewMode = "grid" | "list";
 
-function SachTrongNuoc() {
+function TatCaSanPham() {
   // =========================
   // STATE
   // =========================
@@ -23,7 +23,6 @@ function SachTrongNuoc() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allGenres, setAllGenres] = useState<string[]>([]);
-  const [page] = useState(0);
   const limit = 50;
 
   // =========================
@@ -35,12 +34,9 @@ function SachTrongNuoc() {
         setLoading(true);
         setError(null);
 
-        const parentGenre = "Sách trong nước";
-
+        // Fetch tất cả sách (không filter theo genre)
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=0&limit=10&genre=${encodeURIComponent(
-            parentGenre
-          )}`
+          `http://localhost:8080/v1/books?e=true&page=0&limit=${limit}`
         );
 
         if (!res.ok) {
@@ -55,7 +51,7 @@ function SachTrongNuoc() {
           includedMap.set(`${i.type}-${i.id}`, i)
         );
 
-        // Lấy genre CON theo từng cuốn sách — giống thiếu nhi
+        // Lấy tất cả genre CON từ tất cả sách
         const genreSet = new Set<string>();
 
         json.data.forEach((item: any) => {
@@ -121,9 +117,6 @@ function SachTrongNuoc() {
             const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
             const detail = detailObj?.attributes || {};
 
-            // const detail =
-            //   includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
-
             const publisherId = item.relationships?.publisher?.data?.id;
             const publisherName =
               (publisherId &&
@@ -131,6 +124,9 @@ function SachTrongNuoc() {
                   ?.name) ||
               "Không rõ";
 
+            // Lấy field sold từ attributes, nếu không có thì mặc định 0
+            const soldValue = item.attributes?.sold ?? 0;
+            
             return {
               id: Number(item.id),
               title: item.attributes?.title,
@@ -139,7 +135,7 @@ function SachTrongNuoc() {
               price: detail.salePrice || detail.supplyPrice || 0,
               originalPrice: detail.salePrice || detail.supplyPrice || 0,
               discount: detail.discount || 0,
-              sold: item.attributes?.sold || 0,
+              sold: soldValue,
               description: item.attributes?.description || "",
               image: item.attributes?.imageUrl,
               publisher: publisherName,
@@ -279,7 +275,14 @@ function SachTrongNuoc() {
 
     switch (sortOption) {
       case "bestseller":
-        return sorted.sort((a, b) => (b.sold || 0) - (a.sold || 0));
+        // Sắp xếp theo sold giảm dần (sách bán chạy lên đầu)
+        return sorted.sort((a, b) => {
+          const soldA = a.sold || 0;
+          const soldB = b.sold || 0;
+          // Nếu sold bằng nhau, giữ nguyên thứ tự
+          if (soldB === soldA) return 0;
+          return soldB - soldA;
+        });
       case "newest":
         return sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
       case "price-asc":
@@ -323,22 +326,22 @@ function SachTrongNuoc() {
       <Breadcrumb
         items={[
           { label: "Trang chủ", href: "/" },
-          { label: "Sách trong nước" },
+          { label: "Tất cả sản phẩm" },
         ]}
       />
 
-      {/* HEADER – giữ màu Sách Trong Nước */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12">
+      {/* HEADER */}
+      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4">
-          <h1 className="text-4xl font-bold mb-3">📚 Sách Trong Nước</h1>
-          <p className="text-lg text-blue-100">
-            Khám phá những cuốn sách hay nhất được xuất bản tại Việt Nam
+          <h1 className="text-4xl font-bold mb-3">📚 Tất Cả Sản Phẩm</h1>
+          <p className="text-lg text-red-100">
+            Khám phá toàn bộ sách có sẵn trong cửa hàng
           </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* FILTER BAR – logic giống thiếu nhi, màu như sách trong nước */}
+        {/* FILTER BAR */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* SEARCH */}
@@ -351,7 +354,7 @@ function SachTrongNuoc() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-12 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-12 pr-4 py-3 border-2 border-red-200 rounded-xl focus:ring-2 focus:ring-red-500"
               />
               <svg
                 className="absolute left-4 top-3.5 w-5 h-5 text-gray-400"
@@ -368,7 +371,7 @@ function SachTrongNuoc() {
               </svg>
             </div>
 
-            {/* CATEGORY + SORT */}
+            {/* SORT */}
             <div className="flex gap-3">
               <select
                 value={sortOption}
@@ -376,7 +379,7 @@ function SachTrongNuoc() {
                   setSortOption(e.target.value as SortOption);
                   setCurrentPage(1);
                 }}
-                className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 text-sm font-semibold"
               >
                 <option value="default">📊 Mặc định</option>
                 <option value="bestseller">🔥 Bán chạy</option>
@@ -392,7 +395,7 @@ function SachTrongNuoc() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
-            <span className="text-cyan-600 font-bold">
+            <span className="text-red-600 font-bold">
               {sortedBooks.length}
             </span>{" "}
             sản phẩm
@@ -402,7 +405,7 @@ function SachTrongNuoc() {
               onClick={() => setViewMode("grid")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === "grid"
-                  ? "bg-purple-600 text-white border-2 border-purple-600"
+                  ? "bg-red-600 text-white border-2 border-red-600"
                   : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
               }`}
             >
@@ -412,7 +415,7 @@ function SachTrongNuoc() {
               onClick={() => setViewMode("list")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === "list"
-                  ? "bg-pink-600 text-white border-2 border-pink-600"
+                  ? "bg-rose-600 text-white border-2 border-rose-600"
                   : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
               }`}
             >
@@ -466,7 +469,7 @@ function SachTrongNuoc() {
                         key={book.id}
                         className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
                       >
-                        <div className="aspect-[3/4] w-32 bg-gradient-to-br from-purple-50 to-blue-100 rounded-lg overflow-hidden relative flex-shrink-0">
+                        <div className="aspect-[3/4] w-32 bg-gradient-to-br from-rose-50 to-red-100 rounded-lg overflow-hidden relative flex-shrink-0">
                           <img
                             src={book.image}
                             className="absolute inset-0 w-full h-full object-cover"
@@ -495,7 +498,7 @@ function SachTrongNuoc() {
 
                             <a
                               href={`/san-pham/${book.id}`}
-                              className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold"
                             >
                               Xem chi tiết
                             </a>
@@ -528,7 +531,7 @@ function SachTrongNuoc() {
                   onClick={() => setCurrentPage(i + 1)}
                   className={`px-4 py-2 text-sm font-medium rounded-lg ${
                     currentPage === i + 1
-                      ? "bg-purple-600 text-white border-purple-600"
+                      ? "bg-red-600 text-white border-red-600"
                       : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   } border-2`}
                 >
@@ -553,4 +556,4 @@ function SachTrongNuoc() {
   );
 }
 
-export default dynamic(() => Promise.resolve(SachTrongNuoc), { ssr: false });
+export default dynamic(() => Promise.resolve(TatCaSanPham), { ssr: false });

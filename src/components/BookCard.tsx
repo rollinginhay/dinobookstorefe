@@ -20,7 +20,6 @@ interface Book {
   pages?: number;
   language: string;
   sold?: number;
-  rating: number;
   originalPrice?: number;
   discount?: number;
   isTrending?: boolean;
@@ -47,12 +46,15 @@ export default function BookCard({ book }: BookCardProps) {
   const originalPrice = book.originalPrice && book.originalPrice > book.price 
     ? book.originalPrice 
     : null;
-  const soldCount = book.sold || 0;
-  const rating = book.rating || 4.5;
-
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Kiểm tra đăng nhập
+    const token = typeof window !== "undefined" ? localStorage.getItem("jwtToken") : null;
+    if (!token) {
+      router.push("/dang-nhap");
+      return;
+    }
     if (isFav) {
       removeFromFavorites(book.id);
     } else {
@@ -148,26 +150,6 @@ export default function BookCard({ book }: BookCardProps) {
             Tác giả: <span className="font-medium">{book.author}</span>
           </p>
 
-          {/* Rating */}
-          {rating > 0 && (
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex text-yellow-400">
-                {[...Array(5)].map((_, i) => (
-                  <svg
-                    key={i}
-                    className={`w-3.5 h-3.5 ${
-                      i < Math.round(rating) ? "fill-current" : "text-gray-300"
-                    }`}
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                  </svg>
-                ))}
-              </div>
-              <span className="text-xs text-gray-500">({rating})</span>
-            </div>
-          )}
-
           {/* Price */}
           <div className="flex items-center gap-2 mb-3">
             {/* Giá giảm (đỏ, to, đậm) - bên trái */}
@@ -182,17 +164,7 @@ export default function BookCard({ book }: BookCardProps) {
             )}
           </div>
 
-          {/* Sold Count */}
-          {soldCount > 0 && (
-            <p className="text-xs text-gray-600 mb-3">
-              Đã bán{" "}
-              <span className="font-semibold text-orange-600">
-                {soldCount > 1000
-                  ? `${(soldCount / 1000).toFixed(1)}k`
-                  : soldCount}
-              </span>
-            </p>
-          )}
+          {/* Stock info được hiển thị trong trang chi tiết sản phẩm, không hiển thị ở card */}
         </div>
 
         {/* Actions */}
@@ -203,29 +175,7 @@ export default function BookCard({ book }: BookCardProps) {
           >
             Thêm vào giỏ
           </button>
-          <Link href={`/san-pham/${book.id}`}>
-            <button className="px-4 py-2.5 border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-all">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                />
-              </svg>
-            </button>
-          </Link>
+          {/* Đã bỏ nút xem nhanh (icon mắt) vì không cần thiết */}
         </div>
       </div>
     </div>

@@ -1274,9 +1274,7 @@ export default function ThanhToan() {
                 {/* Tạm tính = tổng giá hiện tại (đã giảm) */}
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính ({selectedCartItems.length} sản phẩm)</span>
-                  <span>
-                    {selectedTotalPrice.toLocaleString("vi-VN")} ₫
-                  </span>
+                  <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>

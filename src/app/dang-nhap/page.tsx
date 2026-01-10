@@ -10,7 +10,9 @@ export default function DangNhapPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("jwtToken");
-    if (token) setIsLoggedIn(true);
+    if (token) {
+      setIsLoggedIn(true);
+    }
   }, []);
 
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
@@ -85,15 +87,19 @@ export default function DangNhapPage() {
         password: loginForm.password,
       });
       if (data?.jwtToken) {
+        // Lưu token và thông tin user
         localStorage.setItem("jwtToken", data.jwtToken);
         localStorage.setItem("username", data.username ?? "Người dùng");
-        localStorage.setItem("userId", data.userId);
-        window.location.reload();
+        if (data.userId) {
+          localStorage.setItem("userId", String(data.userId));
+        }
         setIsLoggedIn(true);
+        // Redirect về trang chủ ngay, không hiển thị trang "Bạn đã đăng nhập"
+        window.location.href = "/";
+        return;
       }
 
       setLoginMessage("Đăng nhập thành công! Bạn có thể quay lại trang chủ.");
-      setTimeout(() => router.push("/"), 1000);
     } catch (error) {
       setLoginMessage(
         error instanceof Error ? error.message : "Không thể đăng nhập."
@@ -126,15 +132,16 @@ export default function DangNhapPage() {
       if (data?.jwtToken) {
         localStorage.setItem("jwtToken", data.jwtToken);
         localStorage.setItem("username", data.username ?? (registerForm.fullName || "Người dùng"));
-        localStorage.setItem("userId", data.userId);
+        if (data.userId) {
+          localStorage.setItem("userId", String(data.userId));
+        }
         setIsLoggedIn(true);
+        // Redirect về trang chủ ngay, không hiển thị trang "Bạn đã đăng nhập"
+        window.location.href = "/";
+        return;
       }
 
       setRegisterMessage("Đăng ký thành công! Bạn đã được đăng nhập và sẽ được chuyển về trang chủ.");
-      setTimeout(() => {
-        window.location.reload();
-        router.push("/");
-      }, 1000);
     } catch (error) {
       setRegisterMessage(
         error instanceof Error ? error.message : "Không thể đăng ký."
@@ -149,8 +156,13 @@ export default function DangNhapPage() {
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
     localStorage.removeItem("userAvatar");
+    // Xóa giỏ hàng và yêu thích khi đăng xuất
+    localStorage.removeItem("guest_cart");
+    localStorage.removeItem("favorites");
+    localStorage.removeItem("cartCombos");
     setIsLoggedIn(false);
-    router.push("/");
+    // Bắt buộc quay về trang đăng nhập
+    window.location.href = "/dang-nhap";
   };
 
 
@@ -433,32 +445,6 @@ export default function DangNhapPage() {
     );
   };
 
-  if (isLoggedIn) {
-    const username = localStorage.getItem("username") || "Người dùng";
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
-        <h1 className="text-3xl font-bold text-gray-800">Bạn đã đăng nhập</h1>
-        <p className="text-gray-600">
-          Xin chào <span className="font-semibold">{username}</span>. Bạn có thể quay
-          lại trang chủ hoặc đăng xuất bên dưới.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={() => router.push("/")}
-            className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            Về trang chủ
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
-          >
-            Đăng xuất
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gradient-to-br from-red-50 to-white py-10 px-4">

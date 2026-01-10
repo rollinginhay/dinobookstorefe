@@ -148,7 +148,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           originalPrice: undefined,
           discount: 0,
           genreName,
-          rating: item.attributes?.rating || 4.5,
           description: item.attributes?.description || "",
           image: item.attributes?.imageUrl || "/default-book.jpg",
           sold: stock,
@@ -335,7 +334,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                     author: authors,
                     price: priceRel,
                     image: b.attributes?.imageUrl || "/default-book.jpg",
-                    rating: b.attributes?.rating || 0,
                     bookDetailId: Number(detailId) || 0,
                     copyId: Number(detailId) || 0,
                     bookFormat: det.bookFormat || "Khác",
@@ -448,7 +446,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       author: authors,
                       price: priceRel,
                       image: b.attributes?.imageUrl || "/default-book.jpg",
-                      rating: b.attributes?.rating || 0,
                       bookDetailId: Number(detailId) || 0,
                       copyId: Number(detailId) || 0,
                       bookFormat: det.bookFormat || "Khác",
@@ -899,7 +896,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 </div>
               </div>
 
-              {/* Bộ chọn số lượng */}
+              {/* Bộ chọn số lượng & tồn kho */}
               <div className="flex items-center gap-4">
                 <span className="text-gray-700 font-medium">Số lượng:</span>
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
@@ -951,7 +948,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                   </button>
                 </div>
                 <span className="text-gray-500 text-sm">
-                  Số lượng còn {book.sold} sản phẩm
+                  {book.sold} sản phẩm
                 </span>
               </div>
 
@@ -962,12 +959,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                   className="flex-1 bg-orange-500 text-white py-4 px-6 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg flex items-center justify-center gap-2"
                 >
                   Thêm vào giỏ hàng
-                </button>
-                <button
-                  onClick={handleBuyNow}
-                  className="px-6 py-4 border-2 border-orange-500 text-orange-500 rounded-lg hover:bg-orange-50 transition-colors font-semibold"
-                >
-                  Mua ngay
                 </button>
                 <button
                   onClick={handleFavorite}
@@ -1214,9 +1205,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                           </span>
                         )}
                       </div>
-                      <button className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all">
-                        Mua ngay
-                      </button>
+                      {/* Đã bỏ nút Mua ngay ở gợi ý combo trên trang chi tiết */}
                     </div>
                   </div>
                 </div>

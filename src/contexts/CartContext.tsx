@@ -76,15 +76,68 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Lấy token & decode userId
   useEffect(() => {
     const t = localStorage.getItem("jwtToken");
-    if (!t) return;
+    if (!t) {
+      setToken(null);
+      setUserId(null);
+      setCartItems([]); // Xóa giỏ hàng khi không có token
+      setSelectedItems(new Set());
+      return;
+    }
     setToken(t);
     try {
       const decoded = jwtDecode<JwtPayload>(t);
       if (decoded.id) setUserId(decoded.id);
     } catch (err) {
       console.error("Invalid token", err);
+      setToken(null);
+      setUserId(null);
+      setCartItems([]);
+      setSelectedItems(new Set());
     }
   }, []);
+
+  // Lắng nghe thay đổi token (khi đăng nhập/đăng xuất)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const t = localStorage.getItem("jwtToken");
+      if (!t) {
+        // Token bị xóa (đăng xuất) - xóa giỏ hàng
+        setToken(null);
+        setUserId(null);
+        setCartItems([]);
+        setSelectedItems(new Set());
+        localStorage.removeItem("cartCombos");
+      } else {
+        try {
+          const decoded = jwtDecode<JwtPayload>(t);
+          if (decoded.id) {
+            setToken(t);
+            setUserId(decoded.id);
+          }
+        } catch (err) {
+          console.error("Invalid token", err);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    // Kiểm tra token mỗi giây để phát hiện đăng xuất
+    const interval = setInterval(() => {
+      const t = localStorage.getItem("jwtToken");
+      if (!t && token) {
+        // Token bị xóa (đăng xuất)
+        handleStorageChange();
+      } else if (t && !token) {
+        // Token mới xuất hiện (đăng nhập)
+        handleStorageChange();
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [token]);
   useEffect(() => {
     if (token) return;
 
@@ -148,7 +201,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         const data = await res.json();
 
-        console.log("data -------------------", data);
         // Nếu không có items, không cần fetch thêm
         if (!data.data || data.data.length === 0) {
           setCartItems([]);
@@ -163,12 +215,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 { headers: { Authorization: `Bearer ${token}` } }
               );
 
+              if (!bookDetailRes.ok) {
+                console.warn(
+                  "Failed to fetch bookDetail:",
+                  item.attributes.bookDetailId
+                );
+                return null;
+              }
+
               const bookDetailData = await bookDetailRes.json();
+
               // Tìm book trong included
               const included = bookDetailData.included || [];
               let book = included.find((x: any) => x.type === "book");
 
-              console.log("-------------------", book);
               // Nếu không có book trong included, fetch từ relationships
               if (!book && bookDetailData.data?.relationships?.book?.data?.id) {
                 try {
@@ -176,10 +236,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   const bookRes = await fetch(`${BASE_URL}/v1/book/${bookId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                   });
-                  console.log("resp ---------------------", bookRes);
                   if (bookRes.ok) {
                     const bookJson = await bookRes.json();
-                    console.log("got here", bookJson.data);
                     book = bookJson.data;
                   }
                 } catch (err) {
@@ -188,8 +246,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               }
 
               const bookDetailAttrs = bookDetailData.data?.attributes || {};
-              // console.log("item", item);
-              // console.log("book", book);
+
               return {
                 cartDetailId: Number(item.id),
                 quantity: Number(item.attributes.quantity ?? 1),
@@ -215,7 +272,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             }
           })
         );
-        console.log("data", data);
 
         // Lọc bỏ các items null
         let validItems = items.filter(

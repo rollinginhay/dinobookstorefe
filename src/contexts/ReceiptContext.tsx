@@ -20,7 +20,6 @@ export interface Book {
   series?: Series;
   imageUrl?: string;
   isTrending?: boolean;
-  rating: any;
 }
 
 export interface BookDetail {

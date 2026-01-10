@@ -5,16 +5,19 @@ import Breadcrumb from "@/components/Breadcrumb";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Book } from "@/components/BookCard";
+import { useRouter } from "next/navigation";
 
 // Component để quản lý state expanded cho từng combo
 function ComboItem({
   item,
   handleQuantityChange,
   removeFromCart,
+  isOutOfStock,
 }: {
   item: CartItem;
   handleQuantityChange: (cartDetailId: number, quantity: number) => void;
   removeFromCart: (cartDetailId: number) => void;
+  isOutOfStock: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -47,6 +50,11 @@ function ComboItem({
                 <h3 className="font-semibold text-lg text-gray-900">
                   {item.comboName || item.title}
                 </h3>
+                {isOutOfStock && (
+                  <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded font-medium">
+                    Hết hàng
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-600 mb-2">
                 {item.comboBooks
@@ -141,12 +149,20 @@ function ComboItem({
         {/* Actions */}
         <div className="flex items-center gap-4">
           {/* Quantity Selector */}
-          <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+          <div className={`flex items-center border border-gray-300 rounded-lg overflow-hidden ${
+            isOutOfStock ? "opacity-50" : ""
+          }`}>
             <button
               onClick={() =>
+                !isOutOfStock &&
                 handleQuantityChange(item.cartDetailId, item.quantity - 1)
               }
-              className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+              disabled={isOutOfStock}
+              className={`px-3 py-2 text-gray-600 transition-colors ${
+                isOutOfStock
+                  ? "cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
             >
               <svg
                 className="w-4 h-4"
@@ -166,20 +182,30 @@ function ComboItem({
               type="number"
               value={isNaN(item.quantity) ? 1 : item.quantity}
               onChange={(e) =>
+                !isOutOfStock &&
                 handleQuantityChange(
                   item.cartDetailId,
                   parseInt(e.target.value) || 1
                 )
               }
-              className="w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0"
+              disabled={isOutOfStock}
+              className={`w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0 ${
+                isOutOfStock ? "cursor-not-allowed" : ""
+              }`}
               min={1}
               max={10}
             />
             <button
               onClick={() =>
+                !isOutOfStock &&
                 handleQuantityChange(item.cartDetailId, item.quantity + 1)
               }
-              className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+              disabled={isOutOfStock}
+              className={`px-3 py-2 text-gray-600 transition-colors ${
+                isOutOfStock
+                  ? "cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
             >
               <svg
                 className="w-4 h-4"
@@ -197,12 +223,24 @@ function ComboItem({
             </button>
           </div>
 
-          {/* Delete Button */}
+          {/* Remove Button - đồng bộ với sách lẻ */}
           <button
             onClick={() => removeFromCart(item.cartDetailId)}
-            className="text-red-600 hover:text-red-700 text-sm font-medium"
+            className="text-red-600 hover:text-red-700 p-2"
           >
-            Xóa
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
           </button>
         </div>
       </div>
@@ -211,6 +249,7 @@ function ComboItem({
 }
 
 export default function GioHang() {
+  const router = useRouter();
   const {
     cartItems,
     selectedItems,
@@ -236,6 +275,8 @@ export default function GioHang() {
     updateQuantity(cartDetailId, newQuantity);
   };
   const [currentCartItems, setCurrentCartItems] = useState<CartItem[]>([]);
+  // ✅ Lưu stock info cho từng item: Map<bookDetailId, stock>
+  const [itemStocks, setItemStocks] = useState<Map<number, number>>(new Map());
 
   // Chỉ tính phí ship khi có sản phẩm được chọn
   const shipping =
@@ -339,6 +380,83 @@ export default function GioHang() {
 
     setCurrentCartItems([...comboItems, ...groupedStandalone]);
   }, [cartItems]);
+
+  // ✅ Fetch stock cho tất cả items khi cartItems thay đổi
+  useEffect(() => {
+    const fetchStocks = async () => {
+      const token = localStorage.getItem("jwtToken");
+      if (!token) return;
+
+      const BASE_URL = "http://localhost:8080";
+      const stockMap = new Map<number, number>();
+
+      // Lấy tất cả bookDetailIds từ currentCartItems (cả combo và lẻ)
+      const bookDetailIds = new Set<number>();
+
+      for (const item of currentCartItems) {
+        if (item.isCombo && item.comboBooks) {
+          // Combo: lấy bookDetailId từ từng sách trong combo
+          for (const book of item.comboBooks) {
+            const bookDetailId = (book as any).bookDetailId || book.id;
+            const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+            if (!isNaN(numId)) bookDetailIds.add(numId);
+          }
+        } else {
+          // Sách lẻ
+          const bookDetailId = item.bookDetailId || item.id;
+          const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+          if (!isNaN(numId)) bookDetailIds.add(numId);
+        }
+      }
+
+      // Fetch stock cho từng bookDetailId
+      for (const bookDetailId of bookDetailIds) {
+        try {
+          const res = await fetch(
+            `${BASE_URL}/v1/bookDetail/${bookDetailId}?e=true`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const stock = data.data?.attributes?.stock || 0;
+            stockMap.set(bookDetailId, stock);
+          }
+        } catch (err) {
+          console.error("Failed to fetch stock for bookDetail", bookDetailId, err);
+        }
+      }
+
+      setItemStocks(stockMap);
+    };
+
+    if (currentCartItems.length > 0) {
+      fetchStocks();
+    }
+  }, [currentCartItems]);
+
+  // ✅ Helper: Lấy stock của một item (tính cả combo)
+  const getItemStock = (item: CartItem): number => {
+    if (item.isCombo && item.comboBooks) {
+      // Combo: lấy stock nhỏ nhất trong các sách (vì cần đủ tất cả)
+      let minStock = Infinity;
+      for (const book of item.comboBooks) {
+        const bookDetailId = (book as any).bookDetailId || book.id;
+        const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+        if (!isNaN(numId)) {
+          const stock = itemStocks.get(numId) ?? 0;
+          minStock = Math.min(minStock, stock);
+        }
+      }
+      return minStock === Infinity ? 0 : minStock;
+    } else {
+      // Sách lẻ
+      const bookDetailId = item.bookDetailId || item.id;
+      const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+      return isNaN(numId) ? 0 : (itemStocks.get(numId) ?? 0);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
@@ -419,17 +537,26 @@ export default function GioHang() {
               </div>
 
               {/* Cart Items List */}
-              {currentCartItems.map((item) => (
+              {currentCartItems.map((item) => {
+                const stock = getItemStock(item);
+                const isOutOfStock = stock === 0;
+                
+                return (
                 <div
                   key={item.cartDetailId}
-                  className="bg-white rounded-lg shadow-sm p-6"
+                  className={`bg-white rounded-lg shadow-sm p-6 ${
+                    isOutOfStock ? "opacity-60" : ""
+                  }`}
                 >
                   <div className="flex items-start gap-4">
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.cartDetailId)}
                       onChange={() => toggleSelectItem(item.cartDetailId)}
-                      className="w-5 h-5 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      disabled={isOutOfStock}
+                      className={`w-5 h-5 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500 ${
+                        isOutOfStock ? "cursor-not-allowed opacity-50" : ""
+                      }`}
                     />
                     {/* Info */}
                     <div className="flex-1">
@@ -440,6 +567,7 @@ export default function GioHang() {
                           item={item}
                           handleQuantityChange={handleQuantityChange}
                           removeFromCart={removeFromCart}
+                          isOutOfStock={isOutOfStock}
                         />
                       ) : (
                         // Hiển thị sách đơn lẻ
@@ -458,11 +586,18 @@ export default function GioHang() {
 
                             {/* Info */}
                             <div className="flex-1">
-                              <Link href={`/san-pham/${item.id}`}>
-                                <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600 mb-1">
-                                  {getBookDataByID(item.id).title}
-                                </h3>
-                              </Link>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Link href={`/san-pham/${item.id}`}>
+                                  <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600">
+                                    {getBookDataByID(item.id).title}
+                                  </h3>
+                                </Link>
+                                {isOutOfStock && (
+                                  <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded font-medium">
+                                    Hết hàng
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-gray-600 mb-2">
                                 {getBookDataByID(item.id).authorName}
                               </p>
@@ -491,15 +626,23 @@ export default function GioHang() {
                             {/* Actions */}
                             <div className="flex items-center gap-4">
                               {/* Quantity Selector */}
-                              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                              <div className={`flex items-center border border-gray-300 rounded-lg overflow-hidden ${
+                                isOutOfStock ? "opacity-50" : ""
+                              }`}>
                                 <button
                                   onClick={() =>
+                                    !isOutOfStock &&
                                     handleQuantityChange(
                                       item.cartDetailId,
                                       item.quantity - 1
                                     )
                                   }
-                                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                                  disabled={isOutOfStock}
+                                  className={`px-3 py-2 text-gray-600 transition-colors ${
+                                    isOutOfStock
+                                      ? "cursor-not-allowed"
+                                      : "hover:bg-gray-100"
+                                  }`}
                                 >
                                   <svg
                                     className="w-4 h-4"
@@ -521,24 +664,34 @@ export default function GioHang() {
                                     isNaN(item.quantity) ? 1 : item.quantity
                                   }
                                   onChange={(e) =>
+                                    !isOutOfStock &&
                                     handleQuantityChange(
                                       item.cartDetailId,
                                       parseInt(e.target.value) || 1
                                     )
                                   }
-                                  className="w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0"
+                                  disabled={isOutOfStock}
+                                  className={`w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0 ${
+                                    isOutOfStock ? "cursor-not-allowed" : ""
+                                  }`}
                                   min={1}
                                   max={10}
                                 />
 
                                 <button
                                   onClick={() =>
+                                    !isOutOfStock &&
                                     handleQuantityChange(
                                       item.cartDetailId,
                                       item.quantity + 1
                                     )
                                   }
-                                  className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                                  disabled={isOutOfStock}
+                                  className={`px-3 py-2 text-gray-600 transition-colors ${
+                                    isOutOfStock
+                                      ? "cursor-not-allowed"
+                                      : "hover:bg-gray-100"
+                                  }`}
                                 >
                                   <svg
                                     className="w-4 h-4"
@@ -584,7 +737,7 @@ export default function GioHang() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Order Summary */}
@@ -656,8 +809,116 @@ export default function GioHang() {
                 </div>
 
                 <div className="space-y-3">
-                  <Link
-                    href="/thanh-toan"
+                  <button
+                    onClick={async () => {
+                      if (selectedTotalItems === 0) return;
+
+                      // ✅ Validate tồn kho trước khi chuyển trang
+                      const token = localStorage.getItem("jwtToken");
+                      if (!token) {
+                        router.push("/dang-nhap");
+                        return;
+                      }
+
+                      const BASE_URL = "http://localhost:8080";
+
+                      // Đếm tổng số lượng từng BookDetail trong selectedCartItems
+                      const bookDetailCounts = new Map<number, number>();
+
+                      for (const item of selectedCartItems) {
+                        if (item.isCombo && item.comboBooks) {
+                          // Combo: đếm từng sách trong combo
+                          for (const book of item.comboBooks) {
+                            const bookDetailId = (book as any).bookDetailId || book.id;
+                            const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+                            if (!isNaN(numId)) {
+                              const current = bookDetailCounts.get(numId) || 0;
+                              bookDetailCounts.set(numId, current + item.quantity);
+                            }
+                          }
+                        } else {
+                          // Sách lẻ
+                          const bookDetailId = item.bookDetailId || item.id;
+                          const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+                          if (!isNaN(numId)) {
+                            const current = bookDetailCounts.get(numId) || 0;
+                            bookDetailCounts.set(numId, current + item.quantity);
+                          }
+                        }
+                      }
+
+                      // Check stock cho từng BookDetail
+                      const outOfStockBooks: string[] = []; // Hết hàng (stock = 0)
+                      const insufficientStockBooks: string[] = []; // Vượt stock (> stock)
+
+                      for (const [bookDetailId, totalQuantity] of bookDetailCounts.entries()) {
+                        try {
+                          const res = await fetch(
+                            `${BASE_URL}/v1/bookDetail/${bookDetailId}?e=true`,
+                            {
+                              headers: { Authorization: `Bearer ${token}` },
+                            }
+                          );
+                          if (res.ok) {
+                            const data = await res.json();
+                            const stock = data.data?.attributes?.stock || 0;
+                            
+                            // Lấy tên sách từ included hoặc từ cartItem
+                            let bookName = `Sách ID ${bookDetailId}`;
+                            const included = data.included || [];
+                            const book = included.find((x: any) => x.type === "book");
+                            if (book?.attributes?.title) {
+                              bookName = book.attributes.title;
+                            } else {
+                              // Fallback: tìm trong selectedCartItems
+                              const foundItem = selectedCartItems.find(
+                                (item) =>
+                                  (item.bookDetailId || item.id) === bookDetailId ||
+                                  (item.comboBooks?.some(
+                                    (b) => ((b as any).bookDetailId || b.id) === bookDetailId
+                                  ))
+                              );
+                              if (foundItem) {
+                                bookName = foundItem.title || bookName;
+                              }
+                            }
+
+                            if (stock === 0) {
+                              // Hết hàng
+                              outOfStockBooks.push(bookName);
+                            } else if (totalQuantity > stock) {
+                              // Vượt stock
+                              insufficientStockBooks.push(
+                                `${bookName} - Hiện chỉ còn ${stock} sản phẩm trong kho`
+                              );
+                            }
+                          }
+                        } catch (err) {
+                          console.error("Failed to check stock for bookDetail", bookDetailId, err);
+                        }
+                      }
+
+                      // ✅ Nếu có sản phẩm hết hàng → báo reload
+                      if (outOfStockBooks.length > 0) {
+                        alert(
+                          `Có cập nhật ở giỏ hàng. Một số sản phẩm đã hết hàng:\n\n${outOfStockBooks.join("\n")}\n\nVui lòng reload lại trang để cập nhật.`
+                        );
+                        window.location.reload();
+                        return;
+                      }
+
+                      // ✅ Nếu có sản phẩm vượt stock → báo điều chỉnh
+                      if (insufficientStockBooks.length > 0) {
+                        alert(
+                          `Rất tiếc, một số sản phẩm trong giỏ hàng của bạn không đủ số lượng:\n\n${insufficientStockBooks.join("\n")}\n\nVui lòng điều chỉnh lại giỏ hàng trước khi thanh toán.`
+                        );
+                        return; // Không chuyển trang
+                      }
+
+                      // ✅ Tất cả đều OK, chuyển sang trang thanh toán
+                      router.push("/thanh-toan");
+                    }}
+                    disabled={selectedTotalItems === 0}
                     className={`block w-full text-white text-center py-3 rounded-lg transition-colors font-semibold ${
                       selectedTotalItems > 0
                         ? "bg-orange-500 hover:bg-orange-600"
@@ -667,7 +928,7 @@ export default function GioHang() {
                     {selectedTotalItems > 0
                       ? `Tiến hành đặt hàng (${selectedTotalItems} sản phẩm)`
                       : "Vui lòng chọn sản phẩm"}
-                  </Link>
+                  </button>
                   <Link
                     href="/"
                     className="block w-full border border-gray-300 text-gray-700 text-center py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"

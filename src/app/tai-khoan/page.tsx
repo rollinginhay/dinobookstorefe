@@ -74,6 +74,9 @@ export default function TrangTaiKhoan() {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showReturnConfirmModal, setShowReturnConfirmModal] = useState(false);
   const [returnReason, setReturnReason] = useState("");
+  const [returnBankAccount, setReturnBankAccount] = useState("");
+  const [returnBankName, setReturnBankName] = useState("");
+  const [returnAccountName, setReturnAccountName] = useState("");
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [selectedReturnOrder, setSelectedReturnOrder] = useState<OrderHistoryItem | null>(null);
 
@@ -100,8 +103,6 @@ export default function TrangTaiKhoan() {
       return;
     }
 
-    if (!session) return;
-
     if (!API_BASE_URL) {
       setLoadingProfile(false);
       setLoadingOrders(false);
@@ -112,17 +113,37 @@ export default function TrangTaiKhoan() {
       try {
         setLoadingProfile(true);
         const token = localStorage.getItem("jwtToken");
+        
+        if (!token) {
+          console.warn("⚠️ Không có JWT token");
+          setLoadingProfile(false);
+          return;
+        }
+
+        console.log("🔍 Fetching user profile với token:", token.substring(0, 20) + "...");
         const res = await fetch(`${API_BASE_URL}/v1/users/me`, {
-          headers: token ? {
+          headers: {
             Authorization: `Bearer ${token}`,
-          } : {},
+            "Content-Type": "application/json",
+          },
           credentials: "include",
         });
 
-        if (!res.ok) throw new Error("Không lấy được thông tin tài khoản.");
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("❌ API error:", res.status, errorText);
+          throw new Error(`Không lấy được thông tin tài khoản (${res.status}).`);
+        }
 
         const data = await res.json();
-        const userData = data.data?.attributes || data;
+        console.log("📦 User API response:", JSON.stringify(data, null, 2));
+        
+        // Parse JSON:API format - có thể là data.data hoặc data
+        const userData = data.data?.attributes || data.attributes || data;
+        const userId = data.data?.id || data.id || "";
+        
+        console.log("📦 Parsed userData:", userData);
+        console.log("📦 User ID:", userId);
         
         // Parse defaultAddress từ note field
         let defaultAddress = null;
@@ -134,27 +155,30 @@ export default function TrangTaiKhoan() {
           }
         }
 
-        setBackendUser({
-          id: data.id ?? data.data?.id ?? "",
+        const userInfo = {
+          id: userId,
           fullName:
             userData.personName ??
             userData.fullName ??
-            (session.user?.name || "Người dùng"),
+            (session?.user?.name || "Người dùng"),
           email:
             userData.email ??
-            (session.user?.email || ""),
+            (session?.user?.email || ""),
           phoneNumber: userData.phoneNumber ?? "",
           defaultAddress: defaultAddress,
-        } as BackendUser);
+        };
+        
+        console.log("✅ Setting backendUser:", userInfo);
+        setBackendUser(userInfo as BackendUser);
       } catch (err: any) {
-        console.error("Lỗi fetch profile:", err);
+        console.error("❌ Lỗi fetch profile:", err);
         setError(err.message || "Không lấy được thông tin tài khoản.");
       } finally {
         setLoadingProfile(false);
       }
     };
     fetchProfile();
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -406,7 +430,13 @@ export default function TrangTaiKhoan() {
     localStorage.removeItem("username");
     localStorage.removeItem("userAvatar");
     localStorage.removeItem("email");
+    // Xóa giỏ hàng và yêu thích khi đăng xuất
+    localStorage.removeItem("guest_cart");
+    localStorage.removeItem("favorites");
+    localStorage.removeItem("cartCombos");
     setIsLoggedIn(false);
+    // Bắt buộc quay về trang đăng nhập
+    window.location.href = "/dang-nhap";
   };
 
   if (!isLoggedIn) {
@@ -593,6 +623,9 @@ export default function TrangTaiKhoan() {
   const openReturnModal = (order: OrderHistoryItem) => {
     setSelectedReturnOrder(order);
     setReturnReason("");
+    setReturnBankAccount("");
+    setReturnBankName("");
+    setReturnAccountName("");
     setShowReturnModal(true);
   };
 
@@ -601,6 +634,19 @@ export default function TrangTaiKhoan() {
       setActionError("Vui lòng nhập lý do trả hàng");
       return;
     }
+    if (!returnBankAccount.trim()) {
+      setActionError("Vui lòng nhập số tài khoản");
+      return;
+    }
+    if (!returnBankName.trim()) {
+      setActionError("Vui lòng nhập tên ngân hàng");
+      return;
+    }
+    if (!returnAccountName.trim()) {
+      setActionError("Vui lòng nhập tên chủ tài khoản");
+      return;
+    }
+    setActionError(null);
     setShowReturnConfirmModal(true);
   };
 
@@ -649,7 +695,8 @@ export default function TrangTaiKhoan() {
       if (!res.ok) throw new Error("Không lấy được thông tin đơn hàng");
       const receiptData = await res.json();
       const currentNote = receiptData.data?.attributes?.note || "";
-      const newNote = currentNote + (currentNote ? "\n" : "") + `RETURN_REQUEST:${returnReason.trim()}`;
+      const returnInfo = `RETURN_REQUEST:${returnReason.trim()}|STK:${returnBankAccount.trim()}|Bank:${returnBankName.trim()}|Name:${returnAccountName.trim()}`;
+      const newNote = currentNote + (currentNote ? "\n" : "") + returnInfo;
       
       // Update receipt.note với log RETURN_REQUEST
       const updateRes = await fetch(
@@ -725,19 +772,6 @@ export default function TrangTaiKhoan() {
             </div>
 
             <nav className="space-y-1 text-sm mt-4">
-              <button
-                type="button"
-                onClick={() => scrollToSection("section-profile")}
-                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-colors ${activeColor}`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>👤</span>
-                  <span>Thông tin cá nhân</span>
-                </span>
-                {/* <span className="text-[10px] uppercase tracking-wide text-red-500">
-                  Mặc định
-                </span> */}
-              </button>
             {/* <button
                  type="button"
                  onClick={() => scrollToSection("section-orders")}
@@ -1201,16 +1235,56 @@ export default function TrangTaiKhoan() {
                 ✕
               </button>
             </div>
-            <div className="text-sm text-gray-700">
-              Lý do trả hàng <span className="text-red-600">*</span>
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-gray-700 mb-1">
+                  Lý do trả hàng <span className="text-red-600">*</span>
+                </div>
+                <textarea
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  rows={4}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  placeholder="VD: Sản phẩm bị lỗi, giao sai, không đúng mô tả..."
+                />
+              </div>
+              <div>
+                <div className="text-sm text-gray-700 mb-1">
+                  Số tài khoản <span className="text-red-600">*</span>
+                </div>
+                <input
+                  type="text"
+                  value={returnBankAccount}
+                  onChange={(e) => setReturnBankAccount(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  placeholder="VD: 1234567890"
+                />
+              </div>
+              <div>
+                <div className="text-sm text-gray-700 mb-1">
+                  Tên ngân hàng <span className="text-red-600">*</span>
+                </div>
+                <input
+                  type="text"
+                  value={returnBankName}
+                  onChange={(e) => setReturnBankName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  placeholder="VD: Vietcombank, Techcombank..."
+                />
+              </div>
+              <div>
+                <div className="text-sm text-gray-700 mb-1">
+                  Tên chủ tài khoản <span className="text-red-600">*</span>
+                </div>
+                <input
+                  type="text"
+                  value={returnAccountName}
+                  onChange={(e) => setReturnAccountName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  placeholder="VD: NGUYEN VAN A"
+                />
+              </div>
             </div>
-            <textarea
-              value={returnReason}
-              onChange={(e) => setReturnReason(e.target.value)}
-              rows={4}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
-              placeholder="VD: Sản phẩm bị lỗi, giao sai, không đúng mô tả..."
-            />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowReturnModal(false)}

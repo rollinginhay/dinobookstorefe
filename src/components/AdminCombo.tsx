@@ -256,7 +256,6 @@ export default function AdminCombo({ bookDetailId, mainBook }: AdminComboProps) 
                 bookDetailId: Number(detailId),
                 year: bookAttrs.year || 0,
                 language: bookAttrs.language || "Không rõ",
-                rating: bookAttrs.rating || 0,
                 bookFormat: bookDetailAttrs.bookFormat || "Khác",
                 publisher: publisherName,
               } as Book;
@@ -598,8 +597,8 @@ export default function AdminCombo({ bookDetailId, mainBook }: AdminComboProps) 
               </div>
             </div>
 
-            {/* Các nút hành động - Gọn */}
-            <div className="flex gap-2">
+            {/* Các nút hành động - chỉ giữ lại Thêm vào giỏ */}
+            <div className="flex">
               <button
                 onClick={() => handleAddToCart(combo)}
                 disabled={isAdding[comboId]}
@@ -621,13 +620,6 @@ export default function AdminCombo({ bookDetailId, mainBook }: AdminComboProps) 
                     Thêm vào giỏ
                   </>
                 )}
-              </button>
-              <button
-                onClick={() => handleBuyNow(combo)}
-                disabled={isAdding[comboId]}
-                className="px-4 py-2.5 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-semibold text-sm disabled:opacity-50 bg-white"
-              >
-                {isAdding[comboId] ? "..." : "Mua ngay"}
               </button>
             </div>
             </div>

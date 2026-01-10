@@ -350,13 +350,7 @@ export default function BookCombo({ mainBook, relatedBooks }: BookComboProps) {
             </>
           )}
         </button>
-        <button
-          onClick={handleBuyNow}
-          disabled={isAdding}
-          className="px-4 py-3 border-2 border-orange-500 text-orange-500 rounded-lg hover:bg-orange-50 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isAdding ? "Đang xử lý..." : "Mua ngay"}
-        </button>
+        {/* Đã bỏ nút Mua ngay để tránh lỗi, chỉ giữ lại Thêm vào giỏ hàng */}
       </div>
     </div>
   );

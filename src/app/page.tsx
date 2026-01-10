@@ -72,7 +72,6 @@ const mapToBookCard = (book: Partial<Book>): Book => ({
   author: book.author || "Không rõ tác giả",
   genreName: book.genreName || "Chưa phân loại",
   price: typeof book.price === "number" ? book.price : 0,
-  rating: typeof book.rating === "number" ? book.rating : 0,
   image: book.image || FALLBACK_IMAGE,
   description: book.description || "",
   originalPrice:
@@ -90,7 +89,7 @@ const mapToBookCard = (book: Partial<Book>): Book => ({
         )
       : 0,
   sold: typeof book.sold === "number" ? book.sold : 0,
-  isTrending: Boolean(book.isTrending) || (book.rating ?? 0) >= 4.8,
+  isTrending: Boolean(book.isTrending),
   badge: book.badge,
 
   // ⭐ Fix bắt buộc cho TS strict
@@ -101,7 +100,6 @@ const mapToBookCard = (book: Partial<Book>): Book => ({
 });
 
 const fallbackFeaturedBooks = domesticBooks
-  .filter((book) => (book.rating ?? 0) >= 4.5)
   .slice(0, 15)
   .map(mapToBookCard);
 
@@ -245,8 +243,6 @@ export default function Home() {
             }
           }
 
-          const rating = item.attributes?.rating || 0;
-
           return {
             id: item.id,
             title: item.attributes?.title || "Không có tên",
@@ -255,7 +251,6 @@ export default function Home() {
             price: finalPrice, // Giá hiển thị (discountPrice nếu có, salePrice nếu không)
             originalPrice: originalPrice, // Giá gốc (salePrice nếu có discount, null nếu không)
             discount,
-            rating,
             image: item.attributes?.imageUrl,
             sold: stock, // Lưu stock vào sold để BookCombo check
             bookDetailId: Number(copyIds[0]) || 0,
@@ -389,85 +384,11 @@ export default function Home() {
                 </svg>
               </Link>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-              {displayFeatured.map((book, index) => {
-                // 🔍 Debug: Log book info
-                if (index === 0) {
-                  console.log(
-                    "📚 Featured books:",
-                    displayFeatured.map((b) => ({ id: b.id, title: b.title }))
-                  );
-                }
-                return (
-                  <Link
-                    key={`featured-${book.id}-${index}`}
-                    href={`/san-pham/${book.id}`}
-                    className="flex-shrink-0 w-40 sm:w-44"
-                    onClick={() =>
-                      console.log("🖱️ Clicked book:", {
-                        id: book.id,
-                        title: book.title,
-                        href: `/san-pham/${book.id}`,
-                      })
-                    }
-                  >
-                    <div className="w-full h-52 sm:h-56 rounded-2xl overflow-hidden bg-white shadow-md border border-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                      <img
-                        src={book.image || FALLBACK_IMAGE}
-                        alt={book.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          if (target.src !== FALLBACK_IMAGE) {
-                            target.src = FALLBACK_IMAGE;
-                          }
-                        }}
-                      />
-                    </div>
-                    <h3 className="mt-3 text-sm font-semibold text-slate-900 line-clamp-2 hover:text-blue-600 transition-colors">
-                      {book.title}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                      {book.genreName || book.author}
-                    </p>
-                    {book.rating > 0 && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex text-yellow-400">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className={`w-3.5 h-3.5 ${
-                                i < Math.round(book.rating)
-                                  ? "fill-current"
-                                  : "text-gray-300"
-                              }`}
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          ({book.rating.toFixed(1)})
-                        </span>
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {displayFeatured.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
             </div>
-            {displayFeatured.length > 0 && (
-              <div className="mt-4 text-center">
-                <p className="text-sm text-slate-600">
-                  Hiển thị{" "}
-                  <span className="font-bold text-rose-600">
-                    {displayFeatured.length}
-                  </span>{" "}
-                  cuốn sách nổi bật
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -483,13 +404,24 @@ export default function Home() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {allBooks.length > 0 ? (
-              allBooks.map((book) => <BookCard key={book.id} book={book} />)
+              allBooks.slice(0, 15).map((book) => <BookCard key={book.id} book={book} />)
             ) : (
               <p className="text-gray-500 text-center w-full">
                 Không có dữ liệu sách.
               </p>
             )}
           </div>
+
+          {allBooks.length > 15 && (
+            <div className="text-center mt-12">
+              <Link
+                href="/tat-ca-san-pham"
+                className="inline-block bg-red-600 hover:bg-red-700 text-white font-bold text-lg px-8 py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg"
+              >
+                Xem thêm
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     </div>

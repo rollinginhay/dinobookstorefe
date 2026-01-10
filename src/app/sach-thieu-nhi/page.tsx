@@ -11,8 +11,7 @@ type SortOption =
   | "bestseller"
   | "newest"
   | "price-asc"
-  | "price-desc"
-  | "rating";
+  | "price-desc";
 
 type ViewMode = "grid" | "list";
 
@@ -138,7 +137,6 @@ function SachThieuNhi() {
               price: detail.salePrice || detail.supplyPrice || 0,
               originalPrice: detail.salePrice || detail.supplyPrice || 0,
               discount: detail.discount || 0,
-              rating: item.attributes?.rating || 0,
               sold: item.attributes?.sold || 0,
               description: item.attributes?.description || "",
               image: item.attributes?.imageUrl,
@@ -259,8 +257,6 @@ function SachThieuNhi() {
         return sorted.sort((a, b) => a.price - b.price);
       case "price-desc":
         return sorted.sort((a, b) => b.price - a.price);
-      case "rating":
-        return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
       default:
         return sorted;
     }
@@ -379,7 +375,6 @@ function SachThieuNhi() {
               <option value="newest">🆕 Mới nhất</option>
               <option value="price-asc">💰 Giá thấp → cao</option>
               <option value="price-desc">💰 Giá cao → thấp</option>
-              <option value="rating">⭐ Đánh giá cao</option>
             </select>
           </div>
         </div>

@@ -18,20 +18,50 @@ export default function Navigation() {
   const { favorites } = useFavorite();
   const totalFavorites = favorites.length;
 
-  // 👇 Lấy thông tin từ localStorage sau khi login
+  // 👇 Lấy thông tin từ localStorage sau khi login và lắng nghe thay đổi
   useEffect(() => {
-    const token = localStorage.getItem("jwtToken");
-    const name = localStorage.getItem("username");
+    const checkAuth = () => {
+      const token = localStorage.getItem("jwtToken");
+      const name = localStorage.getItem("username");
+      const avatar = localStorage.getItem("userAvatar");
 
-    if (token) {
-      setIsLoggedIn(true);
-      setUserFullName(name);
-    }
+      if (token) {
+        setIsLoggedIn(true);
+        setUserFullName(name);
+        setUserAvatar(avatar);
+      } else {
+        setIsLoggedIn(false);
+        setUserFullName(null);
+        setUserAvatar(null);
+      }
+    };
+
+    // Check ngay khi mount
+    checkAuth();
+
+    // Lắng nghe thay đổi storage (khi đăng nhập/đăng xuất từ tab khác)
+    window.addEventListener('storage', checkAuth);
+
+    // Kiểm tra token định kỳ để phát hiện thay đổi trong cùng tab
+    const interval = setInterval(checkAuth, 1000);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      clearInterval(interval);
+    };
   }, []);
   const handleLogout = () => {
     localStorage.removeItem("jwtToken");
     localStorage.removeItem("username");
+    localStorage.removeItem("userAvatar");
+    localStorage.removeItem("userId");
+    // Xóa giỏ hàng và yêu thích khi đăng xuất
+    localStorage.removeItem("guest_cart");
+    localStorage.removeItem("favorites");
+    localStorage.removeItem("cartCombos");
     setIsLoggedIn(false);
+    // Bắt buộc quay về trang đăng nhập
+    window.location.href = "/dang-nhap";
   };
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
