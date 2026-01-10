@@ -185,14 +185,14 @@ export default function StaffPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-lg font-semibold">Quản lý nhân viên</h1>
-          <p className="text-sm text-gray-500">
+          {/* <p className="text-sm text-gray-500">
             Quản lý danh sách quản lý trong hệ thống
             {!loading && filteredData.length > 0 && (
               <span className="ml-2 text-gray-600">
                 ({filteredData.length} {filteredData.length === 1 ? "người" : "người"})
               </span>
             )}
-          </p>
+          </p> */}
         </div>
       </div>
 

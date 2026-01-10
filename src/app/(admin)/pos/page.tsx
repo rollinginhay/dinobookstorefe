@@ -710,17 +710,30 @@ export default function POS() {
     // VOUCHER / DISCOUNT - TỰ ĐỘNG CHỌN CAMPAIGN TỐT NHẤT
     // ===============================
     const calcDiscountFromVoucher = (voucher: any, total: number) => {
-        if (total < voucher.minTotal) return 0;
+        if (total < voucher.minTotal) {
+            console.log("🔍 [POS] Voucher không đủ điều kiện minTotal:", {
+                voucherId: voucher.id,
+                minTotal: voucher.minTotal,
+                currentTotal: total
+            });
+            return 0;
+        }
 
         if (voucher.type === "PERCENTAGE_RECEIPT") {
             const raw = (total * voucher.value) / 100;
-            return Math.min(raw, voucher.maxDiscount ?? raw);
+            const finalDiscount = Math.min(raw, voucher.maxDiscount ?? raw);
+            console.log("🎯 [POS] Tính giảm % theo đơn:", {
+                voucherId: voucher.id,
+                total: total,
+                percentage: voucher.value,
+                rawDiscount: raw,
+                maxDiscount: voucher.maxDiscount,
+                finalDiscount: finalDiscount
+            });
+            return finalDiscount;
         }
 
-        if (voucher.type === "FIXED") {
-            return Math.min(voucher.value, total);
-        }
-
+        console.log("⚠️ [POS] Voucher type không được hỗ trợ:", voucher.type);
         return 0;
     };
 
@@ -738,10 +751,17 @@ export default function POS() {
     const findBestCampaign = useMemo((): Campaign | null => {
         if (subTotal <= 0 || VOUCHERS.length === 0) return null;
 
-        // Chỉ lấy campaigns PERCENTAGE_RECEIPT và FIXED
+        // ✅ Chỉ lấy campaigns PERCENTAGE_RECEIPT (giảm % theo đơn hàng)
+        // PERCENTAGE_PRODUCT (combo) được xử lý riêng ở addProduct
         const applicableCampaigns = VOUCHERS.filter(
-            (v) => (v.type === "PERCENTAGE_RECEIPT" || v.type === "FIXED") && subTotal >= v.minTotal
+            (v) => v.type === "PERCENTAGE_RECEIPT" && subTotal >= v.minTotal
         );
+        
+        console.log("🔍 [POS] findBestCampaign - tìm campaign cho đơn hàng:", {
+            subTotal: subTotal,
+            totalVouchers: VOUCHERS.length,
+            applicableCampaigns: applicableCampaigns.length
+        });
 
         if (applicableCampaigns.length === 0) return null;
 
@@ -1486,14 +1506,80 @@ export default function POS() {
                                 </div>
                             )}
 
-                            {orderDiscount > 0 && (
+                            {/* ✅ HIỂN THỊ CAMPAIGNS ĐƯỢC ÁP DỤNG (READ-ONLY) */}
+                            {(() => {
+                                // Tính campaign combo được áp dụng
+                                const prodVouchers = VOUCHERS.filter(v => v.type === "PERCENTAGE_PRODUCT");
+                                const appliedComboCampaigns = prodVouchers.filter((v) => {
+                                    const campaignDetails = v.campaignDetails?.data || v.campaignDetails || [];
+                                    return Array.isArray(campaignDetails) && 
+                                           activeOrder.relationships.receiptDetails.some((item: any) => {
+                                               return campaignDetails.some((detail: any) => {
+                                                   const bookDetailId = detail.attributes?.bookDetailId || detail.bookDetailId;
+                                                   return String(bookDetailId) === String(item.bookCopy.id);
+                                               });
+                                           });
+                                });
+                                
+                                const hasAnyCampaign = findBestCampaign || appliedComboCampaigns.length > 0;
+                                
+                                if (!hasAnyCampaign) return null;
+                                
+                                return (
+                                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                                        <div className="font-medium text-green-800 text-sm">
+                                            🎯 Giảm giá được áp dụng:
+                                        </div>
+                                        
+                                        {/* Campaign combo cho sản phẩm */}
+                                        {/* {appliedComboCampaigns.map((campaign) => (
+                                            <div key={campaign.id} className="flex justify-between items-center text-sm">
+                                                <div className="flex-1">
+                                                    <div className="text-green-700 font-semibold">
+                                                        {campaign.description || `Campaign #${campaign.id}`}
+                                                    </div>
+                                                    <div className="text-green-600 text-xs">
+                                                        {campaign.label} • Áp dụng cho sản phẩm
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    (Tự động)
+                                                </div>
+                                            </div>
+                                        ))} */}
+                                        
+                                        {/* Campaign cho đơn hàng */}
+                                        {findBestCampaign && orderDiscount > 0 && (
+                                            <div className="flex justify-between items-start text-sm">
+                                                <div className="flex-1">
+                                                    <div className="text-green-700 font-semibold">
+                                                        {findBestCampaign.description || `Campaign #${findBestCampaign.id}`}
+                                                    </div>
+                                                    <div className="text-green-600 text-xs">
+                                                        {findBestCampaign.label}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-red-600 font-bold">
+                                                        -{orderDiscount.toLocaleString()}đ
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* {orderDiscount > 0 && (
                                 <div className="flex justify-between text-red-500">
                                     <span>Giảm giá:</span>
                                     <b>
                                         -{orderDiscount.toLocaleString()}đ
                                     </b>
                                 </div>
-                            )}
+                            )} */}
 
                             <div className="divider my-3"/>
 

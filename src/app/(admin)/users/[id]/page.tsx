@@ -63,4 +63,3 @@ export default function EditUserPage() {
 
   return <UserForm mode="edit" initialData={initialData} />;
 }
-

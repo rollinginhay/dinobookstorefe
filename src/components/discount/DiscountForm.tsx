@@ -690,9 +690,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="PERCENTAGE_PRODUCT">Giảm số tiền cố định cho từng sản phẩm</option>
-              <option value="PERCENTAGE_DISCOUNT">Giảm giá đơn hàng theo %</option>
-              <option value="FLAT_DISCOUNT">Giảm số tiền theo đơn</option>
+              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm</option>
+              <option value="PERCENTAGE_DISCOUNT">Giảm % theo đơn</option>
             </select>
             {isFieldDisabled("campaignType") && (
               <p className="text-xs text-amber-600 mt-1">
