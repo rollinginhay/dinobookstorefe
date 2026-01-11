@@ -1163,11 +1163,6 @@ export default function BillDetailPage() {
 
                       <div className="space-y-3 text-sm">
                         <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Mã đơn hàng:</span>
-                          <span className="font-medium">HD{id}</span>
-                        </div>
-
-                        <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Loại đơn hàng:</span>
                           <span className="font-medium">
                             {orderType === "POS" ? "Tại quầy" : orderType === "ONLINE" ? "Trực tuyến" : "Không xác định"}
@@ -1204,22 +1199,25 @@ export default function BillDetailPage() {
                           </div>
                         </div>
 
-                        {/* Giảm giá - luôn hiển thị */}
-                        <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Giảm giá:</span>
-                          <span className="font-semibold text-red-600">
-                            {discount > 0 
-                              ? `-${discount.toLocaleString("vi-VN")} đ`
-                              : "0 đ"}
-                          </span>
-                        </div>
+                        {/* ✅ Giảm giá - chỉ hiển thị khi có giá trị > 0 */}
+                        {discount > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Giảm giá:</span>
+                            <span className="font-semibold text-red-600">
+                              -{discount.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
 
-                        <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Phí ship:</span>
-                          <span className="font-semibold">
-                            {shippingFee.toLocaleString("vi-VN")} đ
-                          </span>
-                        </div>
+                        {/* ✅ Phí ship - chỉ hiển thị khi KHÔNG phải đơn tại quầy và shippingFee > 0 */}
+                        {orderType !== "POS" && shippingFee > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Phí ship:</span>
+                            <span className="font-semibold">
+                              {shippingFee.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Thành tiền:</span>

@@ -308,6 +308,53 @@ export default function ProductSelector({
                     </div>
                 </div>
 
+                {/* Chọn tất cả sản phẩm - chỉ hiển thị khi multi mode */}
+                {multi && filteredProducts.length > 0 && (
+                    <div className="mb-3 flex items-center gap-2 pb-3 border-b">
+                        <input
+                            type="checkbox"
+                            id="select-all-products"
+                            checked={
+                                filteredProducts.length > 0 &&
+                                filteredProducts.every((p) => selectedIds.has(String(p.id)))
+                            }
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    // Chọn tất cả sản phẩm đã lọc
+                                    const allIds = new Set(selectedIds);
+                                    filteredProducts.forEach((p) => {
+                                        allIds.add(String(p.id));
+                                    });
+                                    setSelectedIds(allIds);
+                                } else {
+                                    // Bỏ chọn tất cả sản phẩm đã lọc
+                                    const filteredIds = new Set(
+                                        filteredProducts.map((p) => String(p.id))
+                                    );
+                                    const remainingIds = new Set(
+                                        Array.from(selectedIds).filter(
+                                            (id) => !filteredIds.has(id)
+                                        )
+                                    );
+                                    setSelectedIds(remainingIds);
+                                }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-pointer"
+                        />
+                        <label
+                            htmlFor="select-all-products"
+                            className="text-sm font-medium text-gray-700 cursor-pointer"
+                        >
+                            Chọn tất cả sản phẩm
+                            {filteredProducts.length > 0 && (
+                                <span className="text-gray-500 font-normal ml-1">
+                                    ({filteredProducts.length} sản phẩm)
+                                </span>
+                            )}
+                        </label>
+                    </div>
+                )}
+
                 {/* PRODUCT LIST */}
                 <div className="grid grid-cols-3 gap-4 max-h-[450px] overflow-y-auto mb-4">
                     {paginatedProducts.length > 0 ? (

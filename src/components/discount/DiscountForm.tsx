@@ -995,7 +995,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
                       </p>
                     </div>
                     <div className="mt-2 border-t pt-3 space-y-2 max-h-60 overflow-y-auto">
-                      {selectedProducts.slice(0, 3).map((p) => (
+                      {selectedProducts.map((p) => (
                         <div
                           key={p.id}
                           className="flex items-center justify-between gap-3 text-sm bg-white border rounded-md px-3 py-2"
@@ -1037,11 +1037,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
                           </button>
                         </div>
                       ))}
-                      {selectedProducts.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center">
-                          ... và {selectedProducts.length - 3} sản phẩm khác
-                        </p>
-                      )}
                     </div>
                   </>
                 ) : (

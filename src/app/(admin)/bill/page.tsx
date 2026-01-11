@@ -321,9 +321,36 @@ export default function BillList() {
                 </button>
             </div>
 
-            {/* ✅ THÔNG BÁO ĐƠN CHỜ HOÀN TIỀN */}
+            {/* ✅ THÔNG BÁO ĐƠN CHỜ HOÀN TIỀN - CHỈ HIỂN THỊ KHI KHÁCH ĐÃ SUBMIT THÔNG TIN HOÀN TIỀN */}
             {(() => {
-                const waitingRefundCount = bills.filter((b) => b.status === "WAITING_REFUND_INFO").length;
+                // Chỉ lấy các đơn có status WAITING_REFUND_INFO và đã có thông tin hoàn tiền (refundBankAccount trong note)
+                const waitingRefundBills = bills.filter((b) => {
+                    if (b.status !== "WAITING_REFUND_INFO") return false;
+                    
+                    // Kiểm tra xem note có chứa thông tin hoàn tiền hay không
+                    const note = b.note || "";
+                    if (!note) return false;
+                    
+                    // Kiểm tra xem có JSON với refundBankAccount không
+                    const jsonStart = note.indexOf('{"refundBankAccount"');
+                    if (jsonStart === -1) return false;
+                    
+                    try {
+                        const jsonEnd = note.indexOf("}", jsonStart);
+                        if (jsonEnd === -1) return false;
+                        
+                        const jsonStr = note.substring(jsonStart, jsonEnd + 1);
+                        const refundData = JSON.parse(jsonStr);
+                        
+                        // Chỉ trả về true nếu đã có refundBankAccount (đã submit)
+                        return refundData.refundBankAccount && refundData.refundBankAccount.trim() !== "";
+                    } catch (e) {
+                        return false;
+                    }
+                });
+                
+                const waitingRefundCount = waitingRefundBills.length;
+                
                 return waitingRefundCount > 0 ? (
                     <div className="card bg-yellow-50 border-2 border-yellow-300 mb-4">
                         <div className="flex items-center justify-between p-4">
