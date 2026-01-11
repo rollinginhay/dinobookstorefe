@@ -175,6 +175,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
             imageUrl,
             bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
             salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
+            supplyPrice: Number(attrs.supplyPrice ?? bc.supplyPrice ?? 0),
             stock: Number(attrs.stock ?? bc.stock ?? 0),
             author: book.authorName || "",
           };
@@ -1013,8 +1014,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 </div>
                               <div className="text-xs text-gray-500">
                                 {p.bookFormat && `${p.bookFormat} • `}
-                                {p.salePrice
-                                  ? `${p.salePrice.toLocaleString()}đ`
+                                {p.supplyPrice
+                                  ? `${p.supplyPrice.toLocaleString()}đ`
                                   : "Chưa có giá"}
                               </div>
                             </div>

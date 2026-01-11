@@ -870,7 +870,7 @@ export default function POS() {
             console.log("🔍 [POS] Thêm sản phẩm mới vào giỏ hàng:", {
                 productId: product.id,
                 productTitle: product.title,
-                salePrice: product.salePrice,
+                supplyPrice: product.supplyPrice,
                 availableVouchers: VOUCHERS.length
             });
 
@@ -904,18 +904,18 @@ export default function POS() {
 
             console.log("🔍 [POS] Applicable campaigns:", applicable);
 
-            let pricePerUnit = product.salePrice;
+            let pricePerUnit = product.supplyPrice;
             
             if (applicable.length > 0) {
                 // ✅ SỬA: Giảm giá cố định thay vì phần trăm
-                // Logic mới: pricePerUnit = salePrice - discountAmount
+                // Logic mới: pricePerUnit = supplyPrice - discountAmount
                 const discountAmount = applicable[0].value || 0; // value là số tiền giảm cố định (VD: 20000)
-                pricePerUnit = Math.max(0, product.salePrice - discountAmount);
+                pricePerUnit = Math.max(0, product.supplyPrice - discountAmount);
                 
                 console.log("🎯 [POS] Áp dụng giảm giá combo:", {
                     productId: product.id,
                     productTitle: product.title,
-                    originalPrice: product.salePrice,
+                    originalPrice: product.supplyPrice,
                     discountAmount: discountAmount,
                     finalPrice: pricePerUnit,
                     campaignId: applicable[0].id,
@@ -932,7 +932,7 @@ export default function POS() {
                     bookCopy: product,
                     quantity: 1,
                     pricePerUnit: pricePerUnit,
-                    originalPrice: product.salePrice
+                    originalPrice: product.supplyPrice
                 }
             ];
 
@@ -1629,11 +1629,9 @@ export default function POS() {
                             <div
                                 className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
                                 <div className="text-center mb-3">
-                                    <div className="font-semibold text-sm mb-1">Mã đơn hàng:</div>
-                                    <div className="text-xl font-bold text-blue-600 mb-2">{orderCode}</div>
-                                    <div className="text-sm text-gray-600">
-                                        Số tiền: <span
-                                        className="font-bold text-red-600">{grandTotal.toLocaleString()}đ</span>
+                                    <div className="text-sm text-gray-600 mb-2">Số tiền:</div>
+                                    <div className="text-xl font-bold text-red-600 mb-3">
+                                        {grandTotal.toLocaleString()}đ
                                     </div>
                                 </div>
 
@@ -1668,11 +1666,8 @@ export default function POS() {
                                     {isPaymentConfirmed && (
                                         <div
                                             className="w-full p-4 bg-green-100 border-2 border-green-400 rounded-lg text-center">
-                                            <div className="text-green-700 font-semibold text-base">✓ Đã xác nhận nhận
-                                                tiền
-                                            </div>
-                                            <div className="text-xs text-green-600 mt-1">Đơn hàng sẽ được tạo với trạng
-                                                thái "Đã thanh toán"
+                                            <div className="text-green-700 font-semibold text-base">
+                                                ✓ Đã xác nhận nhận tiền
                                             </div>
                                         </div>
                                     )}

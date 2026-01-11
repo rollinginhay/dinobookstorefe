@@ -187,7 +187,7 @@ export default function BillList() {
                 break;
 
             case "AUTHORIZED":
-                statusBadge = <span className="badge bg-orange-100 text-orange-600">Đã xác nhận</span>;
+                statusBadge = <span className="badge bg-cyan-100 text-cyan-600">Đã xác nhận</span>;
                 break;
 
             case "IN_TRANSIT":

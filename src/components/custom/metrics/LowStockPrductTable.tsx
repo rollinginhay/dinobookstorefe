@@ -122,7 +122,7 @@ export default function LowStockPrductTable({books}: PopularProductTableProps) {
                                     </TableCell>
 
                                     <TableCell className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                        {book.salePrice.toLocaleString("vi-VN")}đ
+                                        {book.supplyPrice.toLocaleString("vi-VN")}đ
                                     </TableCell>
                                 </TableRow>
                             ))}

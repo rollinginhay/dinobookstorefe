@@ -25,7 +25,7 @@ interface BillItem {
     bookDetailId: number;
     name: string;
     pricePerUnit: number; // Giá đã giảm (nếu có)
-    originalPrice?: number; // ✅ Giá gốc từ bookDetail.salePrice
+    originalPrice?: number; // ✅ Giá gốc từ bookDetail.supplyPrice
     quantity: number;
     stock: number;
     image: string;
@@ -113,7 +113,7 @@ function renderStatusBadge(status: OrderStatus) {
       );
     case "AUTHORIZED":
       return (
-        <span className="badge bg-orange-100 text-orange-600">
+        <span className="badge bg-cyan-100 text-cyan-600">
           Đã xác nhận
         </span>
       );

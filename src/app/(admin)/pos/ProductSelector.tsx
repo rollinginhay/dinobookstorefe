@@ -36,8 +36,8 @@ export default function ProductSelector({
     const calculateDiscountedPrice = (product: any) => {
         if (!campaigns || campaigns.length === 0) {
             return { 
-                discountedPrice: product.salePrice, 
-                originalPrice: product.salePrice, 
+                discountedPrice: product.supplyPrice, 
+                originalPrice: product.supplyPrice, 
                 hasDiscount: false 
             };
         }
@@ -55,17 +55,17 @@ export default function ProductSelector({
 
         if (applicable.length > 0) {
             const discountAmount = applicable[0].value || 0;
-            const discountedPrice = Math.max(0, product.salePrice - discountAmount);
+            const discountedPrice = Math.max(0, product.supplyPrice - discountAmount);
             return {
                 discountedPrice: discountedPrice,
-                originalPrice: product.salePrice,
-                hasDiscount: discountedPrice < product.salePrice
+                originalPrice: product.supplyPrice,
+                hasDiscount: discountedPrice < product.supplyPrice
             };
         }
 
         return { 
-            discountedPrice: product.salePrice, 
-            originalPrice: product.salePrice, 
+            discountedPrice: product.supplyPrice, 
+            originalPrice: product.supplyPrice, 
             hasDiscount: false 
         };
     };
@@ -98,7 +98,7 @@ export default function ProductSelector({
             const matchAuthor = !filters.author || (p.author && p.author.toLowerCase().includes(filters.author.toLowerCase()));
 
             const matchPriceRange = !filters.priceRange || (() => {
-                const price = p.salePrice || 0;
+                const price = p.supplyPrice || 0;
                 switch (filters.priceRange) {
                     case "under100k":
                         return price < 100000;
