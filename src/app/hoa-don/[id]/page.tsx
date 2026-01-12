@@ -15,16 +15,38 @@ export default function HoaDon() {
   const [expandedCombos, setExpandedCombos] = useState<Set<string>>(new Set());
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  
+  // ✅ State cho hoàn tiền
+  const [showRefundForm, setShowRefundForm] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [refundInfo, setRefundInfo] = useState({
+    refundBankAccount: "",
+    refundBankCode: "",
+    refundBankName: "",
+    refundAccountHolder: "",
+  });
+  const [banks, setBanks] = useState<any[]>([]);
+
+  // ✅ Fetch danh sách ngân hàng từ API vietqr.io
+  useEffect(() => {
+    fetch("https://api.vietqr.io/v2/banks")
+      .then((res) => res.json())
+      .then((data) => setBanks(data.data || []))
+      .catch(() => setBanks([]));
+  }, []);
 
   useEffect(() => {
     if (!receiptId) return;
 
     const fetchReceipt = async () => {
       try {
-        // 1) LẤY HÓA ĐƠN VỚI ?e=true ĐỂ LẤY ĐẦY ĐỦ DỮ LIỆU
-        const resReceipt = await fetch(
-          `${API_BASE_URL}/v1/receipt/${receiptId}?e=true`
-        );
+        // ✅ ENDPOINT API: GET /v1/receipt/{receiptId}?e=true
+        // ✅ Link: ${API_BASE_URL}/v1/receipt/${receiptId}?e=true
+        const receiptUrl = `${API_BASE_URL}/v1/receipt/${receiptId}?e=true`;
+        console.log("🔗 [API] Fetching từ endpoint:", receiptUrl);
+        
+        const resReceipt = await fetch(receiptUrl);
         if (!resReceipt.ok) throw new Error("Không lấy được hóa đơn");
         const receiptJson = await resReceipt.json();
 
@@ -32,16 +54,24 @@ export default function HoaDon() {
         const attrs = receipt.attributes || {};
         const included: any[] = receiptJson.included || [];
 
-        // Debug: Log dữ liệu nhận được
-        console.log("📦 Receipt data:", receipt);
-        console.log("📦 Receipt attributes:", attrs);
-        console.log("📦 Included items:", included);
-        console.log("📦 Receipt relationships:", receipt.relationships);
+        // ✅ DEBUG: Log dữ liệu NHẬN ĐƯỢC từ API response
+        console.log("📦 [RECEIPT] Full response:", receiptJson);
+        console.log("📦 [RECEIPT] receipt.data:", receipt);
+        console.log("📦 [RECEIPT] receipt.attributes:", attrs);
+        console.log("📦 [RECEIPT] attrs.orderStatus (TRỰC TIẾP từ DB):", attrs.orderStatus); // ✅ Lấy từ receipt.attributes.orderStatus
+        console.log("📦 [RECEIPT] included array:", included);
 
-        // Tách included theo type
+        // ✅ Tách included theo type để lấy receiptDetails (chứa quantity và pricePerUnit)
         let receiptDetails = included.filter((x) => x.type === "receiptDetail");
         let bookDetails = included.filter((x) => x.type === "bookDetail");
         const books = included.filter((x) => x.type === "book");
+        
+        console.log("📦 [RECEIPT DETAILS] Số lượng receiptDetails từ included:", receiptDetails.length);
+        receiptDetails.forEach((rd: any, idx: number) => {
+          console.log(`📦 [RECEIPT DETAIL ${idx + 1}] ID: ${rd.id}, attributes:`, rd.attributes);
+          console.log(`📦 [RECEIPT DETAIL ${idx + 1}] rd.attributes.quantity (TRỰC TIẾP từ DB):`, rd.attributes?.quantity);
+          console.log(`📦 [RECEIPT DETAIL ${idx + 1}] rd.attributes.pricePerUnit (TRỰC TIẾP từ DB):`, rd.attributes?.pricePerUnit);
+        });
 
         // Nếu receiptDetails không có relationships, thử fetch từ relationships endpoint
         if (
@@ -109,43 +139,6 @@ export default function HoaDon() {
             )
           : null;
 
-        // Đọc combo metadata từ localStorage
-        const receiptComboMetadataStr = localStorage.getItem(
-          `receiptCombo_${receiptId}`
-        );
-        const receiptComboMetadata: any[] = receiptComboMetadataStr
-          ? JSON.parse(receiptComboMetadataStr)
-          : [];
-
-        console.log("📦 Combo metadata từ localStorage:", receiptComboMetadata);
-        console.log("📦 ReceiptDetails để map:", receiptDetails);
-
-        // Map receiptDetailIds với combo
-        // CHỈ map khi combo có receiptDetailIds rõ ràng từ khi tạo đơn
-        // KHÔNG tự động map bằng bookDetailIds vì sẽ gộp nhầm sách lẻ vào combo
-        // (ví dụ: mua combo + sách lẻ có cùng bookDetailId → sách lẻ sẽ bị gộp vào combo nếu map bằng bookDetailIds)
-        const receiptDetailIdToComboMap: Record<string, any> = {};
-
-        receiptComboMetadata.forEach((combo) => {
-          const comboReceiptDetailIds = combo.receiptDetailIds || [];
-          // CHỈ map khi có receiptDetailIds và length > 0
-          // Nếu không có, không map gì cả để tránh gộp nhầm sách lẻ
-          if (comboReceiptDetailIds.length > 0) {
-            comboReceiptDetailIds.forEach((rdId: string) => {
-              receiptDetailIdToComboMap[rdId] = combo;
-            });
-          }
-          // BỎ phần else: không tự động map bằng bookDetailIds
-          // Vì nếu làm vậy, sách lẻ có bookDetailId trùng với combo sẽ bị gộp nhầm vào combo
-        });
-
-        // Lưu lại combo metadata đã được map với receiptDetailIds
-        if (receiptComboMetadata.length > 0) {
-          localStorage.setItem(
-            `receiptCombo_${receiptId}`,
-            JSON.stringify(receiptComboMetadata)
-          );
-        }
 
         // Lấy danh sách sản phẩm (bao gồm cả combo)
         const productList = await Promise.all(
@@ -470,15 +463,13 @@ export default function HoaDon() {
               }
             }
 
-            const comboInfo = receiptDetailIdToComboMap[rd.id];
-
-            // ✅ Lấy giá gốc từ bookDetail (salePrice)
+            // ✅ Lấy giá gốc từ bookDetail (supplyPrice) - KHÔNG BAO GIỜ dùng salePrice
             const bookDetailObj = bookDetails.find(
               (bd: any) => String(bd.id) === String(bookDetailId)
             );
             const bookDetailAttrs = bookDetailObj?.attributes || {};
             const originalPrice =
-              bookDetailAttrs.salePrice || rd.attributes?.pricePerUnit || 0;
+              bookDetailAttrs.supplyPrice || rd.attributes?.pricePerUnit || 0;
             const discountedPrice = rd.attributes?.pricePerUnit ?? 0;
 
             // ✅ Lấy title và imageUrl từ book
@@ -494,82 +485,34 @@ export default function HoaDon() {
               );
             }
 
-            // ✅ Log thông tin cuối cùng
-            console.log("📦 Product item:", {
-              receiptDetailId: rd.id,
-              bookDetailId: bookDetailId,
-              title: bookTitle,
-              image: bookImage,
-              hasBook: !!book,
-              bookId: book?.id,
-            });
+            // ✅ Lấy dữ liệu TRỰC TIẾP từ DB (KHÔNG có fallback)
+            // ✅ Nguồn: receiptDetail.attributes.quantity và pricePerUnit từ API response
+            // ✅ Theo JSON response: receiptDetail.attributes.quantity = 2, pricePerUnit = 100000 (ví dụ cho ID 74)
+            const quantityFromDB = rd.attributes?.quantity; // ✅ Lấy TRỰC TIẾP từ DB
+            const pricePerUnitFromDB = rd.attributes?.pricePerUnit; // ✅ Lấy TRỰC TIẾP từ DB
+            
+            console.log(`📦 [ITEM] ReceiptDetail ID: ${rd.id}`);
+            console.log(`📦 [ITEM] rd (FULL object):`, rd);
+            console.log(`📦 [ITEM] rd.attributes (RAW từ DB):`, rd.attributes);
+            console.log(`📦 [ITEM] quantity (rd.attributes?.quantity):`, quantityFromDB, `(Type: ${typeof quantityFromDB})`);
+            console.log(`📦 [ITEM] pricePerUnit (rd.attributes?.pricePerUnit):`, pricePerUnitFromDB, `(Type: ${typeof pricePerUnitFromDB})`);
+            console.log(`📦 [ITEM] quantity có giá trị?:`, quantityFromDB !== undefined && quantityFromDB !== null);
+            console.log(`📦 [ITEM] pricePerUnit có giá trị?:`, pricePerUnitFromDB !== undefined && pricePerUnitFromDB !== null);
 
             return {
               id: rd.id,
               title: bookTitle,
-              price: discountedPrice, // Giá đã giảm
-              originalPrice: originalPrice, // ✅ Giá gốc (salePrice)
-              quantity: rd.attributes?.quantity ?? 1,
+              price: pricePerUnitFromDB, // ✅ Lấy TRỰC TIẾP từ DB (receiptDetail.attributes.pricePerUnit) - KHÔNG CÓ ?? 0
+              originalPrice: originalPrice,
+              quantity: quantityFromDB, // ✅ Lấy TRỰC TIẾP từ DB (receiptDetail.attributes.quantity) - KHÔNG CÓ ?? 1
               image: bookImage,
               bookDetailId: bookDetailId,
-              isCombo: !!comboInfo,
-              comboId: comboInfo?.comboId,
-              comboName: comboInfo?.comboName,
-              comboPrice: comboInfo?.comboPrice,
-              comboOriginalPrice: comboInfo?.comboOriginalPrice, // ✅ Giá gốc combo
             };
           })
         );
 
-        // Nhóm các sản phẩm thành combo và items đơn lẻ
-        const comboGroups: Record<string, any[]> = {};
-        const standaloneItems: any[] = [];
-
-        productList.forEach((item: any) => {
-          if (item.isCombo && item.comboId) {
-            if (!comboGroups[item.comboId]) {
-              comboGroups[item.comboId] = [];
-            }
-            comboGroups[item.comboId].push(item);
-          } else {
-            standaloneItems.push(item);
-          }
-        });
-
-        // Tạo danh sách sản phẩm cuối cùng (combo + items đơn lẻ)
-        const finalProductList: any[] = [];
-
-        // Thêm các combo
-        Object.values(comboGroups).forEach((comboItems: any[]) => {
-          if (comboItems.length > 0) {
-            const firstItem = comboItems[0];
-            const comboInfo = receiptDetailIdToComboMap[firstItem.id];
-            const comboPrice =
-              comboInfo?.comboPrice ||
-              comboItems.reduce((sum, item) => sum + item.price, 0);
-            const comboOriginalPrice =
-              comboInfo?.comboOriginalPrice ||
-              comboItems.reduce(
-                (sum, item) => sum + (item.originalPrice || item.price),
-                0
-              );
-
-            finalProductList.push({
-              id: `combo-${comboInfo?.comboId}`,
-              isCombo: true,
-              comboName: comboInfo?.comboName || "Combo sách",
-              comboPrice: comboPrice, // Giá đã giảm
-              comboOriginalPrice: comboOriginalPrice, // ✅ Giá gốc combo
-              quantity: firstItem.quantity,
-              items: comboItems,
-              totalPrice: comboPrice * firstItem.quantity,
-              totalOriginalPrice: comboOriginalPrice * firstItem.quantity, // ✅ Tổng giá gốc
-            });
-          }
-        });
-
-        // Thêm các items đơn lẻ
-        finalProductList.push(...standaloneItems);
+        // ✅ Đơn giản hóa: Không còn combo, chỉ dùng productList trực tiếp
+        const finalProductList = productList;
 
         // Lấy thông tin thanh toán
         const paymentDetails = included.filter(
@@ -580,10 +523,15 @@ export default function HoaDon() {
             ? paymentDetails[0].attributes?.paymentType || "CASH"
             : "CASH";
 
+        // ✅ Lấy status TRỰC TIẾP từ DB (KHÔNG có fallback)
+        // ✅ Nguồn: receipt.attributes.orderStatus từ API response
+        const statusFromDB = attrs.orderStatus;
+        console.log("📦 [STATUS] attrs.orderStatus (TRỰC TIẾP từ DB):", statusFromDB);
+        
         const orderData = {
           receiptId: receipt.id,
           orderCode: attrs.orderCode || `HD${receipt.id}`,
-          status: attrs.orderStatus || "PENDING",
+          status: statusFromDB || "PENDING", // ✅ Lấy TRỰC TIẾP từ DB (receipt.attributes.orderStatus)
           orderType:
             attrs.orderType === "DIRECT"
               ? "POS"
@@ -616,6 +564,37 @@ export default function HoaDon() {
         };
 
         setOrder(orderData);
+        
+        // ✅ Parse refund info từ note nếu status = WAITING_REFUND_INFO
+        // Nếu đã có refund info → đã submit rồi → disable form
+        if (attrs.orderStatus === "WAITING_REFUND_INFO" && attrs.note) {
+          try {
+            const note = attrs.note;
+            const jsonStart = note.indexOf('{"refundBankAccount"');
+            if (jsonStart !== -1) {
+              const jsonEnd = note.indexOf("}", jsonStart);
+              if (jsonEnd !== -1) {
+                const jsonStr = note.substring(jsonStart, jsonEnd + 1);
+                const refundData = JSON.parse(jsonStr);
+                if (refundData.refundBankAccount) {
+                  // Đã có thông tin hoàn tiền → đã submit rồi
+                  setRefundInfo({
+                    refundBankAccount: refundData.refundBankAccount || "",
+                    refundBankCode: refundData.refundBankCode || "",
+                    refundBankName: refundData.refundBankName || "",
+                    refundAccountHolder: refundData.refundAccountHolder || "",
+                  });
+                  setShowRefundForm(true); // true = đã submit, disable form
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Lỗi parse refund info:", e);
+          }
+        } else if (attrs.orderStatus === "WAITING_REFUND_INFO") {
+          // Chưa có note → chưa submit → hiện form
+          setShowRefundForm(false);
+        }
       } catch (err) {
         console.error("Lỗi tải hóa đơn:", err);
       } finally {
@@ -658,13 +637,7 @@ export default function HoaDon() {
 
   // ✅ Tổng giá hiện tại (đã giảm) của tất cả sách
   const totalDiscountedPrice = items.reduce((total: number, item: any) => {
-    if (item.isCombo && item.totalPrice) {
-      // Combo: dùng totalPrice đã tính sẵn
-      return total + item.totalPrice;
-    } else {
-      // Item đơn lẻ: price * quantity
-      return total + (item.price || 0) * (item.quantity || 1);
-    }
+    return total + (item.price || 0) * (item.quantity || 1);
   }, 0);
 
   const statusMeta: Record<
@@ -706,15 +679,38 @@ export default function HoaDon() {
       color: "bg-purple-100 text-purple-700",
       dot: "bg-purple-500",
     },
+    waiting_refund_info: {
+      label: "Chờ thông tin hoàn tiền",
+      color: "bg-yellow-100 text-yellow-700",
+      dot: "bg-yellow-500",
+    },
   };
 
-  const renderStatus = (status: string) => {
-    const key = (status || "").toLowerCase();
+  const renderStatus = (status: string | undefined | null) => {
+    // ✅ Log để debug
+    console.log("📦 [RENDER STATUS] Input status:", status);
+    console.log("📦 [RENDER STATUS] Type:", typeof status);
+    
+    if (!status) {
+      console.warn("⚠️ [RENDER STATUS] Status là undefined/null!");
+      return (
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-700">
+          <span className="h-2 w-2 rounded-full bg-gray-400" />
+          Chưa xác định
+        </span>
+      );
+    }
+    
+    const key = status.toLowerCase();
     const meta = statusMeta[key] || {
-      label: status || "—",
+      label: status, // ✅ Hiển thị chính xác giá trị từ DB
       color: "bg-gray-100 text-gray-700",
       dot: "bg-gray-400",
     };
+    
+    console.log("📦 [RENDER STATUS] Key (lowercase):", key);
+    console.log("📦 [RENDER STATUS] Meta tìm thấy:", meta);
+    
     return (
       <span
         className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${meta.color}`}
@@ -725,8 +721,8 @@ export default function HoaDon() {
     );
   };
 
-  // ✅ Tính "Thành tiền" = Tổng giá đã giảm + Phí ship
-  const calculatedFinalTotal = totalDiscountedPrice + shipping;
+  // ✅ Tính "Thành tiền" = Tổng giá đã giảm (từ PERCENTAGE_PRODUCT) - Giảm giá theo đơn (PERCENTAGE_RECEIPT) + Phí ship
+  const calculatedFinalTotal = totalDiscountedPrice - (voucherDiscount || 0) + shipping;
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-6">
@@ -759,6 +755,226 @@ export default function HoaDon() {
               </div>
             </div>
           </div>
+
+          {/* ✅ Form nhập thông tin hoàn tiền khi status = WAITING_REFUND_INFO - Di chuyển lên đầu để khách dễ nhìn thấy */}
+          {status === "WAITING_REFUND_INFO" && (
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mx-8 my-6">
+              <h3 className="text-xl font-bold text-yellow-800 mb-4 flex items-center gap-2">
+                <svg
+                  className="w-6 h-6 text-yellow-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                📝 Thông tin hoàn tiền
+              </h3>
+              
+              {/* Nếu đã submit (có refund info) → disable form và hiện "Shop đang xử lý hoàn tiền" */}
+              {showRefundForm && refundInfo.refundBankAccount ? (
+                <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Số tài khoản:</label>
+                      <input
+                        type="text"
+                        value={refundInfo.refundBankAccount}
+                        disabled
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Tên ngân hàng:</label>
+                      <input
+                        type="text"
+                        value={refundInfo.refundBankName || ""}
+                        disabled
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Tên chủ tài khoản:</label>
+                      <input
+                        type="text"
+                        value={refundInfo.refundAccountHolder || ""}
+                        disabled
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-center text-lg font-semibold text-yellow-700 mt-6 py-4 bg-yellow-100 rounded-lg">
+                    ⏳ Shop đang xử lý hoàn tiền
+                  </p>
+                </div>
+              ) : (
+                /* Chưa submit → hiện form nhập */
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!API_BASE_URL) {
+                      setRefundError("Không tìm thấy API_BASE_URL");
+                      return;
+                    }
+                    
+                    if (!refundInfo.refundBankAccount.trim()) {
+                      setRefundError("Vui lòng nhập số tài khoản");
+                      return;
+                    }
+                    // Validate STK chỉ chứa số
+                    if (!/^\d+$/.test(refundInfo.refundBankAccount.trim())) {
+                      setRefundError("Số tài khoản chỉ được nhập số");
+                      return;
+                    }
+                    if (!refundInfo.refundBankCode || !refundInfo.refundBankName.trim()) {
+                      setRefundError("Vui lòng chọn ngân hàng");
+                      return;
+                    }
+                    if (!refundInfo.refundAccountHolder.trim()) {
+                      setRefundError("Vui lòng nhập tên chủ tài khoản");
+                      return;
+                    }
+
+                    try {
+                      setRefundError(null);
+                      setRefundSubmitting(true);
+                      const token = localStorage.getItem("jwtToken");
+                      const res = await fetch(`${API_BASE_URL}/v1/receipt/${receiptId}/refund-info`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          refundBankAccount: refundInfo.refundBankAccount.trim(),
+                          refundBankCode: refundInfo.refundBankCode,
+                          refundBankName: refundInfo.refundBankName.trim(),
+                          refundAccountHolder: refundInfo.refundAccountHolder.trim(),
+                        }),
+                      });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        throw new Error(data.message || "Cập nhật thông tin hoàn tiền thất bại");
+                      }
+                      // Sau khi submit thành công → reload để hiện form disabled
+                      alert("Đã gửi thông tin hoàn tiền thành công!");
+                      window.location.reload();
+                    } catch (err: any) {
+                      setRefundError(err.message || "Có lỗi xảy ra khi gửi thông tin hoàn tiền");
+                    } finally {
+                      setRefundSubmitting(false);
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  {refundError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-2">
+                      {refundError}
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Số tài khoản <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={refundInfo.refundBankAccount}
+                      onChange={(e) => {
+                        // Chỉ cho phép nhập số
+                        const value = e.target.value.replace(/\D/g, "");
+                        setRefundInfo({ ...refundInfo, refundBankAccount: value });
+                      }}
+                      placeholder="Nhập số tài khoản ngân hàng (chỉ số)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      required
+                      disabled={refundSubmitting}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Chỉ nhập số, không nhập ký tự đặc biệt</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tên ngân hàng <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={refundInfo.refundBankCode || ""}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const selected = banks.find((b) => b.code === code);
+                        setRefundInfo((prev) => ({
+                          ...prev,
+                          refundBankCode: code,
+                          refundBankName: selected?.name || "",
+                        }));
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white"
+                      required
+                      disabled={refundSubmitting}
+                    >
+                      <option value="">-- Chọn ngân hàng --</option>
+                      {banks.map((bank) => (
+                        <option key={bank.code} value={bank.code}>
+                          {bank.shortName} - {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tên chủ tài khoản <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={refundInfo.refundAccountHolder}
+                      onChange={(e) =>
+                        setRefundInfo({ ...refundInfo, refundAccountHolder: e.target.value })
+                      }
+                      placeholder="Nhập tên chủ tài khoản"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      required
+                      disabled={refundSubmitting}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={refundSubmitting}
+                    className="w-full px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {refundSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Đang gửi...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        Gửi thông tin hoàn tiền
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           <div className="p-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -878,13 +1094,13 @@ export default function HoaDon() {
                       </span>
                     </div>
                   )}
-                  {/* Giảm giá - chỉ hiển thị nếu > 0
-                  {totalDiscount > 0 && (
+                  {/* Giảm giá theo đơn (PERCENTAGE_RECEIPT) - chỉ hiển thị nếu > 0 */}
+                  {voucherDiscount > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800 min-w-[160px]">Giảm giá:</span>
-                      <span className="text-red-600 font-semibold">-{totalDiscount.toLocaleString("vi-VN")} ₫</span>
+                      <span className="font-semibold text-gray-800 min-w-[160px]">Giảm giá theo đơn:</span>
+                      <span className="text-green-600 font-semibold">-{voucherDiscount.toLocaleString("vi-VN")} ₫</span>
                     </div>
-                  )} */}
+                  )}
                   <div className="flex items-center gap-2 pt-2 border-t-2 border-red-200">
                     <span className="font-bold text-gray-800 min-w-[160px] text-lg">
                       Thành tiền:
@@ -941,231 +1157,8 @@ export default function HoaDon() {
                 </thead>
                 <tbody>
                   {items.map((item: any, index: number) => {
-                    if (item.isCombo && item.items && item.items.length > 0) {
-                      // ✅ Hiển thị combo với nút expand/collapse
-                      const comboId = item.id || `combo-${index}`;
-                      const isExpanded = expandedCombos.has(comboId);
-                      const bookTitles = item.items
-                        .map((comboItem: any) => comboItem.title)
-                        .join(", ");
-                      const displayTitles =
-                        bookTitles.length > 60
-                          ? bookTitles.substring(0, 60) + "..."
-                          : bookTitles;
-
-                      const toggleExpand = () => {
-                        setExpandedCombos((prev) => {
-                          const newSet = new Set(prev);
-                          if (newSet.has(comboId)) {
-                            newSet.delete(comboId);
-                          } else {
-                            newSet.add(comboId);
-                          }
-                          return newSet;
-                        });
-                      };
-
-                      return (
-                        <React.Fragment key={item.id}>
-                          {/* Dòng combo header */}
-                          <tr className="border-b-2 border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all duration-200">
-                            <td
-                              className="py-5 px-6"
-                              rowSpan={isExpanded ? item.items.length + 1 : 1}
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <span className="font-bold text-red-600 text-xl">
-                                  {index + 1}
-                                </span>
-                                <span className="bg-gradient-to-r from-red-400 to-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
-                                  COMBO
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-5 px-6">
-                              <div className="flex items-center">
-                                <img
-                                  src={item.items[0]?.image || item.image}
-                                  alt={item.comboName || "Combo"}
-                                  className="w-20 h-24 object-cover rounded-xl shadow-lg border-2 border-red-100 hover:border-red-300 transition-all"
-                                  onError={(e) => {
-                                    console.error(
-                                      "❌ Combo image load error:",
-                                      item.items[0]?.image || item.image
-                                    );
-                                    e.currentTarget.src =
-                                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='120'%3E%3Crect width='100' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='12'%3ESách%3C/text%3E%3C/svg%3E";
-                                  }}
-                                />
-                              </div>
-                            </td>
-                            <td className="py-5 px-6">
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-semibold text-gray-800 text-base">
-                                    {item.comboName || "Combo sách"}
-                                  </span>
-                                  {/* ✅ Nút expand/collapse */}
-                                  <button
-                                    onClick={toggleExpand}
-                                    className="ml-2 p-1 text-gray-500 hover:text-red-600 transition-colors"
-                                    title={
-                                      isExpanded ? "Thu gọn" : "Xem chi tiết"
-                                    }
-                                  >
-                                    {isExpanded ? (
-                                      <svg
-                                        className="w-5 h-5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M5 15l7-7 7 7"
-                                        />
-                                      </svg>
-                                    ) : (
-                                      <svg
-                                        className="w-5 h-5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M19 9l-7 7-7-7"
-                                        />
-                                      </svg>
-                                    )}
-                                  </button>
-                                </div>
-                                {/* ✅ Tên sách (nhạt nhạt, truncate với 3 chấm) */}
-                                <span className="text-gray-400 text-xs line-clamp-1">
-                                  {displayTitles}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-5 px-6 text-right">
-                              <div className="flex flex-col items-end gap-1">
-                                {/* Giá đã giảm (đỏ, to) */}
-                                <span className="font-bold text-red-600 text-base">
-                                  {item.comboPrice.toLocaleString("vi-VN")} ₫
-                                </span>
-                                {/* Giá gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
-                                {item.comboOriginalPrice &&
-                                  item.comboOriginalPrice > item.comboPrice && (
-                                    <span className="text-xs text-gray-400 line-through">
-                                      {item.comboOriginalPrice.toLocaleString(
-                                        "vi-VN"
-                                      )}{" "}
-                                      ₫
-                                    </span>
-                                  )}
-                              </div>
-                            </td>
-                            <td className="py-5 px-6 text-right">
-                              <span className="font-bold text-red-600 text-lg">
-                                {item.quantity}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6 text-right">
-                              <div className="flex flex-col items-end gap-1">
-                                {/* Thành tiền đã giảm (đỏ, to) */}
-                                <span className="font-bold text-red-600 text-lg">
-                                  {item.totalPrice.toLocaleString("vi-VN")} ₫
-                                </span>
-                                {/* Thành tiền gốc (xám, gạch ngang) - chỉ hiển thị khi có giảm giá */}
-                                {item.totalOriginalPrice &&
-                                  item.totalOriginalPrice > item.totalPrice && (
-                                    <span className="text-xs text-gray-400 line-through">
-                                      {item.totalOriginalPrice.toLocaleString(
-                                        "vi-VN"
-                                      )}{" "}
-                                      ₫
-                                    </span>
-                                  )}
-                              </div>
-                            </td>
-                          </tr>
-                          {/* ✅ Chi tiết các sách trong combo (chỉ hiển thị khi expanded) */}
-                          {isExpanded &&
-                            item.items.map(
-                              (comboItem: any, comboIdx: number) => (
-                                <tr
-                                  key={`${item.id}-${comboItem.id || comboIdx}`}
-                                  className="border-b border-red-100 bg-gradient-to-r from-red-50/30 to-rose-50/30 hover:from-red-50 hover:to-rose-50 transition-all"
-                                >
-                                  <td className="py-4 px-4">
-                                    <div className="flex items-center gap-3 pl-8">
-                                      <div className="flex flex-col items-center gap-1">
-                                        <div className="w-0.5 h-8 bg-gradient-to-b from-red-300 to-transparent"></div>
-                                        <div className="w-3 h-3 rounded-full bg-red-300 border-2 border-white shadow-sm"></div>
-                                      </div>
-                                      <img
-                                        src={comboItem.image}
-                                        alt={comboItem.title}
-                                        className="w-16 h-20 object-cover rounded-lg shadow-md border-2 border-red-100 hover:border-red-300 transition-all"
-                                        onError={(e) => {
-                                          console.error(
-                                            "❌ Combo item image load error:",
-                                            comboItem.image
-                                          );
-                                          e.currentTarget.src =
-                                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='100'%3E%3Crect width='80' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='10'%3ESách%3C/text%3E%3C/svg%3E";
-                                        }}
-                                      />
-                                    </div>
-                                  </td>
-                                  <td className="py-4 px-4">
-                                    <div className="pl-4">
-                                      <div className="font-medium text-gray-800 text-sm">
-                                        {comboItem.title}
-                                      </div>
-                                      <div className="text-xs text-red-500 mt-1 font-semibold">
-                                        ✓ Trong combo
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="py-4 px-4 text-right">
-                                    {/* ✅ Hiển thị giá gốc (originalPrice) cho sản phẩm lẻ trong combo */}
-                                    <span className="text-gray-600 text-sm font-medium">
-                                      {(
-                                        comboItem.originalPrice ||
-                                        comboItem.price ||
-                                        0
-                                      ).toLocaleString("vi-VN")}{" "}
-                                      ₫
-                                    </span>
-                                  </td>
-                                  <td className="py-4 px-4 text-right">
-                                    <span className="text-gray-600">
-                                      {comboItem.quantity || 1}
-                                    </span>
-                                  </td>
-                                  <td className="py-4 px-4 text-right">
-                                    {/* ✅ Hiển thị thành tiền gốc cho sản phẩm lẻ trong combo */}
-                                    <span className="text-gray-700 font-medium">
-                                      {(
-                                        (comboItem.originalPrice ||
-                                          comboItem.price ||
-                                          0) * (comboItem.quantity || 1)
-                                      ).toLocaleString("vi-VN")}{" "}
-                                      ₫
-                                    </span>
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                        </React.Fragment>
-                      );
-                    } else {
-                      // Hiển thị sản phẩm đơn lẻ với design đẹp và đồng nhất với combo
-                      return (
+                    // Hiển thị sản phẩm đơn lẻ
+                    return (
                         <tr
                           key={item.id}
                           className="border-b-2 border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-red-50 hover:from-red-100 hover:via-rose-100 hover:to-red-100 transition-all duration-200"
@@ -1244,7 +1237,6 @@ export default function HoaDon() {
                           </td>
                         </tr>
                       );
-                    }
                   })}
                 </tbody>
               </table>

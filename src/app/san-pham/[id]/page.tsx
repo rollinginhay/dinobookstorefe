@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
 import PromotionBanner from "@/components/PromotionBanner";
-import AdminCombo from "@/components/AdminCombo";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorite } from "@/contexts/FavoriteContext";
+import { calculateDiscountedPrice, fetchCampaigns, Campaign } from "@/utils/campaign.utils";
 import Link from "next/link";
 
 export default function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -129,10 +129,8 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
         const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
         const detail = detailObj?.attributes || detailObj || {};
 
-        // ⚠️ QUAN TRỌNG: 
-        // - supplyPrice = Giá nhập (giá vốn) - KHÔNG dùng để tính discount
-        // - salePrice = Giá bán ra (giá gốc để tính discount)
-        const salePrice = detail.salePrice || detail.supplyPrice || 0;
+        // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG BAO GIỜ dùng salePrice)
+        const supplyPrice = Number(detail.supplyPrice || 0);
         
         const pages = detail.pages || detail.printLength || "Không rõ";
         const isbn = detail.isbn || "Không rõ";
@@ -144,7 +142,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           id: Number(item.id),
           title: item.attributes?.title,
           author: authors,
-          price: salePrice, // Tạm thời dùng salePrice, sẽ cập nhật sau khi tính discount
+          price: supplyPrice, // ✅ Tạm thời dùng supplyPrice, sẽ cập nhật sau khi tính discount từ campaign
           originalPrice: undefined,
           discount: 0,
           genreName,
@@ -163,103 +161,54 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           bookFormat,
         };
 
-        // ✅ Fetch campaign và tính giá giảm
+        // ✅ Fetch campaign và tính giá giảm từ PERCENTAGE_PRODUCT (giống CartContext và trang chủ)
         try {
           console.log("🔍 [ProductDetail] Đang fetch campaigns...");
-          const campaignRes = await fetch(
-            "http://localhost:8080/v1/activecampaigns"
-          );
-          if (campaignRes.ok) {
-            const campaignJson = await campaignRes.json();
-            const campaigns = campaignJson.data || [];
-            console.log("📊 [ProductDetail] Tổng số campaigns:", campaigns.length);
-            console.log("📋 [ProductDetail] Campaigns:", campaigns.map((c: any) => ({
-              id: c.id,
-              name: c.attributes?.name,
-              type: c.attributes?.campaignType,
-              percentage: c.attributes?.percentage,
-              maxDiscount: c.attributes?.maxDiscount
-            })));
-            
-            // Tìm campaign PERCENTAGE_DISCOUNT (áp dụng cho tất cả sách)
-            const percentageCampaign = campaigns.find(
-              (c: any) =>
-                c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
-                typeof c.attributes?.percentage === "number" &&
-                c.attributes.percentage > 0
-            );
+          const campaigns = await fetchCampaigns();
+          console.log("📊 [ProductDetail] Tổng số campaigns:", campaigns.length);
+          
+          // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT (giảm theo sản phẩm cụ thể)
+          const priceInfo = calculateDiscountedPrice(bookDetailId, supplyPrice, campaigns);
+          const discountedPrice = priceInfo.discountedPrice;
+          const hasDiscount = priceInfo.hasDiscount;
+          const discountPercent = hasDiscount 
+            ? Math.round(((supplyPrice - discountedPrice) / supplyPrice) * 100)
+            : 0;
+          
+          // ✅ Giá hiển thị: giá đã giảm (từ campaign hoặc supplyPrice)
+          const finalPrice = discountedPrice;
+          // ✅ Giá gốc: supplyPrice nếu supplyPrice > finalPrice
+          const originalPrice = supplyPrice > finalPrice ? supplyPrice : undefined;
 
-            let finalPrice = salePrice;
-            let originalPrice = null;
-            let discountPercent = 0;
-            let campaignName = null;
+          console.log("✅ [ProductDetail] Tính giá từ supplyPrice:", {
+            bookDetailId,
+            supplyPrice,
+            finalPrice,
+            originalPrice,
+            discountPercent,
+            campaignName: priceInfo.campaignName
+          });
 
-            if (percentageCampaign) {
-              const discount = percentageCampaign.attributes.percentage;
-              const maxDiscount = percentageCampaign.attributes.maxDiscount || null;
-              campaignName = percentageCampaign.attributes.name || null;
-              
-              console.log("✅ [ProductDetail] Tìm thấy campaign:", {
-                name: campaignName,
-                percentage: discount,
-                maxDiscount,
-                salePrice
-              });
-              
-              // Tính giá sau giảm
-              if (discount > 0 && salePrice > 0) {
-                let discountedAmount = salePrice * (discount / 100);
-                console.log("💰 [ProductDetail] Discounted amount (before max):", discountedAmount);
-                
-                // Áp dụng maxDiscount nếu có
-                if (maxDiscount && discountedAmount > maxDiscount) {
-                  discountedAmount = maxDiscount;
-                  console.log("💰 [ProductDetail] Applied maxDiscount:", maxDiscount);
-                }
-                
-                finalPrice = Math.round(salePrice - discountedAmount);
-                console.log("💰 [ProductDetail] Final price calculated:", finalPrice);
-                
-                // Chỉ hiển thị discount nếu thực sự có giảm giá
-                if (finalPrice < salePrice && finalPrice > 0) {
-                  originalPrice = salePrice;
-                  discountPercent = discount;
-                  console.log("✅ [ProductDetail] CÓ GIẢM GIÁ:", {
-                    originalPrice,
-                    finalPrice,
-                    discount: discountPercent + "%"
-                  });
-                } else {
-                  finalPrice = salePrice;
-                  console.log("⚠️ [ProductDetail] KHÔNG CÓ GIẢM GIÁ (finalPrice >= salePrice hoặc <= 0)");
-                }
-              }
-            } else {
-              console.log("⚠️ [ProductDetail] Không tìm thấy PERCENTAGE_DISCOUNT campaign");
-            }
-
-            // Cập nhật bookData với giá đã tính
-            bookData.price = finalPrice;
-            bookData.originalPrice = originalPrice;
-            bookData.discount = discountPercent;
-            
-            console.log("📦 [ProductDetail] Final bookData:", {
-              price: bookData.price,
-              originalPrice: bookData.originalPrice,
-              discount: bookData.discount
-            });
-            
-            setBook(bookData);
-            setCampaignDiscount(discountPercent);
-            setCampaignName(campaignName);
-          } else {
-            console.error("❌ [ProductDetail] API error:", campaignRes.status);
-            setBook(bookData);
-            setCampaignDiscount(0);
-            setCampaignName(null);
-          }
+          // Cập nhật bookData với giá đã tính
+          bookData.price = finalPrice;
+          bookData.originalPrice = originalPrice;
+          bookData.discount = discountPercent;
+          
+          console.log("📦 [ProductDetail] Final bookData:", {
+            price: bookData.price,
+            originalPrice: bookData.originalPrice,
+            discount: bookData.discount
+          });
+          
+          setBook(bookData);
+          setCampaignDiscount(discountPercent);
+          setCampaignName(priceInfo.campaignName || null);
         } catch (error) {
           console.error("❌ [ProductDetail] Không thể tải campaign đang hoạt động:", error);
+          // Fallback: dùng supplyPrice nếu không fetch được campaign
+          bookData.price = supplyPrice;
+          bookData.originalPrice = undefined;
+          bookData.discount = 0;
           setBook(bookData);
           setCampaignDiscount(0);
           setCampaignName(null);
@@ -319,8 +268,8 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       .filter(Boolean)
                       .join(", ") || "—";
 
-                  // ✅ Lấy salePrice làm giá gốc (giống trang chủ)
-                  const priceRel = det.salePrice || det.supplyPrice || 0;
+                  // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG BAO GIỜ dùng salePrice)
+                  const priceRel = Number(det.supplyPrice || 0);
                   const stockRel = det.stock || 0;
 
                   // Chỉ lọc sách có đủ thông tin cơ bản VÀ còn hàng
@@ -431,8 +380,8 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                       .map((id: string) => fallbackIncludedMap.get(`creator-${id}`)?.attributes?.name)
                       .filter(Boolean)
                       .join(", ") || "—";
-                    // ✅ Lấy salePrice làm giá gốc (giống trang chủ)
-                    const priceRel = det.salePrice || det.supplyPrice || 0;
+                    // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG BAO GIỜ dùng salePrice)
+                    const priceRel = Number(det.supplyPrice || 0);
                     const stockRel = det.stock || 0;
 
                     // Chỉ lọc sách có đủ thông tin cơ bản VÀ còn hàng
@@ -509,74 +458,41 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
           console.log("📖 Danh sách sách:", comboBooks.map(b => b.title));
         }
 
-        // Fetch campaign PERCENTAGE_DISCOUNT để tính discount
+        // ✅ Fetch campaign và tính discount từ PERCENTAGE_PRODUCT (giống CartContext)
         try {
           console.log("🔍 [RelatedBooks] Đang fetch campaigns để tính discount...");
-          const campaignRes = await fetch("http://localhost:8080/v1/activecampaigns");
-          if (campaignRes.ok) {
-            const campaignJson = await campaignRes.json();
-            const campaigns = campaignJson.data || [];
+          const campaigns = await fetchCampaigns();
+          
+          // ✅ Tính discount cho từng sách từ PERCENTAGE_PRODUCT
+          const booksWithDiscount = comboBooks.map((book) => {
+            // ✅ book.price đã là supplyPrice (từ dòng 271, 384)
+            const supplyPrice = book.price;
+            // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+            const priceInfo = calculateDiscountedPrice(book.bookDetailId || book.id, supplyPrice, campaigns);
+            const discountedPrice = priceInfo.discountedPrice;
+            const hasDiscount = priceInfo.hasDiscount;
+            const discount = hasDiscount 
+              ? Math.round(((supplyPrice - discountedPrice) / supplyPrice) * 100)
+              : 0;
             
-            // Tìm campaign PERCENTAGE_DISCOUNT
-            const percentageCampaign = campaigns.find(
-              (c: any) =>
-                c.attributes?.campaignType === "PERCENTAGE_DISCOUNT" &&
-                typeof c.attributes?.percentage === "number" &&
-                c.attributes.percentage > 0
-            );
+            // ✅ Giá hiển thị: giá đã giảm (từ campaign hoặc supplyPrice)
+            const finalPrice = discountedPrice;
+            // ✅ Giá gốc: supplyPrice nếu supplyPrice > finalPrice
+            const originalPrice = supplyPrice > finalPrice ? supplyPrice : undefined;
 
-            if (percentageCampaign) {
-              const discountPercent = percentageCampaign.attributes.percentage;
-              const maxDiscount = percentageCampaign.attributes.maxDiscount || null;
-              console.log(`💰 [RelatedBooks] Campaign found:`, {
-                percentage: discountPercent,
-                maxDiscount
-              });
+            return {
+              ...book,
+              price: finalPrice,
+              originalPrice,
+              discount
+            };
+          });
 
-              // Tính discount cho từng sách
-              const booksWithDiscount = comboBooks.map((book) => {
-                const salePrice = book.price; // Giá gốc (salePrice)
-                let finalPrice = salePrice;
-                let originalPrice: number | undefined = undefined;
-                let discount = 0;
-
-                if (discountPercent > 0 && salePrice > 0) {
-                  let discountedAmount = salePrice * (discountPercent / 100);
-                  
-                  if (maxDiscount && discountedAmount > maxDiscount) {
-                    discountedAmount = maxDiscount;
-                  }
-
-                  finalPrice = Math.round(salePrice - discountedAmount);
-
-                  if (finalPrice < salePrice && finalPrice > 0) {
-                    originalPrice = salePrice;
-                    discount = discountPercent;
-                  } else {
-                    finalPrice = salePrice;
-                  }
-                }
-
-                return {
-                  ...book,
-                  price: finalPrice,
-                  originalPrice,
-                  discount
-                };
-              });
-
-              console.log("✅ [RelatedBooks] Đã tính discount cho", booksWithDiscount.length, "sách");
-              setRelatedBooks(booksWithDiscount);
-            } else {
-              console.log("⚠️ [RelatedBooks] Không có campaign PERCENTAGE_DISCOUNT");
-              setRelatedBooks(comboBooks);
-            }
-          } else {
-            console.error("❌ [RelatedBooks] API error:", campaignRes.status);
-            setRelatedBooks(comboBooks);
-          }
+          console.log("✅ [RelatedBooks] Đã tính discount cho", booksWithDiscount.length, "sách");
+          setRelatedBooks(booksWithDiscount);
         } catch (error) {
           console.error("❌ [RelatedBooks] Không thể tải campaign:", error);
+          // Fallback: dùng supplyPrice nếu không fetch được campaign
           setRelatedBooks(comboBooks);
         }
       } catch (err) {
@@ -680,7 +596,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const originalPrice = book.originalPrice && book.originalPrice > book.price 
     ? book.originalPrice 
     : null;
-  const discountedPrice = book.price; // Giá sau giảm (từ discountPrice hoặc salePrice)
+  const discountedPrice = book.price; // ✅ Giá sau giảm (từ campaign PERCENTAGE_PRODUCT hoặc supplyPrice)
   const isFav = isFavorite(book.id);
 
   // Debug log
@@ -1039,12 +955,6 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
             </div>
           </div>
 
-          {/* COMBO KHUYẾN MÃI TỪ ADMIN */}
-          {book && book.bookDetailId && (
-            <div className="px-8 pb-8 border-t">
-              <AdminCombo bookDetailId={book.bookDetailId} mainBook={book} />
-            </div>
-          )}
 
           {/* TABS */}
           <div className="border-t">

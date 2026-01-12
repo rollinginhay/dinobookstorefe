@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import BookCard, { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
 import FilterSidebar from "@/components/FilterSidebar";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 type SortOption =
   | "default"
@@ -155,14 +156,25 @@ export default function KinhDoanh() {
                   ?.name) ||
               "Không rõ";
 
+            // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG DÙNG SALE_PRICE)
+            const supplyPrice = detail.supplyPrice || 0;
+            const bookDetailId = Number(copyIds[0]);
+            
+            // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+            const productCampaignInfo = calculatePrice(bookDetailId, supplyPrice);
+            const discountedPrice = productCampaignInfo.hasDiscount ? productCampaignInfo.discountedPrice : supplyPrice;
+            const hasDiscount = productCampaignInfo.hasDiscount;
+            const discountAmount = hasDiscount ? supplyPrice - discountedPrice : 0;
+            const discount = hasDiscount ? Math.round((discountAmount / supplyPrice) * 100) : 0;
+            
             return {
               id: Number(item.id),
               title: item.attributes?.title,
               author: authors,
               genres,
-              price: detail.salePrice || detail.supplyPrice || 0,
-              originalPrice: detail.salePrice || detail.supplyPrice || 0,
-              discount: detail.discount || 0,
+              price: discountedPrice, // ✅ Giá đã giảm (từ campaign hoặc supplyPrice)
+              originalPrice: hasDiscount ? supplyPrice : undefined, // ✅ Chỉ set originalPrice nếu có giảm giá
+              discount: discount,
               sold: item.attributes?.sold || 0,
               description: item.attributes?.description || "",
               image: item.attributes?.imageUrl,

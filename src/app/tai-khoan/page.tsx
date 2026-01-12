@@ -433,7 +433,6 @@ export default function TrangTaiKhoan() {
     // Xóa giỏ hàng và yêu thích khi đăng xuất
     localStorage.removeItem("guest_cart");
     localStorage.removeItem("favorites");
-    localStorage.removeItem("cartCombos");
     setIsLoggedIn(false);
     // Bắt buộc quay về trang đăng nhập
     window.location.href = "/dang-nhap";
@@ -1124,16 +1123,7 @@ export default function TrangTaiKhoan() {
                               {actionLoadingId === order.id ? "Đang hủy..." : "Hủy đơn"}
                             </button>
 
-                            {/* Chỉ hiện nút "Yêu cầu trả hàng" khi status = PAID và chưa có return request và chưa bị từ chối */}
-                            {canShowReturnButton && (
-                              <button
-                                onClick={() => openReturnModal(order)}
-                                disabled={actionLoadingId === order.id}
-                                className="px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400"
-                              >
-                                Yêu cầu trả hàng
-                              </button>
-                            )}
+                            {/* ✅ Đã bỏ button "Yêu cầu trả hàng" theo yêu cầu */}
                             
                             {/* Hiển thị block read-only khi bị từ chối */}
                             {isReturnRejected && order.returnRejected && (

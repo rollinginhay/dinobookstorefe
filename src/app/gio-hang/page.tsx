@@ -1,252 +1,13 @@
 "use client";
 
 import { CartItem, useCart } from "@/contexts/CartContext";
+import { useCampaign } from "@/contexts/CampaignContext";
 import Breadcrumb from "@/components/Breadcrumb";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Book } from "@/components/BookCard";
 import { useRouter } from "next/navigation";
 
-// Component để quản lý state expanded cho từng combo
-function ComboItem({
-  item,
-  handleQuantityChange,
-  removeFromCart,
-  isOutOfStock,
-}: {
-  item: CartItem;
-  handleQuantityChange: (cartDetailId: number, quantity: number) => void;
-  removeFromCart: (cartDetailId: number) => void;
-  isOutOfStock: boolean;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  if (!item.isCombo || !item.comboBooks || item.comboBooks.length === 0) {
-    return null;
-  }
-
-  return (
-    <div>
-      <div className="flex gap-4">
-        {/* Chỉ hiển thị ảnh sản phẩm chính (sách đầu tiên) */}
-        <Link href={`/san-pham/${item.comboBooks[0].id}`}>
-          <div className="aspect-[3/4] w-24 rounded-lg overflow-hidden relative cursor-pointer flex-shrink-0">
-            <img
-              src={item.comboBooks[0].image}
-              alt={item.comboBooks[0].title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </div>
-        </Link>
-
-        {/* Combo Info */}
-        <div className="flex-1">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">
-                  COMBO
-                </span>
-                <h3 className="font-semibold text-lg text-gray-900">
-                  {item.comboName || item.title}
-                </h3>
-                {isOutOfStock && (
-                  <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded font-medium">
-                    Hết hàng
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-gray-600 mb-2">
-                {item.comboBooks
-                  .map((b) => b.title)
-                  .join(", ")
-                  .substring(0, 80)}
-                {item.comboBooks.map((b) => b.title).join(", ").length > 80 &&
-                  "..."}
-              </p>
-              {/* Price - Hiển thị giá sale và giá gốc - dưới tên combo */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl font-bold text-red-600">
-                  {(item.price * item.quantity).toLocaleString("vi-VN")} ₫
-                </span>
-                {item.comboOriginalPrice &&
-                  item.comboOriginalPrice > item.price && (
-                    <span className="text-gray-400 text-sm line-through">
-                      {(item.comboOriginalPrice * item.quantity).toLocaleString(
-                        "vi-VN"
-                      )}{" "}
-                      ₫
-                    </span>
-                  )}
-              </div>
-
-              {/* Expand/Collapse button */}
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-blue-600 text-sm hover:underline flex items-center gap-1"
-              >
-                {isExpanded ? "Ẩn" : "Xem"} chi tiết combo
-                <svg
-                  className={`w-4 h-4 transition-transform ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Expanded Combo Details */}
-          {isExpanded && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="space-y-2">
-                {item.comboBooks.map((book, idx) => (
-                  <div key={idx} className="flex items-center gap-3 text-sm">
-                    <Link href={`/san-pham/${book.id}`}>
-                      <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0">
-                        <img
-                          src={book.image}
-                          alt={book.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </Link>
-                    <div className="flex-1">
-                      <Link href={`/san-pham/${book.id}`}>
-                        <p className="font-medium text-gray-900 hover:text-blue-600">
-                          {book.title}
-                        </p>
-                      </Link>
-                      <p className="text-gray-500 text-xs">{book.author}</p>
-                    </div>
-                    <span className="text-gray-600">
-                      {book.price.toLocaleString("vi-VN")} ₫
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Combo Price and Actions */}
-      <div className="flex items-center justify-between mt-4">
-        {/* Price */}
-        {/* <span className="text-2xl font-bold text-red-600">
-          {item.amount.toLocaleString("vi-VN")} ₫
-        </span> */}
-
-        {/* Actions */}
-        <div className="flex items-center gap-4">
-          {/* Quantity Selector */}
-          <div className={`flex items-center border border-gray-300 rounded-lg overflow-hidden ${
-            isOutOfStock ? "opacity-50" : ""
-          }`}>
-            <button
-              onClick={() =>
-                !isOutOfStock &&
-                handleQuantityChange(item.cartDetailId, item.quantity - 1)
-              }
-              disabled={isOutOfStock}
-              className={`px-3 py-2 text-gray-600 transition-colors ${
-                isOutOfStock
-                  ? "cursor-not-allowed"
-                  : "hover:bg-gray-100"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 12H4"
-                />
-              </svg>
-            </button>
-            <input
-              type="number"
-              value={isNaN(item.quantity) ? 1 : item.quantity}
-              onChange={(e) =>
-                !isOutOfStock &&
-                handleQuantityChange(
-                  item.cartDetailId,
-                  parseInt(e.target.value) || 1
-                )
-              }
-              disabled={isOutOfStock}
-              className={`w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0 ${
-                isOutOfStock ? "cursor-not-allowed" : ""
-              }`}
-              min={1}
-              max={10}
-            />
-            <button
-              onClick={() =>
-                !isOutOfStock &&
-                handleQuantityChange(item.cartDetailId, item.quantity + 1)
-              }
-              disabled={isOutOfStock}
-              className={`px-3 py-2 text-gray-600 transition-colors ${
-                isOutOfStock
-                  ? "cursor-not-allowed"
-                  : "hover:bg-gray-100"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Remove Button - đồng bộ với sách lẻ */}
-          <button
-            onClick={() => removeFromCart(item.cartDetailId)}
-            className="text-red-600 hover:text-red-700 p-2"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function GioHang() {
   const router = useRouter();
@@ -265,7 +26,36 @@ export default function GioHang() {
     totalItems,
     totalPrice,
   } = useCart();
+  const { campaigns } = useCampaign(); // ✅ Để tính giảm giá theo đơn (PERCENTAGE_RECEIPT)
   const currentBookList = localStorage.getItem("allBookData");
+  
+  // ✅ Tính giảm giá theo đơn (PERCENTAGE_RECEIPT) - giống POS admin
+  const calculateOrderDiscount = (subtotal: number) => {
+    if (!campaigns || campaigns.length === 0 || subtotal <= 0) return 0;
+    
+    // Tìm campaign PERCENTAGE_RECEIPT đủ điều kiện
+    const orderCampaigns = campaigns.filter(
+      (c) => c.type === "PERCENTAGE_RECEIPT" && subtotal >= c.minTotal
+    );
+    
+    if (orderCampaigns.length === 0) return 0;
+    
+    // Lấy campaign tốt nhất (giảm nhiều nhất)
+    const bestCampaign = orderCampaigns.reduce((best, current) => {
+      const bestDiscount = (subtotal * best.value) / 100;
+      const currentDiscount = (subtotal * current.value) / 100;
+      const bestFinal = Math.min(bestDiscount, best.maxDiscount || bestDiscount);
+      const currentFinal = Math.min(currentDiscount, current.maxDiscount || currentDiscount);
+      return currentFinal > bestFinal ? current : best;
+    });
+    
+    // Tính discount: (subtotal * percentage) / 100, tối đa maxDiscount
+    const rawDiscount = (subtotal * bestCampaign.value) / 100;
+    const finalDiscount = Math.min(rawDiscount, bestCampaign.maxDiscount || rawDiscount);
+    
+    return Math.round(finalDiscount);
+  };
+  
   const handleQuantityChange = (cartDetailId: number, newQuantity: number) => {
     if (isNaN(newQuantity)) return;
 
@@ -281,7 +71,12 @@ export default function GioHang() {
   // Chỉ tính phí ship khi có sản phẩm được chọn
   const shipping =
     selectedTotalItems > 0 ? (selectedTotalPrice >= 299000 ? 0 : 30000) : 0;
-  const finalTotal = selectedTotalPrice + shipping;
+  
+  // ✅ Tính giảm giá theo đơn (PERCENTAGE_RECEIPT)
+  const orderDiscount = calculateOrderDiscount(selectedTotalPrice);
+  
+  // ✅ Tổng cộng = subtotal - giảm giá theo đơn + phí ship
+  const finalTotal = selectedTotalPrice - orderDiscount + shipping;
   const getBookDataByID = (
     id: number
   ): { authorName: string; title: string } => {
@@ -302,69 +97,9 @@ export default function GioHang() {
   };
 
   useEffect(() => {
-    // Lấy combo metadata từ localStorage
-    const comboMetadata = JSON.parse(
-      localStorage.getItem("cartCombos") || "[]"
-    );
-
-    // Tạo map để nhóm các items theo comboId
-    const comboMap = new Map<string, CartItem[]>();
-    const standaloneItems: CartItem[] = [];
-
-    cartItems.forEach((item) => {
-      // Kiểm tra xem item này có thuộc combo nào không
-      const comboMeta = comboMetadata.find((cm: any) =>
-        cm.cartDetailIds.includes(item.cartDetailId)
-      );
-
-      if (comboMeta) {
-        // Item thuộc combo
-        if (!comboMap.has(comboMeta.comboId)) {
-          comboMap.set(comboMeta.comboId, []);
-        }
-        comboMap.get(comboMeta.comboId)!.push(item);
-      } else {
-        // Item đơn lẻ
-        standaloneItems.push(item);
-      }
-    });
-
-    // Tạo combo items từ comboMap
-    const comboItems: CartItem[] = Array.from(comboMap.entries())
-      .map(([comboId, items]) => {
-        const comboMeta = comboMetadata.find(
-          (cm: any) => cm.comboId === comboId
-        );
-        if (!comboMeta) return null;
-
-        // Lấy item đầu tiên làm đại diện
-        const firstItem = items[0];
-
-        return {
-          ...firstItem,
-          id: `combo-${comboId}` as any,
-          title: comboMeta.comboName,
-          price: comboMeta.comboPrice,
-          amount: comboMeta.comboPrice * comboMeta.quantity,
-          quantity: comboMeta.quantity,
-          isCombo: true,
-          comboBooks: comboMeta.books,
-          comboName: comboMeta.comboName,
-          comboOriginalPrice: comboMeta.comboOriginalPrice,
-          comboDiscount: comboMeta.comboDiscount,
-        } as CartItem;
-      })
-      .filter((item): item is CartItem => item !== null);
-
-    // Gộp combo items và standalone items
-    const allItems = [...comboItems, ...standaloneItems];
-
-    // Nhóm các items đơn lẻ trùng lặp (giữ nguyên logic cũ)
+    // Nhóm các items đơn lẻ trùng lặp
     const previousData: { [id: number]: any } = {};
-    allItems.forEach((item) => {
-      // Bỏ qua combo items
-      if (item.isCombo) return;
-
+    cartItems.forEach((item) => {
       if (!previousData[item.id]) {
         previousData[item.id] = { ...item };
         return;
@@ -378,7 +113,7 @@ export default function GioHang() {
       ...previousData[Number(item)],
     }));
 
-    setCurrentCartItems([...comboItems, ...groupedStandalone]);
+    setCurrentCartItems(groupedStandalone);
   }, [cartItems]);
 
   // ✅ Fetch stock cho tất cả items khi cartItems thay đổi
@@ -390,23 +125,14 @@ export default function GioHang() {
       const BASE_URL = "http://localhost:8080";
       const stockMap = new Map<number, number>();
 
-      // Lấy tất cả bookDetailIds từ currentCartItems (cả combo và lẻ)
+      // Lấy tất cả bookDetailIds từ currentCartItems
       const bookDetailIds = new Set<number>();
 
       for (const item of currentCartItems) {
-        if (item.isCombo && item.comboBooks) {
-          // Combo: lấy bookDetailId từ từng sách trong combo
-          for (const book of item.comboBooks) {
-            const bookDetailId = (book as any).bookDetailId || book.id;
-            const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-            if (!isNaN(numId)) bookDetailIds.add(numId);
-          }
-        } else {
-          // Sách lẻ
-          const bookDetailId = item.bookDetailId || item.id;
-          const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-          if (!isNaN(numId)) bookDetailIds.add(numId);
-        }
+        // Sách lẻ
+        const bookDetailId = item.bookDetailId || item.id;
+        const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+        if (!isNaN(numId)) bookDetailIds.add(numId);
       }
 
       // Fetch stock cho từng bookDetailId
@@ -436,26 +162,12 @@ export default function GioHang() {
     }
   }, [currentCartItems]);
 
-  // ✅ Helper: Lấy stock của một item (tính cả combo)
+  // ✅ Helper: Lấy stock của một item
   const getItemStock = (item: CartItem): number => {
-    if (item.isCombo && item.comboBooks) {
-      // Combo: lấy stock nhỏ nhất trong các sách (vì cần đủ tất cả)
-      let minStock = Infinity;
-      for (const book of item.comboBooks) {
-        const bookDetailId = (book as any).bookDetailId || book.id;
-        const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-        if (!isNaN(numId)) {
-          const stock = itemStocks.get(numId) ?? 0;
-          minStock = Math.min(minStock, stock);
-        }
-      }
-      return minStock === Infinity ? 0 : minStock;
-    } else {
-      // Sách lẻ
-      const bookDetailId = item.bookDetailId || item.id;
-      const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-      return isNaN(numId) ? 0 : (itemStocks.get(numId) ?? 0);
-    }
+    // Sách lẻ
+    const bookDetailId = item.bookDetailId || item.id;
+    const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+    return isNaN(numId) ? 0 : (itemStocks.get(numId) ?? 0);
   };
   return (
     <div className="min-h-screen bg-gray-50">
@@ -560,18 +272,8 @@ export default function GioHang() {
                     />
                     {/* Info */}
                     <div className="flex-1">
-                      {item.isCombo &&
-                      item.comboBooks &&
-                      item.comboBooks.length > 0 ? (
-                        <ComboItem
-                          item={item}
-                          handleQuantityChange={handleQuantityChange}
-                          removeFromCart={removeFromCart}
-                          isOutOfStock={isOutOfStock}
-                        />
-                      ) : (
-                        // Hiển thị sách đơn lẻ
-                        <>
+                      {/* Hiển thị sách đơn lẻ */}
+                      <>
                           <div className="flex gap-4">
                             {/* Image */}
                             <Link href={`/san-pham/${item.id}`}>
@@ -609,15 +311,12 @@ export default function GioHang() {
                                   )}{" "}
                                   ₫
                                 </span>
-                                {item.originalPrice &&
-                                  item.originalPrice > item.price && (
-                                    <span className="text-gray-400 text-sm line-through">
-                                      {(
-                                        item.originalPrice * item.quantity
-                                      ).toLocaleString("vi-VN")}{" "}
-                                      ₫
-                                    </span>
-                                  )}
+                                {/* ✅ Hiển thị giá gốc (supplyPrice) nếu có */}
+                                {item.originalPrice && item.originalPrice > item.price && (
+                                  <span className="text-gray-400 text-sm line-through">
+                                    {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} ₫
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -732,8 +431,7 @@ export default function GioHang() {
                               </button>
                             </div>
                           </div>
-                        </>
-                      )}
+                      </>
                     </div>
                   </div>
                 </div>
@@ -750,15 +448,19 @@ export default function GioHang() {
                 <div className="space-y-4 mb-6">
                   {selectedTotalItems > 0 ? (
                     <>
-                      {/* Tạm tính = tổng giá hiện tại (đã giảm) */}
+                      {/* Tạm tính */}
                       <div className="flex justify-between text-gray-600">
-                        <span>
-                          Tạm tính ({selectedTotalItems} sản phẩm đã chọn)
-                        </span>
-                        <span>
-                          {selectedTotalPrice.toLocaleString("vi-VN")} ₫
-                        </span>
+                        <span>Tạm tính ({selectedTotalItems} sản phẩm)</span>
+                        <span>{selectedTotalPrice.toLocaleString("vi-VN")} ₫</span>
                       </div>
+                      {/* Giảm giá theo đơn (PERCENTAGE_RECEIPT) */}
+                      {orderDiscount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Giảm giá theo đơn</span>
+                          <span>-{orderDiscount.toLocaleString("vi-VN")} ₫</span>
+                        </div>
+                      )}
+                      {/* Phí vận chuyển */}
                       <div className="flex justify-between text-gray-600">
                         <span>Phí vận chuyển</span>
                         <span>
@@ -771,35 +473,26 @@ export default function GioHang() {
                           )}
                         </span>
                       </div>
-                      {(() => {
-                        const finalTotalWithDiscount =
-                          selectedTotalPrice + shipping;
-                        return (
-                          <>
-                            {selectedTotalPrice > 0 &&
-                              selectedTotalPrice < 299000 && (
-                                <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                                  Mua thêm{" "}
-                                  {(299000 - selectedTotalPrice).toLocaleString(
-                                    "vi-VN"
-                                  )}{" "}
-                                  ₫ để được miễn phí ship
-                                </div>
-                              )}
-                            <div className="border-t pt-4">
-                              <div className="flex justify-between text-lg font-bold text-gray-900">
-                                <span>Tổng cộng</span>
-                                <span className="text-red-600">
-                                  {finalTotalWithDiscount.toLocaleString(
-                                    "vi-VN"
-                                  )}{" "}
-                                  ₫
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
+                      {/* Thông báo miễn phí ship */}
+                      {selectedTotalPrice > 0 &&
+                        selectedTotalPrice < 299000 && (
+                          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                            Mua thêm{" "}
+                            {(299000 - selectedTotalPrice).toLocaleString(
+                              "vi-VN"
+                            )}{" "}
+                            ₫ để được miễn phí ship
+                          </div>
+                        )}
+                      {/* Tổng cộng */}
+                      <div className="border-t pt-4">
+                        <div className="flex justify-between text-lg font-bold text-gray-900">
+                          <span>Tổng cộng</span>
+                          <span className="text-red-600">
+                            {finalTotal.toLocaleString("vi-VN")} ₫
+                          </span>
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <div className="text-center py-8 text-gray-500">
@@ -826,24 +519,12 @@ export default function GioHang() {
                       const bookDetailCounts = new Map<number, number>();
 
                       for (const item of selectedCartItems) {
-                        if (item.isCombo && item.comboBooks) {
-                          // Combo: đếm từng sách trong combo
-                          for (const book of item.comboBooks) {
-                            const bookDetailId = (book as any).bookDetailId || book.id;
-                            const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-                            if (!isNaN(numId)) {
-                              const current = bookDetailCounts.get(numId) || 0;
-                              bookDetailCounts.set(numId, current + item.quantity);
-                            }
-                          }
-                        } else {
-                          // Sách lẻ
-                          const bookDetailId = item.bookDetailId || item.id;
-                          const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
-                          if (!isNaN(numId)) {
-                            const current = bookDetailCounts.get(numId) || 0;
-                            bookDetailCounts.set(numId, current + item.quantity);
-                          }
+                        // Sách lẻ
+                        const bookDetailId = item.bookDetailId || item.id;
+                        const numId = typeof bookDetailId === "string" ? Number(bookDetailId) : bookDetailId;
+                        if (!isNaN(numId)) {
+                          const current = bookDetailCounts.get(numId) || 0;
+                          bookDetailCounts.set(numId, current + item.quantity);
                         }
                       }
 
@@ -873,10 +554,7 @@ export default function GioHang() {
                               // Fallback: tìm trong selectedCartItems
                               const foundItem = selectedCartItems.find(
                                 (item) =>
-                                  (item.bookDetailId || item.id) === bookDetailId ||
-                                  (item.comboBooks?.some(
-                                    (b) => ((b as any).bookDetailId || b.id) === bookDetailId
-                                  ))
+                                  (item.bookDetailId || item.id) === bookDetailId
                               );
                               if (foundItem) {
                                 bookName = foundItem.title || bookName;

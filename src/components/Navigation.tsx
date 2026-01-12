@@ -58,7 +58,6 @@ export default function Navigation() {
     // Xóa giỏ hàng và yêu thích khi đăng xuất
     localStorage.removeItem("guest_cart");
     localStorage.removeItem("favorites");
-    localStorage.removeItem("cartCombos");
     setIsLoggedIn(false);
     // Bắt buộc quay về trang đăng nhập
     window.location.href = "/dang-nhap";

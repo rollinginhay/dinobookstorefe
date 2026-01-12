@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { BookDetail } from "./ReceiptContext";
+import { calculateDiscountedPrice, fetchCampaigns, Campaign } from "@/utils/campaign.utils";
 
 // Định nghĩa kiểu Book (DTO kết hợp dữ liệu từ bảng book + bookDetail)
 // ⚠️ LƯU Ý: price ở đây KHÔNG phải từ bảng book (bảng book không có cột giá)
@@ -22,11 +23,6 @@ export interface CartItem extends Book {
   amount: number; // tong gia (đã giảm)
   price: number; // don gia (đã giảm)
   originalPrice?: number; // ✅ Giá gốc (salePrice) - để hiển thị ở giỏ hàng
-  isCombo?: boolean; // Đánh dấu đây là combo
-  comboBooks?: Book[]; // Danh sách sách trong combo (nếu là combo)
-  comboName?: string; // Tên combo (ví dụ: "Combo 3 Cuốn")
-  comboOriginalPrice?: number; // Giá gốc của combo (trước khi giảm)
-  comboDiscount?: number; // Phần trăm giảm giá combo
   bookDetailId: number;
 }
 
@@ -42,14 +38,6 @@ interface CartContextType {
   cartItems: CartItem[];
   selectedItems: Set<number>; // Set chứa cartDetailId của các sản phẩm đã chọn
   addToCart: (book: Book, quantity?: number) => Promise<void>;
-  addComboToCart: (
-    books: Book[],
-    comboName: string,
-    comboPrice: number,
-    comboOriginalPrice: number,
-    comboDiscount: number,
-    quantity?: number
-  ) => Promise<void>;
   removeFromCart: (cartDetailId: number) => Promise<void>;
   updateQuantity: (cartDetailId: number, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -72,7 +60,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [guestCart, setGuestCart] = useState<CartItem[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
   const BASE_URL = "http://localhost:8080";
+  
+  // ✅ Fetch campaigns để tính giảm giá PERCENTAGE_PRODUCT
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      try {
+        setCampaignsLoading(true);
+        const data = await fetchCampaigns();
+        setCampaigns(data);
+        console.log("✅ [CartContext] Loaded campaigns:", data.length);
+      } catch (error) {
+        console.error("Lỗi fetch campaigns trong CartContext:", error);
+        setCampaigns([]);
+      } finally {
+        setCampaignsLoading(false);
+      }
+    };
+    loadCampaigns();
+  }, []);
   // Lấy token & decode userId
   useEffect(() => {
     const t = localStorage.getItem("jwtToken");
@@ -106,7 +114,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setUserId(null);
         setCartItems([]);
         setSelectedItems(new Set());
-        localStorage.removeItem("cartCombos");
       } else {
         try {
           const decoded = jwtDecode<JwtPayload>(t);
@@ -246,25 +253,52 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               }
 
               const bookDetailAttrs = bookDetailData.data?.attributes || {};
+              
+              // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG BAO GIỜ dùng salePrice)
+              const supplyPrice = Number(bookDetailAttrs.supplyPrice || 0);
+              const bookDetailId = Number(bookDetailData.data.id);
+              
+              // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+              const priceInfo = calculateDiscountedPrice(bookDetailId, supplyPrice, campaigns);
+              const discountedPrice = priceInfo.discountedPrice;
+              const hasDiscount = priceInfo.hasDiscount;
+              
+              // ✅ Giá hiển thị: LUÔN tính từ supplyPrice và campaign, KHÔNG dùng item.attributes.price hoặc salePrice
+              const displayPrice = hasDiscount ? discountedPrice : supplyPrice;
+              
+              // ✅ Giá gốc: LUÔN là supplyPrice, chỉ set nếu supplyPrice > displayPrice (đơn giản như trang chủ)
+              const originalPrice = supplyPrice > displayPrice ? supplyPrice : undefined;
+              
+              // ✅ Debug để kiểm tra
+              if (supplyPrice > 0 && displayPrice < supplyPrice) {
+                console.log("✅ [CartContext] Sản phẩm có giảm giá:", {
+                  bookDetailId,
+                  supplyPrice,
+                  displayPrice,
+                  originalPrice,
+                  hasDiscount
+                });
+              }
+
+              // ✅ Lấy title và author
+              const bookTitle = book?.attributes?.title || "Sách";
+              const bookAuthor = book?.attributes?.author || "—";
+              const quantity = Number(item.attributes.quantity ?? 1);
 
               return {
                 cartDetailId: Number(item.id),
-                quantity: Number(item.attributes.quantity ?? 1),
-                amount: Number(item.attributes.amount || 0),
+                quantity: quantity,
+                amount: displayPrice * quantity, // ✅ Tính lại amount từ price mới
                 id: Number(bookDetailData.data.id), // bookDetailId
-                title: book?.attributes?.title || "Sách",
-                author: book?.attributes?.author || "—",
-                price: Number(
-                  item.attributes.price || bookDetailAttrs.salePrice || 0
-                ),
+                title: bookTitle,
+                author: bookAuthor,
+                price: displayPrice, // ✅ Giá đã giảm (từ campaign hoặc supplyPrice)
                 image:
                   book?.attributes?.imageUrl ||
                   getBookDetailById(item.attributes.bookDetailId)?.image ||
                   "/default-book.jpg",
                 bookDetailId: Number(bookDetailData.data.id),
-                originalPrice:
-                  bookDetailAttrs.salePrice ||
-                  Number(item.attributes.price || 0),
+                originalPrice: originalPrice, // ✅ Chỉ set originalPrice nếu có giảm giá
               };
             } catch (err) {
               console.error("Error fetching bookDetail:", err);
@@ -278,112 +312,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           (item): item is CartItem => item !== null
         );
 
-        // ✅ Nhóm combo items từ localStorage metadata (giống BookCombo)
-        const comboMetadata = JSON.parse(
-          localStorage.getItem("cartCombos") || "[]"
-        );
-
-        if (comboMetadata.length > 0) {
-          console.log("🔍 Tìm combo items từ metadata:", comboMetadata.length);
-
-          const usedCartDetailIds = new Set<number>();
-          const comboItems: CartItem[] = [];
-
-          // Xử lý từng combo metadata
-          for (const comboMeta of comboMetadata) {
-            // ✅ Chuyển đổi cartDetailIds sang number để so sánh đúng
-            const comboCartDetailIds = comboMeta.cartDetailIds.map((id: any) =>
-              Number(id)
-            );
-
-            // Kiểm tra xem tất cả cartDetailIds của combo có trong validItems không
-            const comboCartDetails = validItems.filter((item) =>
-              comboCartDetailIds.includes(item.cartDetailId)
-            );
-
-            console.log("🔍 Combo:", comboMeta.comboName, {
-              metadataIds: comboCartDetailIds,
-              foundItems: comboCartDetails.map((i) => i.cartDetailId),
-              matchCount: comboCartDetails.length,
-            });
-
-            if (comboCartDetails.length > 0) {
-              // Tìm item đầu tiên làm đại diện (giống logic addComboToCart)
-              const firstItem = comboCartDetails[0];
-
-              // ✅ Sử dụng comboMeta.books nếu có, nếu không thì dùng firstItem
-              const mainBook =
-                comboMeta.books && comboMeta.books.length > 0
-                  ? comboMeta.books[0]
-                  : firstItem;
-
-              // Tạo combo item (giống logic addComboToCart)
-              const comboItem: CartItem = {
-                ...mainBook,
-                id: `combo-${comboMeta.comboId}` as any,
-                title: comboMeta.comboName || firstItem.title,
-                price: comboMeta.comboPrice,
-                quantity: comboMeta.quantity || 1,
-                amount: comboMeta.comboPrice * (comboMeta.quantity || 1),
-                cartDetailId: comboCartDetailIds[0], // Dùng ID đầu tiên làm đại diện
-                isCombo: true,
-                comboBooks:
-                  comboMeta.books ||
-                  comboCartDetails.map((item) => ({
-                    id: item.id,
-                    title: item.title,
-                    author: item.author,
-                    price: item.price,
-                    image: item.image,
-                    bookDetailId: item.bookDetailId,
-                  })),
-                comboName: comboMeta.comboName,
-                comboOriginalPrice: comboMeta.comboOriginalPrice,
-                comboDiscount: comboMeta.comboDiscount,
-                bookDetailId:
-                  (mainBook as any).bookDetailId ||
-                  mainBook.id ||
-                  firstItem.bookDetailId,
-              };
-
-              comboItems.push(comboItem);
-
-              // Đánh dấu các cartDetailIds đã được sử dụng
-              comboCartDetailIds.forEach((id: number) =>
-                usedCartDetailIds.add(id)
-              );
-
-              console.log(
-                "✅ Đã nhóm combo:",
-                comboMeta.comboName,
-                "với",
-                comboCartDetails.length,
-                "items"
-              );
-            } else {
-              console.warn(
-                "⚠️ Không tìm thấy items cho combo:",
-                comboMeta.comboName,
-                "IDs:",
-                comboCartDetailIds
-              );
-            }
-          }
-
-          // Lọc bỏ các items đã được nhóm vào combo, chỉ giữ lại items đơn lẻ
-          const standaloneItems = validItems.filter(
-            (item) => !usedCartDetailIds.has(item.cartDetailId)
-          );
-
-          // Kết hợp combo items và standalone items
-          validItems = [...comboItems, ...standaloneItems];
-
-          console.log("📦 Final cart items:", {
-            combos: comboItems.length,
-            standalone: standaloneItems.length,
-            total: validItems.length,
-          });
-        }
 
         console.log("📦 Fetched cart items:", validItems.length);
         setCartItems(validItems);
@@ -393,7 +321,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     };
     fetchCart();
-  }, [userId, token]);
+  }, [userId, token, campaigns, campaignsLoading]); // ✅ Re-run khi campaigns load xong để tính lại giá
 
   // Thêm vào giỏ
   const addToCart = async (book: Book, quantity: number = 1) => {
@@ -423,7 +351,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             amount: book.price * quantity,
             cartDetailId: -Date.now(), // fake id cho guest
             bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-            originalPrice: book.price, // Lưu giá (vì Book không có originalPrice)
+            originalPrice: (book as any).originalPrice, // ✅ Giữ lại originalPrice từ Book (đã được tính từ trang chủ)
           },
         ];
       });
@@ -453,6 +381,58 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } else {
       // Nếu chưa có → tạo mới
       try {
+        // ✅ LUÔN fetch bookDetail để lấy supplyPrice và tính lại giá (KHÔNG dùng book.price từ trang chủ)
+        // ✅ Đảm bảo luôn lấy từ supplyPrice trong DB, không dùng salePrice
+        let displayPrice = book.price; // Fallback nếu không fetch được
+        let originalPrice = (book as any).originalPrice;
+        
+        // ✅ LUÔN fetch lại từ DB để đảm bảo lấy supplyPrice, không dùng giá từ book object
+        // ✅ Đợi campaigns load xong để tính giá giảm chính xác
+        try {
+          // Đợi campaigns load xong (nếu đang loading)
+          if (campaignsLoading) {
+            await new Promise((resolve) => {
+              const checkInterval = setInterval(() => {
+                if (!campaignsLoading) {
+                  clearInterval(checkInterval);
+                  resolve(null);
+                }
+              }, 100);
+              // Timeout sau 5 giây
+              setTimeout(() => {
+                clearInterval(checkInterval);
+                resolve(null);
+              }, 5000);
+            });
+          }
+          
+          const bookDetailRes = await fetch(
+            `${BASE_URL}/v1/bookDetail/${book.id}?e=true`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          if (bookDetailRes.ok) {
+            const bookDetailData = await bookDetailRes.json();
+            const bookDetailAttrs = bookDetailData.data?.attributes || {};
+            // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG BAO GIỜ dùng salePrice)
+            const supplyPrice = Number(bookDetailAttrs.supplyPrice || 0);
+            
+            if (supplyPrice > 0) {
+              // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+              const priceInfo = calculateDiscountedPrice(book.id, supplyPrice, campaigns);
+              displayPrice = priceInfo.discountedPrice;
+              // ✅ Giá gốc: supplyPrice nếu supplyPrice > displayPrice
+              originalPrice = supplyPrice > displayPrice ? supplyPrice : undefined;
+            } else {
+              // Nếu supplyPrice = 0, dùng giá từ book object (fallback)
+              console.warn("⚠️ [CartContext] supplyPrice = 0, dùng giá từ book object:", book.id);
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to fetch bookDetail in addToCart, using book data:", err);
+          // Fallback: dùng giá từ book object (từ trang chủ đã tính từ supplyPrice)
+        }
+        
         const body = {
           data: {
             type: "cartDetail",
@@ -460,8 +440,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               userId,
               bookDetailId: book.id,
               quantity,
-              amount: book.price * quantity,
-              price: book.price,
+              amount: displayPrice * quantity,
+              price: displayPrice,
               enabled: true,
             },
           },
@@ -483,10 +463,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ...book,
           cartDetailId: Number(data.data.id),
           quantity,
-          amount: book.price * quantity,
-          price: book.price,
-          bookDetailId: (book as any).bookDetailId || book.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-          originalPrice: book.price, // Lưu giá (vì Book không có originalPrice)
+          amount: displayPrice * quantity,
+          price: displayPrice, // ✅ Giá đã giảm (từ campaign hoặc supplyPrice)
+          bookDetailId: (book as any).bookDetailId || book.id,
+          originalPrice: originalPrice || (book as any).originalPrice, // ✅ Giữ lại originalPrice từ book nếu có
         };
 
         setCartItems((prev) => [...prev, newItem]);
@@ -506,64 +486,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Kiểm tra xem có phải là combo không
-      const comboMetadata = JSON.parse(
-        localStorage.getItem("cartCombos") || "[]"
+      // Xóa item đơn lẻ
+      await fetch(`${BASE_URL}/v1/cartDetail/${cartDetailId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setCartItems((prev) =>
+        prev.filter((item) => item.cartDetailId !== cartDetailId)
       );
-      const comboMeta = comboMetadata.find((cm: any) =>
-        cm.cartDetailIds.includes(cartDetailId)
-      );
 
-      if (comboMeta) {
-        // Xóa tất cả các cartDetail trong combo
-        for (const id of comboMeta.cartDetailIds) {
-          try {
-            await fetch(`${BASE_URL}/v1/cartDetail/${id}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-          } catch (err) {
-            console.error("Failed to remove combo item", err);
-          }
-        }
-
-        // Xóa combo metadata
-        const updatedCombos = comboMetadata.filter(
-          (cm: any) => cm.comboId !== comboMeta.comboId
-        );
-        localStorage.setItem("cartCombos", JSON.stringify(updatedCombos));
-
-        // Xóa tất cả items của combo khỏi state
-        setCartItems((prev) =>
-          prev.filter(
-            (item) => !comboMeta.cartDetailIds.includes(item.cartDetailId)
-          )
-        );
-
-        // Xóa khỏi selectedItems
-        setSelectedItems((prev) => {
-          const newSet = new Set(prev);
-          comboMeta.cartDetailIds.forEach((id: number) => newSet.delete(id));
-          return newSet;
-        });
-      } else {
-        // Xóa item đơn lẻ
-        await fetch(`${BASE_URL}/v1/cartDetail/${cartDetailId}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setCartItems((prev) =>
-          prev.filter((item) => item.cartDetailId !== cartDetailId)
-        );
-
-        // Xóa khỏi selectedItems
-        setSelectedItems((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(cartDetailId);
-          return newSet;
-        });
-      }
+      // Xóa khỏi selectedItems
+      setSelectedItems((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(cartDetailId);
+        return newSet;
+      });
     } catch (err) {
       console.error("Failed to remove from cart", err);
     }
@@ -585,191 +523,77 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (quantity <= 0) return removeFromCart(cartDetailId);
 
     try {
-      // Kiểm tra xem có phải là combo không
-      const comboMetadata = JSON.parse(
-        localStorage.getItem("cartCombos") || "[]"
-      );
-      const comboMeta = comboMetadata.find((cm: any) =>
-        cm.cartDetailIds.includes(cartDetailId)
-      );
+      // Cập nhật item đơn lẻ
+      const body = { data: { id: cartDetailId, attributes: { quantity } } };
 
-      if (comboMeta) {
-        // Cập nhật số lượng cho tất cả các cartDetail trong combo
-        const comboPricePerItem =
-          comboMeta.comboPrice / comboMeta.cartDetailIds.length;
+      await fetch(`${BASE_URL}/v1/cartDetail/update`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
 
-        for (const id of comboMeta.cartDetailIds) {
-          const body = { data: { id, attributes: { quantity } } };
-
-          try {
-            await fetch(`${BASE_URL}/v1/cartDetail/update`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(body),
-            });
-          } catch (err) {
-            console.error("Failed to update combo item quantity", err);
+      // ✅ Sau khi update quantity, cần tính lại giá từ supplyPrice và campaign
+      // Fetch lại bookDetail để lấy supplyPrice mới nhất
+      const currentItem = cartItems.find(item => item.cartDetailId === cartDetailId);
+      if (currentItem) {
+        try {
+          const bookDetailRes = await fetch(
+            `${BASE_URL}/v1/bookDetail/${currentItem.bookDetailId}?e=true`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          if (bookDetailRes.ok) {
+            const bookDetailData = await bookDetailRes.json();
+            const bookDetailAttrs = bookDetailData.data?.attributes || {};
+            const supplyPrice = Number(bookDetailAttrs.supplyPrice || 0);
+            
+            if (supplyPrice > 0) {
+              // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+              const priceInfo = calculateDiscountedPrice(currentItem.bookDetailId, supplyPrice, campaigns);
+              const displayPrice = priceInfo.discountedPrice;
+              const originalPrice = supplyPrice > displayPrice ? supplyPrice : undefined;
+              
+              setCartItems((prev) =>
+                prev.map((item) =>
+                  item.cartDetailId === cartDetailId
+                    ? {
+                        ...item,
+                        quantity,
+                        price: displayPrice,
+                        originalPrice: originalPrice,
+                        amount: displayPrice * quantity,
+                      }
+                    : item
+                )
+              );
+              return;
+            }
           }
+        } catch (err) {
+          console.warn("Failed to refetch bookDetail in updateQuantity:", err);
         }
-
-        // Cập nhật combo metadata
-        comboMeta.quantity = quantity;
-        const updatedCombos = comboMetadata.map((cm: any) =>
-          cm.comboId === comboMeta.comboId ? comboMeta : cm
-        );
-        localStorage.setItem("cartCombos", JSON.stringify(updatedCombos));
-
-        // Cập nhật state
-        setCartItems((prev) =>
-          prev.map((item) =>
-            comboMeta.cartDetailIds.includes(item.cartDetailId)
-              ? {
-                  ...item,
-                  quantity,
-                  amount: comboPricePerItem * quantity,
-                }
-              : item
-          )
-        );
-      } else {
-        // Cập nhật item đơn lẻ
-        const body = { data: { id: cartDetailId, attributes: { quantity } } };
-
-        await fetch(`${BASE_URL}/v1/cartDetail/update`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        setCartItems((prev) =>
-          prev.map((item) =>
-            item.cartDetailId === cartDetailId
-              ? {
-                  ...item,
-                  quantity,
-                  amount: item.price * quantity,
-                }
-              : item
-          )
-        );
       }
+
+      // Fallback: dùng giá hiện tại nếu không fetch được
+      setCartItems((prev) =>
+        prev.map((item) =>
+          item.cartDetailId === cartDetailId
+            ? {
+                ...item,
+                quantity,
+                amount: item.price * quantity,
+              }
+            : item
+        )
+      );
     } catch (err) {
       console.error("Failed to update quantity", err);
     }
   };
 
-  // Thêm combo vào giỏ hàng
-  const addComboToCart = async (
-    books: Book[],
-    comboName: string,
-    comboPrice: number,
-    comboOriginalPrice: number,
-    comboDiscount: number,
-    quantity: number = 1
-  ) => {
-    if (!token || !userId || books.length === 0) return;
-
-    try {
-      // Tạo một CartItem đặc biệt cho combo
-      // Sử dụng sách đầu tiên làm đại diện, nhưng lưu thông tin combo
-      const mainBook = books[0];
-
-      // Tạo combo item với thông tin đặc biệt
-      const comboItem: CartItem = {
-        ...mainBook,
-        id: `combo-${Date.now()}` as any, // ID đặc biệt cho combo
-        title: comboName,
-        price: comboPrice,
-        quantity,
-        amount: comboPrice * quantity,
-        cartDetailId: 0, // Sẽ được set sau khi tạo
-        isCombo: true,
-        comboBooks: books,
-        comboName,
-        comboOriginalPrice,
-        comboDiscount,
-        bookDetailId: (mainBook as any).bookDetailId || mainBook.id, // Sử dụng bookDetailId nếu có, không thì dùng id
-      };
-
-      // Thêm từng sách trong combo vào backend (để backend xử lý)
-      // Nhưng lưu metadata để frontend hiển thị như một combo
-      const cartDetailIds: number[] = [];
-
-      // ✅ Tính amount cho từng sách: chia đều và làm tròn
-      const pricePerBook = Math.round(comboPrice / books.length); // Làm tròn giá mỗi sách
-      const amountPerBook = pricePerBook * quantity; // Tổng amount cho mỗi sách
-
-      // ✅ Điều chỉnh để tổng amount = comboPrice * quantity (tránh sai số do làm tròn)
-      const totalAmount = comboPrice * quantity;
-      const calculatedTotalAmount = amountPerBook * books.length;
-      const adjustment = totalAmount - calculatedTotalAmount; // Số tiền cần điều chỉnh
-
-      for (let i = 0; i < books.length; i++) {
-        const book = books[i];
-        // ✅ Thêm adjustment vào sách cuối cùng để tổng đúng
-        const finalAmount =
-          i === books.length - 1 ? amountPerBook + adjustment : amountPerBook;
-
-        const body = {
-          data: {
-            type: "cartDetail",
-            attributes: {
-              userId,
-              bookDetailId: (book as any).bookDetailId || book.id,
-              quantity,
-              amount: Math.round(finalAmount), // ✅ Làm tròn để đảm bảo là Long
-              price: pricePerBook, // ✅ Giá đã làm tròn
-              enabled: true,
-            },
-          },
-        };
-
-        const res = await fetch(`${BASE_URL}/v1/cartDetail/create`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          cartDetailIds.push(Number(data.data.id));
-        }
-      }
-
-      // Lưu combo metadata vào localStorage để frontend có thể nhóm lại
-      const comboMetadata = {
-        comboId: `combo-${Date.now()}`,
-        cartDetailIds,
-        books,
-        comboName,
-        comboPrice,
-        comboOriginalPrice,
-        comboDiscount,
-        quantity,
-      };
-
-      const existingCombos = JSON.parse(
-        localStorage.getItem("cartCombos") || "[]"
-      );
-      existingCombos.push(comboMetadata);
-      localStorage.setItem("cartCombos", JSON.stringify(existingCombos));
-
-      // Thêm combo item vào state (chỉ hiển thị 1 item thay vì nhiều items)
-      comboItem.cartDetailId = cartDetailIds[0]; // Dùng ID đầu tiên làm đại diện
-      setCartItems((prev) => [...prev, comboItem]);
-    } catch (err) {
-      console.error("Failed to add combo to cart", err);
-    }
-  };
 
   // Xóa toàn bộ giỏ hàng từ backend (fetch tất cả items trước khi xóa)
   const clearAllCartFromBackend = async () => {
@@ -901,8 +725,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.error("❌ Failed to fetch and clear cart", err);
     }
 
-    // Xóa combo metadata
-    localStorage.removeItem("cartCombos");
     // Xóa state local
     setCartItems([]);
     setSelectedItems(new Set());
@@ -928,8 +750,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Xóa combo metadata
-    localStorage.removeItem("cartCombos");
     setCartItems([]);
     setSelectedItems(new Set());
   };
@@ -961,58 +781,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     cartItems.length > 0 && selectedItems.size === cartItems.length;
 
   // Lấy danh sách các sản phẩm đã chọn
-  // Với combo items, cần xử lý đặc biệt vì một combo có nhiều cartDetailIds
   const getSelectedCartItems = (): CartItem[] => {
     if (selectedItems.size === 0) return [];
 
-    // Lấy combo metadata
-    const comboMetadata = JSON.parse(
-      localStorage.getItem("cartCombos") || "[]"
-    );
     const selectedIds = Array.from(selectedItems);
     const result: CartItem[] = [];
-    const processedComboIds = new Set<string>();
 
     // Xử lý từng selected cartDetailId
     for (const selectedId of selectedIds) {
-      // Kiểm tra xem có thuộc combo nào không
-      const comboMeta = comboMetadata.find((cm: any) =>
-        cm.cartDetailIds.includes(selectedId)
-      );
-
-      if (comboMeta && !processedComboIds.has(comboMeta.comboId)) {
-        // Đây là combo, tìm tất cả items trong combo
-        const comboItems = cartItems.filter((item) =>
-          comboMeta.cartDetailIds.includes(item.cartDetailId)
-        );
-
-        if (comboItems.length > 0) {
-          // Tạo một item đại diện cho combo với giá trị tổng hợp
-          const firstItem = comboItems[0];
-          const comboItem: CartItem = {
-            ...firstItem,
-            id: `combo-${comboMeta.comboId}` as any,
-            title: comboMeta.comboName || firstItem.title,
-            price: comboMeta.comboPrice,
-            amount: comboMeta.comboPrice * comboMeta.quantity,
-            quantity: comboMeta.quantity,
-            cartDetailId: selectedId, // Sử dụng selectedId làm đại diện
-            isCombo: true,
-            comboBooks: comboMeta.books,
-            comboName: comboMeta.comboName,
-            comboOriginalPrice: comboMeta.comboOriginalPrice,
-            comboDiscount: comboMeta.comboDiscount,
-            bookDetailId: firstItem.bookDetailId || firstItem.id, // Đảm bảo có bookDetailId hợp lệ
-          };
-          result.push(comboItem);
-          processedComboIds.add(comboMeta.comboId);
-        }
-      } else if (!comboMeta) {
-        // Item đơn lẻ
-        const item = cartItems.find((item) => item.cartDetailId === selectedId);
-        if (item) {
-          result.push(item);
-        }
+      const item = cartItems.find((item) => item.cartDetailId === selectedId);
+      if (item) {
+        result.push(item);
       }
     }
 
@@ -1041,7 +820,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cartItems,
         selectedItems,
         addToCart,
-        addComboToCart,
         removeFromCart,
         updateQuantity,
         clearCart,

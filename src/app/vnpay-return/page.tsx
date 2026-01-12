@@ -11,9 +11,25 @@ export default function VnPayReturn() {
 
   const [message, setMessage] = useState("Đang xử lý kết quả thanh toán...");
   const [loading, setLoading] = useState(true);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = searchParams.toString();
+    
+    // ✅ Lấy receiptId từ URL params (được thêm vào returnUrl bởi VNPayService)
+    // Theo VNPayService.java: returnUrl = returnBaseUrl + "?receiptId=" + receiptId + "&txnRef=" + txnRef
+    const receiptIdFromUrl = searchParams.get("receiptId");
+    
+    console.log("📦 [VNPAY RETURN] URL params:", params);
+    console.log("📦 [VNPAY RETURN] receiptId từ URL:", receiptIdFromUrl);
+    
+    // ✅ Set receiptId ngay từ đầu (không cần đợi API response)
+    if (receiptIdFromUrl) {
+      setReceiptId(receiptIdFromUrl);
+      console.log("✅ [VNPAY RETURN] Đã lấy receiptId:", receiptIdFromUrl);
+    } else {
+      console.warn("⚠️ [VNPAY RETURN] Không tìm thấy receiptId trong URL params!");
+    }
 
     const callReturnApi = async () => {
       try {
@@ -21,7 +37,7 @@ export default function VnPayReturn() {
           `http://localhost:8080/api/vnpay/return?${params}`,
           { method: "GET" }
         );
-        console.log("callReturnApi", response);
+        console.log("📦 [VNPAY RETURN] API response:", response);
         const text = await response.text();
         setMessage(text);
         
@@ -36,7 +52,7 @@ export default function VnPayReturn() {
           }
         }
       } catch (error) {
-        console.error(error);
+        console.error("❌ [VNPAY RETURN] Lỗi:", error);
         setMessage("Có lỗi xảy ra khi xác nhận thanh toán");
       } finally {
         setLoading(false);
@@ -81,12 +97,21 @@ export default function VnPayReturn() {
               Trang chủ
             </button>
 
-            <button
-              onClick={() => router.push("/hoa-don")}
-              className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
-            >
-              Đơn hàng
-            </button>
+            {receiptId ? (
+              <button
+                onClick={() => router.push(`/hoa-don/${receiptId}`)}
+                className="px-6 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+              >
+                Xem đơn
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/hoa-don")}
+                className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+              >
+                Đơn hàng
+              </button>
+            )}
           </div>
         )}
       </div>

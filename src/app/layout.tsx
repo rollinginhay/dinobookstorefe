@@ -6,6 +6,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { VoucherProvider } from "@/contexts/VoucherContext";
 import { PromotionProvider } from "@/contexts/PromotionContext";
+import { CampaignProvider } from "@/contexts/CampaignContext";
 import FloatingWidgets from "@/components/FloatingWidgets";
 import Footer from "@/components/Footer";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
@@ -43,11 +44,13 @@ export default function RootLayout({
             <FavoriteProvider>
               <VoucherProvider>
                 <PromotionProvider>
-                  <Navigation />
-                  {children}
-                  <FloatingWidgets />
-                  {/* <AIChatbox /> */}
-                  <Footer />
+                  <CampaignProvider>
+                    <Navigation />
+                    {children}
+                    <FloatingWidgets />
+                    {/* <AIChatbox /> */}
+                    <Footer />
+                  </CampaignProvider>
                 </PromotionProvider>
               </VoucherProvider>
             </FavoriteProvider>
