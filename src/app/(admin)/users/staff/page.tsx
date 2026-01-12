@@ -29,7 +29,7 @@ export default function StaffPage() {
         return;
       }
       
-      // Filter lấy quản lý (ROLE_MANAGER) và nhân viên (ROLE_EMPLOYEE), lọc bỏ quản trị viên (ROLE_ADMIN)
+      // Filter lấy quản lý (ROLE_MANAGER) và nhân viên (ROLE_EMPLOYEE), lọ bỏ quản trị viên (ROLE_ADMIN)
       const mapped = mapUserList(res);
       const staffUsers = mapped.filter(user => {
         const roleNames = user.roles?.map(r => r.name) || [];
@@ -46,6 +46,19 @@ export default function StaffPage() {
       });
       
       console.log(`Loaded ${sortedStaffUsers.length} staff users (managers + employees) from ${mapped.length} total users`);
+      
+      // 🔍 DEBUG: Kiểm tra user mới nhất có role gì
+      const newest5 = mapped.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      }).slice(0, 5);
+      console.log("🔍 [StaffPage] 5 newest users:");
+      newest5.forEach((user, i) => {
+        const roleNames = user.roles?.map(r => r.name) || [];
+        console.log(`  ${i+1}. ${user.username} (${user.email}): ${roleNames.join(', ')}`);
+      });
+      
       setData(sortedStaffUsers);
       setFilteredData(sortedStaffUsers);
     } catch (err: any) {

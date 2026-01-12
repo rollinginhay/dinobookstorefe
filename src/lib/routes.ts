@@ -73,7 +73,9 @@ export const API_ROUTES = {
     GET_USER_BY_ID: ({id}: { id: string | number }) =>
         `/v1/user/${id}`,
     POST_USER_CREATE: "/v1/user/create",
+    POST_USER_CREATE_WITH_ROLE: "/v1/user/create-with-role",
     PUT_USER_UPDATE: "/v1/user/update",
+    PUT_USER_UPDATE_WITH_ROLE: "/v1/user/update-with-role",
     DELETE_USER_DELETE: ({id}: { id: string | number }) =>
         `/v1/user/${id}`,
     POST_USER_RESET_PASSWORD: ({id}: { id: string | number }) =>

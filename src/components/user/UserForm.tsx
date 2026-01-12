@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useRef, useState} from "react";
 import {usePathname, useRouter} from "next/navigation";
-import {createUser, fetchUsers, updateUser} from "@/lib/user/user.api";
+import {createUser, createUserWithRole, fetchUsers, updateUser, updateUserWithRole} from "@/lib/user/user.api";
 import {fetchRoles} from "@/lib/user/role.api";
 import {getRoleDisplayName} from "@/lib/user/role.utils";
 import {mapUserList} from "@/lib/user/user.mapper";
@@ -544,6 +544,9 @@ export default function UserForm({ mode, initialData }: Props) {
 
   const handleConfirmSubmit = async () => {
     console.log("=== handleConfirmSubmit CALLED ===");
+    console.log("🔍 pathname:", pathname);
+    console.log("🔍 isCustomerForm:", isCustomerForm);
+    console.log("🔍 mode:", mode);
     console.log("formData at start:", formData);
     console.log("formData.roles at start:", formData.roles);
     
@@ -773,8 +776,16 @@ export default function UserForm({ mode, initialData }: Props) {
       console.log("✅ Payload roles:", payload.roles);
 
       if (mode === "create") {
-        await createUser(payload);
-        toast.success(isCustomerForm ? "Tạo khách hàng thành công!" : "Tạo nhân viên thành công!");
+        if (isCustomerForm) {
+          // Form khách hàng: dùng API cũ
+          await createUser(payload);
+          toast.success("Tạo khách hàng thành công!");
+        } else {
+          // Form nhân viên: dùng API mới (có roles)
+          console.log("🚀 [Frontend] Using createUserWithRole for staff");
+          await createUserWithRole(payload);
+          toast.success("Tạo nhân viên thành công!");
+        }
         if (typeof window !== "undefined") {
           localStorage.removeItem(storageKey);
           sessionStorage.setItem("shouldReloadStaff", "true");
@@ -783,8 +794,16 @@ export default function UserForm({ mode, initialData }: Props) {
         // Sử dụng router.push với timestamp để force reload và trigger pathname change
         router.push(`${redirectPath}?reload=${Date.now()}`);
       } else {
-        await updateUser(payload);
-        toast.success(isCustomerForm ? "Cập nhật khách hàng thành công!" : "Cập nhật nhân viên thành công!");
+        if (isCustomerForm) {
+          // Form khách hàng: dùng API cũ
+          await updateUser(payload);
+          toast.success("Cập nhật khách hàng thành công!");
+        } else {
+          // Form nhân viên: dùng API mới (có roles)
+          console.log("🚀 [Frontend] Using updateUserWithRole for staff");
+          await updateUserWithRole(payload);
+          toast.success("Cập nhật nhân viên thành công!");
+        }
         
         // Reset password field về trống sau khi cập nhật thành công
         setFormData(prev => ({
@@ -1104,7 +1123,9 @@ export default function UserForm({ mode, initialData }: Props) {
                     .filter(role => {
                       // Chỉ hiển thị ROLE_MANAGER và ROLE_EMPLOYEE
                       const roleName = role.name || "";
-                      return roleName === "ROLE_MANAGER" || roleName === "ROLE_EMPLOYEE";
+                      const shouldShow = roleName === "ROLE_MANAGER" || roleName === "ROLE_EMPLOYEE";
+                      console.log("🔍 [UserForm Filter] Role:", roleName, "shouldShow:", shouldShow);
+                      return shouldShow;
                     })
                     .map((role) => (
                       <option key={role.id} value={String(role.id)}>
