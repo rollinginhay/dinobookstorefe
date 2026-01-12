@@ -68,7 +68,7 @@ export const BillService = {
                     // FE muốn ONLINE / POS
                     orderType: a.orderType === "DIRECT"
                         ? "POS"
-: a.orderType === "ONLINE"
+                        : a.orderType === "ONLINE"
                         ? "ONLINE"
                         : a.orderType || "UNKNOWN",
 
@@ -84,6 +84,9 @@ export const BillService = {
 
                     // Return request status
                     returnStatus: returnStatus,
+
+                    // Note field để kiểm tra refund info
+                    note: note,
                 };
             })
         );

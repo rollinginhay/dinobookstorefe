@@ -175,6 +175,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
             imageUrl,
             bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
             salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
+            supplyPrice: Number(attrs.supplyPrice ?? bc.supplyPrice ?? 0),
             stock: Number(attrs.stock ?? bc.stock ?? 0),
             author: book.authorName || "",
           };
@@ -994,7 +995,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
                       </p>
                     </div>
                     <div className="mt-2 border-t pt-3 space-y-2 max-h-60 overflow-y-auto">
-                      {selectedProducts.slice(0, 3).map((p) => (
+                      {selectedProducts.map((p) => (
                         <div
                           key={p.id}
                           className="flex items-center justify-between gap-3 text-sm bg-white border rounded-md px-3 py-2"
@@ -1013,8 +1014,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 </div>
                               <div className="text-xs text-gray-500">
                                 {p.bookFormat && `${p.bookFormat} • `}
-                                {p.salePrice
-                                  ? `${p.salePrice.toLocaleString()}đ`
+                                {p.supplyPrice
+                                  ? `${p.supplyPrice.toLocaleString()}đ`
                                   : "Chưa có giá"}
                               </div>
                             </div>
@@ -1036,11 +1037,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
                           </button>
                         </div>
                       ))}
-                      {selectedProducts.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center">
-                          ... và {selectedProducts.length - 3} sản phẩm khác
-                        </p>
-                      )}
                     </div>
                   </>
                 ) : (

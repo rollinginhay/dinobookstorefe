@@ -12,6 +12,7 @@ type OrderStatus =
   | "CANCELLED"
   | "FAILED"
   | "REFUNDED"
+  | "WAITING_REFUND_INFO"
   | "RETURNED"
   | "UNKNOWN";
 
@@ -24,7 +25,7 @@ interface BillItem {
     bookDetailId: number;
     name: string;
     pricePerUnit: number; // Giá đã giảm (nếu có)
-    originalPrice?: number; // ✅ Giá gốc từ bookDetail.salePrice
+    originalPrice?: number; // ✅ Giá gốc từ bookDetail.supplyPrice
     quantity: number;
     stock: number;
     image: string;
@@ -51,9 +52,15 @@ interface PaymentHistoryItem {
 
 interface ConfirmState {
   open: boolean;
-  action: "NEXT" | "CANCEL" | "REFUND" | "FAILED" | null;
+  action: "NEXT" | "CANCEL" | "REFUND_CONFIRM" | "FAILED" | null;
   title?: string;
   message?: string;
+}
+
+interface RefundInfo {
+  refundBankAccount: string | null;
+  refundBankName: string | null;
+  refundAccountHolder: string | null;
 }
 
 interface MockProduct {
@@ -106,7 +113,7 @@ function renderStatusBadge(status: OrderStatus) {
       );
     case "AUTHORIZED":
       return (
-        <span className="badge bg-orange-100 text-orange-600">
+        <span className="badge bg-cyan-100 text-cyan-600">
           Đã xác nhận
         </span>
       );
@@ -131,6 +138,10 @@ function renderStatusBadge(status: OrderStatus) {
     case "REFUNDED":
       return (
         <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>
+      );
+    case "WAITING_REFUND_INFO":
+      return (
+        <span className="badge bg-yellow-100 text-yellow-700">Chờ thông tin hoàn tiền</span>
       );
     default:
       return (
@@ -201,6 +212,7 @@ const STATUS_TEXT: Record<string, string> = {
   PAID: "Hoàn thành",
   CANCELLED: "Đã huỷ",
   REFUNDED: "Đã hoàn tiền",
+  WAITING_REFUND_INFO: "Chờ thông tin hoàn tiền",
   FAILED: "Giao thất bại",
   RETURNED: "Trả hàng",
 };
@@ -559,6 +571,9 @@ export default function BillDetailPage() {
 
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
   const [receiptHistory, setReceiptHistory] = useState<Array<{oldStatus: string | null, newStatus: string, createdAt: string, updatedAt?: string}>>([]);
+  
+  // ✅ State cho thông tin hoàn tiền
+  const [refundInfo, setRefundInfo] = useState<RefundInfo | null>(null);
 
     
     const { id } = useParams();
@@ -649,6 +664,31 @@ export default function BillDetailPage() {
         setOrderNote(res.orderNote ?? "");
 
         setPaymentHistory(payments);
+        
+        // ✅ Parse refund info từ note nếu status = WAITING_REFUND_INFO
+        if (res.status === "WAITING_REFUND_INFO" && res.orderNote) {
+          try {
+            const note = res.orderNote;
+            const jsonStart = note.indexOf('{"refundBankAccount"');
+            if (jsonStart !== -1) {
+              const jsonEnd = note.indexOf("}", jsonStart);
+              if (jsonEnd !== -1) {
+                const jsonStr = note.substring(jsonStart, jsonEnd + 1);
+                const refundData = JSON.parse(jsonStr);
+                setRefundInfo({
+                  refundBankAccount: refundData.refundBankAccount || null,
+                  refundBankName: refundData.refundBankName || null,
+                  refundAccountHolder: refundData.refundAccountHolder || null,
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Lỗi parse refund info:", e);
+            setRefundInfo(null);
+          }
+        } else {
+          setRefundInfo(null);
+        }
         
         // ✅ Parse receipt history từ API response
         // BillService.getHistory đã parse sẵn, chỉ cần map lại format
@@ -761,10 +801,31 @@ export default function BillDetailPage() {
         message: "Bạn có chắc chắn xác nhận?",
       });
     } else if (action === "CANCEL") {
+      const cancelMsg = paymentType === "TRANSFER"
+        ? "Hủy đơn hàng này?\n\nĐơn chuyển khoản đã thanh toán trước, sẽ chuyển sang trạng thái 'Chờ thông tin hoàn tiền' để khách nhập STK hoàn tiền."
+        : "Đơn sẽ bị hủy và không thể tiếp tục xử lý. Tiếp tục?";
       setConfirmState({
         ...base,
         title: "Hủy đơn hàng",
-        message: "Đơn sẽ bị hủy và không thể tiếp tục xử lý. Tiếp tục?",
+        message: cancelMsg,
+      });
+    } else if (action === "FAILED") {
+      const failedMsg = paymentType === "TRANSFER"
+        ? "Xác nhận giao hàng thất bại?\n\nĐơn chuyển khoản đã thanh toán trước, sẽ chuyển sang trạng thái 'Chờ thông tin hoàn tiền' để khách nhập STK hoàn tiền."
+        : "Đơn sẽ được đánh dấu là giao thất bại. Tiếp tục?";
+      setConfirmState({
+        ...base,
+        title: "Xác nhận giao hàng thất bại",
+        message: failedMsg,
+      });
+    } else if (action === "REFUND_CONFIRM") {
+      const refundMsg = refundInfo?.refundBankAccount
+        ? `Xác nhận đã hoàn tiền cho khách hàng?\n\nThông tin hoàn tiền:\n- STK: ${refundInfo.refundBankAccount}\n- Ngân hàng: ${refundInfo.refundBankName || "—"}\n- Chủ TK: ${refundInfo.refundAccountHolder || "—"}\n\nĐơn sẽ chuyển sang trạng thái "Đã hoàn tiền" (REFUNDED).`
+        : "Chưa có thông tin hoàn tiền từ khách hàng. Không thể xác nhận hoàn tiền.";
+      setConfirmState({
+        ...base,
+        title: "Xác nhận đã hoàn tiền",
+        message: refundMsg,
       });
     } else {
       setConfirmState({
@@ -823,20 +884,22 @@ export default function BillDetailPage() {
 
     // =========================
     // CANCEL — chỉ khi còn PENDING / AUTHORIZED
+    // ✅ BE tự động xử lý: Nếu là TRANSFER → chuyển WAITING_REFUND_INFO, nếu là COD → CANCELLED
     // =========================
     else if (confirmState.action === "CANCEL") {
       // ✅ Prevent double click: disable button ngay lập tức
       if (isUpdatingStatus) return;
       
+      // ✅ BE tự động xử lý: Gọi CANCELLED, BE sẽ tự động chuyển WAITING_REFUND_INFO nếu là TRANSFER
       await BillService.updateStatus(receiptId, "CANCELLED");
-      setStatus("CANCELLED");
-      
-      // ✅ Fetch lại history để timeline tự động cập nhật
-      await refreshReceiptHistory();
+      // ✅ Reload để lấy status mới (có thể là CANCELLED hoặc WAITING_REFUND_INFO)
+      window.location.reload();
     }
 
     // =========================
     // FAILED — chỉ khi đang giao
+    // ✅ Nếu shop đánh dấu FAILED cho đơn TRANSFER → chuyển WAITING_REFUND_INFO (để khách nhập STK)
+    // ✅ Nếu shop đánh dấu FAILED cho đơn COD → chỉ FAILED (không cần hoàn tiền)
     // =========================
     else if (confirmState.action === "FAILED") {
       if (status !== "IN_TRANSIT") {
@@ -844,24 +907,23 @@ export default function BillDetailPage() {
         return;
       }
 
+      // ✅ BE tự động xử lý: Nếu là TRANSFER → chuyển WAITING_REFUND_INFO, nếu là COD → FAILED
       await BillService.updateStatus(receiptId, "FAILED");
-      setStatus("FAILED");
-      // ✅ Fetch lại history để timeline tự động cập nhật
-      await refreshReceiptHistory();
+      // ✅ Reload để lấy status mới (có thể là FAILED hoặc WAITING_REFUND_INFO)
+      window.location.reload();
     }
 
     // =========================
-    // REFUND — chỉ cho prepaid (không COD) + PAID, FAILED, hoặc CANCELLED (nếu đã thanh toán trước)
+    // REFUND_CONFIRM — Xác nhận hoàn tiền: WAITING_REFUND_INFO → REFUNDED
     // =========================
-    else if (confirmState.action === "REFUND") {
-      if (paymentType === "COD") {
-        alert("Đơn COD không thể hoàn tiền.");
+    else if (confirmState.action === "REFUND_CONFIRM") {
+      if (status !== "WAITING_REFUND_INFO") {
+        alert("Chỉ có thể xác nhận hoàn tiền khi đơn ở trạng thái 'Chờ thông tin hoàn tiền'.");
         return;
       }
 
-      // Cho phép hoàn tiền từ: PAID (trả hàng), FAILED (giao thất bại), CANCELLED (hủy sau khi đã thanh toán)
-      if (status !== "PAID" && status !== "FAILED" && status !== "CANCELLED") {
-        alert("Chỉ hoàn tiền cho đơn đã thanh toán, giao thất bại, hoặc đã hủy sau khi thanh toán.");
+      if (!refundInfo?.refundBankAccount) {
+        alert("Chưa có thông tin hoàn tiền từ khách hàng. Không thể xác nhận hoàn tiền.");
         return;
       }
 
@@ -869,6 +931,9 @@ export default function BillDetailPage() {
       setStatus("REFUNDED");
       // ✅ Fetch lại history để timeline tự động cập nhật
       await refreshReceiptHistory();
+      // ✅ Reload để cập nhật UI
+      alert("Đã xác nhận hoàn tiền thành công! Đơn đã chuyển sang trạng thái 'Đã hoàn tiền'.");
+      window.location.reload();
     }
 
   } catch (e) {
@@ -884,7 +949,8 @@ export default function BillDetailPage() {
         status === "PAID" ||
         status === "CANCELLED" ||
         status === "FAILED" ||
-        status === "REFUNDED";
+        status === "REFUNDED" ||
+        status === "WAITING_REFUND_INFO";
 
     return (
         <div className="space-y-6 p-4">
@@ -948,9 +1014,45 @@ export default function BillDetailPage() {
     </button>
   )}
 
-  {/* ✅ Tạm thời bỏ nút hoàn tiền */}
+  {/* ✅ Nút "Xác nhận đã hoàn tiền" cho đơn WAITING_REFUND_INFO */}
+  {status === "WAITING_REFUND_INFO" && refundInfo?.refundBankAccount && (
+    <button
+      className="btn bg-green-600 text-white hover:bg-green-700"
+      disabled={isUpdatingStatus}
+      onClick={() => handleOpenConfirm("REFUND_CONFIRM")}
+    >
+      ✅ Xác nhận đã hoàn tiền
+    </button>
+  )}
 
 </div>
+
+        {/* ✅ Hiển thị thông tin hoàn tiền khi status = WAITING_REFUND_INFO */}
+        {status === "WAITING_REFUND_INFO" && (
+          <div className="mt-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6">
+            <h4 className="font-bold text-yellow-800 mb-4 text-lg">📝 Thông tin hoàn tiền khách nhập</h4>
+            {refundInfo?.refundBankAccount ? (
+              <div className="bg-white rounded-lg p-4 border border-yellow-200 space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Số tài khoản:</label>
+                  <p className="text-gray-800 font-medium">{refundInfo.refundBankAccount}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Tên ngân hàng:</label>
+                  <p className="text-gray-800 font-medium">{refundInfo.refundBankName || "—"}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Tên chủ tài khoản:</label>
+                  <p className="text-gray-800 font-medium">{refundInfo.refundAccountHolder || "—"}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-yellow-700 italic text-center py-4">
+                ⏳ Đang chờ khách hàng nhập thông tin tài khoản hoàn tiền...
+              </p>
+            )}
+          </div>
+        )}
 
       </div>
             {/* SẢN PHẨM TRONG ĐƠN */}
@@ -1061,11 +1163,6 @@ export default function BillDetailPage() {
 
                       <div className="space-y-3 text-sm">
                         <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Mã đơn hàng:</span>
-                          <span className="font-medium">HD{id}</span>
-                        </div>
-
-                        <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Loại đơn hàng:</span>
                           <span className="font-medium">
                             {orderType === "POS" ? "Tại quầy" : orderType === "ONLINE" ? "Trực tuyến" : "Không xác định"}
@@ -1102,22 +1199,25 @@ export default function BillDetailPage() {
                           </div>
                         </div>
 
-                        {/* Giảm giá - luôn hiển thị */}
-                        <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Giảm giá:</span>
-                          <span className="font-semibold text-red-600">
-                            {discount > 0 
-                              ? `-${discount.toLocaleString("vi-VN")} đ`
-                              : "0 đ"}
-                          </span>
-                        </div>
+                        {/* ✅ Giảm giá - chỉ hiển thị khi có giá trị > 0 */}
+                        {discount > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Giảm giá:</span>
+                            <span className="font-semibold text-red-600">
+                              -{discount.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
 
-                        <div className="flex justify-between border-b pb-2">
-                          <span className="text-gray-600">Phí ship:</span>
-                          <span className="font-semibold">
-                            {shippingFee.toLocaleString("vi-VN")} đ
-                          </span>
-                        </div>
+                        {/* ✅ Phí ship - chỉ hiển thị khi KHÔNG phải đơn tại quầy và shippingFee > 0 */}
+                        {orderType !== "POS" && shippingFee > 0 && (
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="text-gray-600">Phí ship:</span>
+                            <span className="font-semibold">
+                              {shippingFee.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex justify-between border-b pb-2">
                           <span className="text-gray-600">Thành tiền:</span>

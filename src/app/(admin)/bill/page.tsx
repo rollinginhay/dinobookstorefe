@@ -122,6 +122,9 @@ export default function BillList() {
             case "REFUNDED":
                 return data.filter((b) => b.status === "REFUNDED");
 
+            case "WAITING_REFUND_INFO":
+                return data.filter((b) => b.status === "WAITING_REFUND_INFO");
+
             default:
                 return data;
         }
@@ -184,7 +187,7 @@ export default function BillList() {
                 break;
 
             case "AUTHORIZED":
-                statusBadge = <span className="badge bg-orange-100 text-orange-600">Đã xác nhận</span>;
+                statusBadge = <span className="badge bg-cyan-100 text-cyan-600">Đã xác nhận</span>;
                 break;
 
             case "IN_TRANSIT":
@@ -204,6 +207,10 @@ export default function BillList() {
 
             case "REFUNDED":
                 statusBadge = <span className="badge bg-gray-100 text-gray-600">Hoàn tiền</span>;
+                break;
+
+            case "WAITING_REFUND_INFO":
+                statusBadge = <span className="badge bg-yellow-100 text-yellow-700">Chờ thông tin hoàn tiền</span>;
                 break;
 
             default:
@@ -314,8 +321,63 @@ export default function BillList() {
                 </button>
             </div>
 
+            {/* ✅ THÔNG BÁO ĐƠN CHỜ HOÀN TIỀN - CHỈ HIỂN THỊ KHI KHÁCH ĐÃ SUBMIT THÔNG TIN HOÀN TIỀN */}
+            {(() => {
+                // Chỉ lấy các đơn có status WAITING_REFUND_INFO và đã có thông tin hoàn tiền (refundBankAccount trong note)
+                const waitingRefundBills = bills.filter((b) => {
+                    if (b.status !== "WAITING_REFUND_INFO") return false;
+                    
+                    // Kiểm tra xem note có chứa thông tin hoàn tiền hay không
+                    const note = b.note || "";
+                    if (!note) return false;
+                    
+                    // Kiểm tra xem có JSON với refundBankAccount không
+                    const jsonStart = note.indexOf('{"refundBankAccount"');
+                    if (jsonStart === -1) return false;
+                    
+                    try {
+                        const jsonEnd = note.indexOf("}", jsonStart);
+                        if (jsonEnd === -1) return false;
+                        
+                        const jsonStr = note.substring(jsonStart, jsonEnd + 1);
+                        const refundData = JSON.parse(jsonStr);
+                        
+                        // Chỉ trả về true nếu đã có refundBankAccount (đã submit)
+                        return refundData.refundBankAccount && refundData.refundBankAccount.trim() !== "";
+                    } catch (e) {
+                        return false;
+                    }
+                });
+                
+                const waitingRefundCount = waitingRefundBills.length;
+                
+                return waitingRefundCount > 0 ? (
+                    <div className="card bg-yellow-50 border-2 border-yellow-300 mb-4">
+                        <div className="flex items-center justify-between p-4">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">💰</span>
+                                <div>
+                                    <p className="font-semibold text-yellow-800">
+                                        Có {waitingRefundCount} đơn hàng đang chờ hoàn tiền
+                                    </p>
+                                    <p className="text-sm text-yellow-700 mt-1">
+                                        Các đơn hàng này cần được xử lý hoàn tiền cho khách hàng
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setActiveTab("WAITING_REFUND_INFO")}
+                                className="btn bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+                            >
+                                Xem danh sách ({waitingRefundCount})
+                            </button>
+                        </div>
+                    </div>
+                ) : null;
+            })()}
+
             {/* TABS */}
-            <div className="flex gap-6 border-b pb-2 text-sm font-medium">
+            <div className="flex gap-6 border-b pb-2 text-sm font-medium flex-wrap">
                 {[
                     { key: "ALL", label: "Tất cả" },
                     { key: "PENDING", label: "Chờ xác nhận" },
@@ -324,6 +386,7 @@ export default function BillList() {
                     { key: "PAID", label: "Hoàn thành" },
                     { key: "CANCELLED", label: "Đã hủy" },
                     { key: "FAILED", label: "Thất bại" },
+                    { key: "WAITING_REFUND_INFO", label: "Chờ hoàn tiền" },
                     { key: "REFUNDED", label: "Hoàn tiền" },
                 ].map((tab) => (
                     <button

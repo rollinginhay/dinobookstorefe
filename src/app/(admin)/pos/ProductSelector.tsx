@@ -36,8 +36,8 @@ export default function ProductSelector({
     const calculateDiscountedPrice = (product: any) => {
         if (!campaigns || campaigns.length === 0) {
             return { 
-                discountedPrice: product.salePrice, 
-                originalPrice: product.salePrice, 
+                discountedPrice: product.supplyPrice, 
+                originalPrice: product.supplyPrice, 
                 hasDiscount: false 
             };
         }
@@ -55,17 +55,17 @@ export default function ProductSelector({
 
         if (applicable.length > 0) {
             const discountAmount = applicable[0].value || 0;
-            const discountedPrice = Math.max(0, product.salePrice - discountAmount);
+            const discountedPrice = Math.max(0, product.supplyPrice - discountAmount);
             return {
                 discountedPrice: discountedPrice,
-                originalPrice: product.salePrice,
-                hasDiscount: discountedPrice < product.salePrice
+                originalPrice: product.supplyPrice,
+                hasDiscount: discountedPrice < product.supplyPrice
             };
         }
 
         return { 
-            discountedPrice: product.salePrice, 
-            originalPrice: product.salePrice, 
+            discountedPrice: product.supplyPrice, 
+            originalPrice: product.supplyPrice, 
             hasDiscount: false 
         };
     };
@@ -98,7 +98,7 @@ export default function ProductSelector({
             const matchAuthor = !filters.author || (p.author && p.author.toLowerCase().includes(filters.author.toLowerCase()));
 
             const matchPriceRange = !filters.priceRange || (() => {
-                const price = p.salePrice || 0;
+                const price = p.supplyPrice || 0;
                 switch (filters.priceRange) {
                     case "under100k":
                         return price < 100000;
@@ -307,6 +307,53 @@ export default function ProductSelector({
                         />
                     </div>
                 </div>
+
+                {/* Chọn tất cả sản phẩm - chỉ hiển thị khi multi mode */}
+                {multi && filteredProducts.length > 0 && (
+                    <div className="mb-3 flex items-center gap-2 pb-3 border-b">
+                        <input
+                            type="checkbox"
+                            id="select-all-products"
+                            checked={
+                                filteredProducts.length > 0 &&
+                                filteredProducts.every((p) => selectedIds.has(String(p.id)))
+                            }
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    // Chọn tất cả sản phẩm đã lọc
+                                    const allIds = new Set(selectedIds);
+                                    filteredProducts.forEach((p) => {
+                                        allIds.add(String(p.id));
+                                    });
+                                    setSelectedIds(allIds);
+                                } else {
+                                    // Bỏ chọn tất cả sản phẩm đã lọc
+                                    const filteredIds = new Set(
+                                        filteredProducts.map((p) => String(p.id))
+                                    );
+                                    const remainingIds = new Set(
+                                        Array.from(selectedIds).filter(
+                                            (id) => !filteredIds.has(id)
+                                        )
+                                    );
+                                    setSelectedIds(remainingIds);
+                                }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-pointer"
+                        />
+                        <label
+                            htmlFor="select-all-products"
+                            className="text-sm font-medium text-gray-700 cursor-pointer"
+                        >
+                            Chọn tất cả sản phẩm
+                            {filteredProducts.length > 0 && (
+                                <span className="text-gray-500 font-normal ml-1">
+                                    ({filteredProducts.length} sản phẩm)
+                                </span>
+                            )}
+                        </label>
+                    </div>
+                )}
 
                 {/* PRODUCT LIST */}
                 <div className="grid grid-cols-3 gap-4 max-h-[450px] overflow-y-auto mb-4">

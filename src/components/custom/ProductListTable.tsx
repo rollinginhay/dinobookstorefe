@@ -721,7 +721,7 @@ const ProductListTable: React.FC = () => {
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
                                         {(() => {
-                                            const price = row.copy.salePrice;
+                                            const price = row.copy.supplyPrice;
                                             if (!price || isNaN(price)) {
                                                 return "Không có giá";
                                             }
