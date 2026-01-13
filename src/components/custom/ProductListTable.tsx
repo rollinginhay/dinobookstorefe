@@ -37,9 +37,12 @@ const ProductListTable: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
-    // Fetch tất cả books (không dùng pagination từ API) để có đủ data cho filter
-    // ✅ SỬA: Không gửi keyword lên API, sẽ filter ở client-side để đảm bảo tìm kiếm hoạt động
-    const {bookQuery, bookDelete} = useBook(0, fetchLimit, enabled ?? true, "");
+    // ✅ SỬA: Khi enabled = null, gọi API 2 lần (true và false) rồi merge để lấy tất cả sách
+    const enabledForApi = enabled !== null ? enabled : true; // Dùng true làm mặc định cho API
+    const {bookQuery, bookDelete} = useBook(0, fetchLimit, enabledForApi, "");
+    
+    // Khi enabled = null, cần gọi thêm query với enabled = false để lấy tất cả
+    const {bookQuery: bookQueryDisabled} = useBook(0, fetchLimit, false, "");
 
     const formRef: any = useRef(null);
 
@@ -77,6 +80,9 @@ const ProductListTable: React.FC = () => {
         
         const handleFocus = () => {
             bookQuery.refetch();
+            if (enabled === null) {
+                bookQueryDisabled.refetch();
+            }
             genreQuery.refetch();
             publisherQuery.refetch();
             creatorQuery.refetch();
@@ -85,6 +91,9 @@ const ProductListTable: React.FC = () => {
         const handleVisibilityChange = () => {
             if (!document.hidden) {
                 bookQuery.refetch();
+                if (enabled === null) {
+                    bookQueryDisabled.refetch();
+                }
                 genreQuery.refetch();
                 publisherQuery.refetch();
                 creatorQuery.refetch();
@@ -98,28 +107,113 @@ const ProductListTable: React.FC = () => {
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [bookQuery, genreQuery, publisherQuery, creatorQuery]);
+    }, [bookQuery, bookQueryDisabled, enabled, genreQuery, publisherQuery, creatorQuery]);
 
     // ✅ Polling: Tự động refresh mỗi 30 giây để cập nhật danh sách sách
     useEffect(() => {
-        if (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading) return;
+        const isLoadingAny = enabled === null
+            ? (bookQuery.isLoading || bookQueryDisabled.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading)
+            : (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading);
+        
+        if (isLoadingAny) return;
         
         const interval = setInterval(() => {
             bookQuery.refetch();
+            if (enabled === null) {
+                bookQueryDisabled.refetch();
+            }
             genreQuery.refetch();
             publisherQuery.refetch();
             creatorQuery.refetch();
         }, 30000); // Refresh mỗi 30 giây
 
         return () => clearInterval(interval);
-    }, [bookQuery, genreQuery, publisherQuery, creatorQuery]);
+    }, [bookQuery, bookQueryDisabled, enabled, genreQuery, publisherQuery, creatorQuery]);
 
-    if (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading) {
+    // Khi enabled = null, cần đợi cả 2 query hoàn thành
+    const isLoadingAll = enabled === null 
+        ? (bookQuery.isLoading || bookQueryDisabled.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading)
+        : (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading);
+    
+    if (isLoadingAll) {
         return <p className="p-6">Đang tải...</p>;
     }
-    const resBody = bookQuery.data;
-    let items: any[] = resBody?.data || [];
-    const meta = resBody?.meta;
+    
+    // ✅ Helper function: Map included data vào bookCopies để có đầy đủ attributes
+    const mapIncludedToBookCopies = (book: any, included: any[] = []) => {
+        if (!book.bookCopies?.data || !Array.isArray(book.bookCopies.data)) {
+            return book;
+        }
+        
+        // Tạo map từ included để lookup nhanh
+        const includedMap = new Map();
+        included.forEach((item: any) => {
+            if (item.type === "bookDetail" && item.id) {
+                includedMap.set(String(item.id), item);
+            }
+        });
+        
+        // Map attributes từ included vào bookCopies
+        book.bookCopies.data = book.bookCopies.data.map((copyRef: any) => {
+            const fullCopy = includedMap.get(String(copyRef.id));
+            if (fullCopy) {
+                // Merge attributes vào copy
+                return {
+                    ...copyRef,
+                    ...fullCopy.attributes,
+                    id: copyRef.id,
+                    type: copyRef.type
+                };
+            }
+            return copyRef;
+        });
+        
+        return book;
+    };
+    
+    // ✅ Merge data từ 2 query khi enabled = null
+    let items: any[] = [];
+    let includedData: any[] = [];
+    
+    if (enabled === null) {
+        // Merge data từ cả 2 query (enabled = true và enabled = false)
+        const enabledItems = bookQuery.data?.data || [];
+        const disabledItems = bookQueryDisabled.data?.data || [];
+        const enabledIncluded = bookQuery.data?.included || [];
+        const disabledIncluded = bookQueryDisabled.data?.included || [];
+        
+        // Merge included từ cả 2 query
+        includedData = [...enabledIncluded, ...disabledIncluded];
+        
+        // Tạo Map để tránh duplicate (key = book.id)
+        const itemsMap = new Map();
+        enabledItems.forEach((book: any) => {
+            itemsMap.set(book.id, book);
+        });
+        disabledItems.forEach((book: any) => {
+            if (!itemsMap.has(book.id)) {
+                itemsMap.set(book.id, book);
+            } else {
+                // Merge bookCopies nếu book đã tồn tại
+                const existingBook = itemsMap.get(book.id);
+                const existingCopies = existingBook.bookCopies?.data || [];
+                const newCopies = book.bookCopies?.data || [];
+                existingBook.bookCopies = {
+                    data: [...existingCopies, ...newCopies]
+                };
+            }
+        });
+        items = Array.from(itemsMap.values());
+    } else {
+        const resBody = bookQuery.data;
+        items = resBody?.data || [];
+        includedData = resBody?.included || [];
+    }
+    
+    // ✅ Map included vào bookCopies để có đầy đủ attributes
+    items = items.map(book => mapIncludedToBookCopies(book, includedData));
+    
+    const meta = bookQuery.data?.meta;
     
     // ✅ THÊM: Filter client-side theo keyword để đảm bảo tìm kiếm hoạt động
     if (keyword && keyword.trim()) {
@@ -131,20 +225,36 @@ const ProductListTable: React.FC = () => {
     }
     
     // Tạo mảng rows để hiển thị: mỗi copy là một row (bao gồm cả ngừng bán)
+    // ✅ SỬA: Hiển thị cả sách không có bookCopy (tạo row placeholder)
     const tableRows: any[] = [];
     items.forEach((book) => {
         const allCopies = book.bookCopies?.data || [];
-        allCopies.forEach((copy: any, copyIndex: number) => {
+        
+        // Nếu sách không có bookCopy, vẫn tạo 1 row để hiển thị
+        if (allCopies.length === 0) {
             tableRows.push({
                 bookId: book.id,
                 bookTitle: book.title,
                 bookEnabled: book.enabled,
-                book: book, // Lưu toàn bộ book để filter
-                copy: copy,
-                isFirstCopy: copyIndex === 0, // Để biết có merge cell không
-                totalCopies: allCopies.length
+                book: book,
+                copy: null, // Không có copy
+                isFirstCopy: true,
+                totalCopies: 0
             });
-        });
+        } else {
+            // Sách có bookCopy, tạo row cho mỗi copy
+            allCopies.forEach((copy: any, copyIndex: number) => {
+                tableRows.push({
+                    bookId: book.id,
+                    bookTitle: book.title,
+                    bookEnabled: book.enabled,
+                    book: book, // Lưu toàn bộ book để filter
+                    copy: copy,
+                    isFirstCopy: copyIndex === 0, // Để biết có merge cell không
+                    totalCopies: allCopies.length
+                });
+            });
+        }
     });
     
     // Apply filters
@@ -165,7 +275,13 @@ const ProductListTable: React.FC = () => {
         );
     }
     if (enabled !== null) {
-        filteredRows = filteredRows.filter(row => row.copy.enabled === enabled);
+        filteredRows = filteredRows.filter(row => {
+            // Nếu không có copy, dùng book.enabled
+            if (!row.copy) {
+                return row.book.enabled === enabled;
+            }
+            return row.copy.enabled === enabled;
+        });
     }
     if (startPublishedDate) {
         filteredRows = filteredRows.filter(row => {
@@ -202,7 +318,10 @@ const ProductListTable: React.FC = () => {
     filteredRows = filteredRows.map(row => {
         const bookKey = String(row.bookId);
         const groupRows = bookGroups[bookKey];
-        const indexInGroup = groupRows.findIndex(r => r.copy.id === row.copy.id);
+        // Xử lý khi copy = null (sách không có bookCopy)
+        const indexInGroup = row.copy 
+            ? groupRows.findIndex(r => r.copy && r.copy.id === row.copy.id)
+            : groupRows.findIndex(r => !r.copy);
         return {
             ...row,
             totalCopies: groupRows.length,
@@ -704,7 +823,7 @@ const ProductListTable: React.FC = () => {
                             const isHovered = hoveredBookId === row.bookId;
                             return (
                             <tr
-                                key={`${row.bookId}-${row.copy.id}-${i}`}
+                                key={`${row.bookId}-${row.copy?.id || 'no-copy'}-${i}`}
                                 className={`transition ${
                                     isHovered 
                                         ? "bg-gray-50 dark:bg-gray-900" 
@@ -717,7 +836,7 @@ const ProductListTable: React.FC = () => {
                                 {row.isFirstCopy && (
                                     <td 
                                         className="px-5 py-4 whitespace-nowrap"
-                                        rowSpan={row.totalCopies}
+                                        rowSpan={row.totalCopies || 1}
                                     >
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
                                             {actualIndex + 1}
@@ -729,7 +848,7 @@ const ProductListTable: React.FC = () => {
                                 {row.isFirstCopy && (
                                     <td 
                                         className="px-5 py-4 whitespace-nowrap"
-                                        rowSpan={row.totalCopies}
+                                        rowSpan={row.totalCopies || 1}
                                     >
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
                                             {"B" + row.bookId}
@@ -741,7 +860,7 @@ const ProductListTable: React.FC = () => {
                                 {row.isFirstCopy && (
                                     <td 
                                         className="px-5 py-4 whitespace-nowrap"
-                                        rowSpan={row.totalCopies}
+                                        rowSpan={row.totalCopies || 1}
                                     >
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-medium text-gray-700 dark:text-gray-400">
@@ -755,7 +874,7 @@ const ProductListTable: React.FC = () => {
                                 {row.isFirstCopy && (
                                     <td 
                                         className="px-5 py-4 whitespace-nowrap"
-                                        rowSpan={row.totalCopies}
+                                        rowSpan={row.totalCopies || 1}
                                     >
                                         <p className="text-sm text-gray-700 dark:text-gray-400">
                                             {(() => {
@@ -769,14 +888,14 @@ const ProductListTable: React.FC = () => {
                                 {/* Định dạng - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {row.copy.bookFormat || "-"}
+                                        {row.copy?.bookFormat || "-"}
                                     </p>
                                 </td>
                                 
                                 {/* ISBN - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {row.copy.isbn || "Chưa có ISBN"}
+                                        {row.copy?.isbn || "Chưa có ISBN"}
                                     </p>
                                 </td>
                                 
@@ -784,11 +903,12 @@ const ProductListTable: React.FC = () => {
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
                                         {(() => {
+                                            if (!row.copy) return "Chưa có chi tiết";
                                             const price = row.copy.supplyPrice;
-                                            if (!price || isNaN(price)) {
+                                            if (!price || isNaN(Number(price))) {
                                                 return "Không có giá";
                                             }
-                                            return getVND(price);
+                                            return getVND(Number(price));
                                         })()}
                                     </p>
                                 </td>
@@ -796,13 +916,23 @@ const ProductListTable: React.FC = () => {
                                 {/* Tồn kho - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
                                     <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        {parseInt(row.copy.stock) || 0}
+                                        {row.copy ? (parseInt(row.copy.stock) || 0) : 0}
                                     </p>
                                 </td>
                                 
                                 {/* Trạng thái - mỗi copy một dòng */}
                                 <td className="px-5 py-4 whitespace-nowrap">
                   {(() => {
+                    // ✅ Xử lý khi không có copy: hiển thị "Chưa có chi tiết"
+                    if (!row.copy) {
+                        return (
+                            <span
+                                className="text-xs rounded-full px-2 py-0.5 font-medium bg-yellow-50 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-500"
+                            >
+                                Chưa có chi tiết
+                            </span>
+                        );
+                    }
                     // ✅ Tự động tính enabled dựa trên stock: stock > 0 → enabled = true, stock = 0 → enabled = false
                     const stock = Number(row.copy.stock || 0);
                     const effectiveEnabled = stock > 0 ? (row.copy.enabled !== false) : false;
@@ -825,7 +955,7 @@ const ProductListTable: React.FC = () => {
                                 {row.isFirstCopy && (
                                     <td 
                                         className="px-5 py-4"
-                                        rowSpan={row.totalCopies}
+                                        rowSpan={row.totalCopies || 1}
                                     >
                                         <TableActionButtons
                                             viewLink={`/book/${row.bookId}`}

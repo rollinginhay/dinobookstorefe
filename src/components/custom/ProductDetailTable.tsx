@@ -51,7 +51,7 @@ const ProductDetailTable: React.FC = () => {
         dimensions: "",
         printLength: "",
         stock: "",
-        salePrice: "",
+        supplyPrice: "",
     };
 
     const isEditing = useRef(false);
@@ -62,7 +62,7 @@ const ProductDetailTable: React.FC = () => {
         bookFormat: "",
         printLength: "",
         dimensions: "",
-        salePrice: "",
+        supplyPrice: "",
         stock: ""
     });
 
@@ -108,7 +108,7 @@ const ProductDetailTable: React.FC = () => {
             bookFormat: "",
             printLength: "",
             dimensions: "",
-            salePrice: "",
+            supplyPrice: "",
             stock: ""
         };
         
@@ -217,7 +217,7 @@ const ProductDetailTable: React.FC = () => {
             bookFormat: "",
             printLength: "",
             dimensions: "",
-            salePrice: "",
+            supplyPrice: "",
             stock: ""
         });
     }
@@ -260,7 +260,7 @@ return (
               bookFormat: "",
               printLength: "",
               dimensions: "",
-              salePrice: "",
+              supplyPrice: "",
               stock: ""
             });
             openModal();
@@ -398,7 +398,7 @@ return (
                         bookFormat: String(e.bookFormat || ""),
                         printLength: String(e.printLength || ""),
                         stock: String(e.stock || ""),
-                        salePrice: String(e.salePrice || ""),
+                        supplyPrice: String(e.supplyPrice || ""),
                       };
                       // Parse dimensions nếu có (format: "14 x 20 cm")
                       if (e.dimensions && typeof e.dimensions === "string") {
@@ -421,7 +421,7 @@ return (
                         bookFormat: "",
                         printLength: "",
                         dimensions: "",
-                        salePrice: "",
+                        supplyPrice: "",
                         stock: ""
                       });
                       openModal();
@@ -568,24 +568,24 @@ return (
           </div>
 
           <div>
-            <Label>Giá bán</Label>
+            <Label>Giá nhập</Label>
             <Input
               type="number"
               placeholder="Giá"
-              value={editingItem.salePrice}
+              value={editingItem.supplyPrice}
               onChange={(e) => {
                 setEditingItem((prev) => ({
                   ...prev,
-                  salePrice: e.target.value,
+                  supplyPrice: e.target.value,
                 }));
                 if (e.target.value.trim() && !isNaN(parseInt(e.target.value)) && parseInt(e.target.value) > 0) {
-                  setErrors(prev => ({ ...prev, salePrice: "" }));
+                  setErrors(prev => ({ ...prev, supplyPrice: "" }));
                 }
               }}
-              className={errors.salePrice ? "border-red-500 focus:border-red-500" : ""}
+              className={errors.supplyPrice ? "border-red-500 focus:border-red-500" : ""}
             />
-            {errors.salePrice && (
-              <p className="mt-1 text-sm text-red-500">{errors.salePrice}</p>
+            {errors.supplyPrice && (
+              <p className="mt-1 text-sm text-red-500">{errors.supplyPrice}</p>
             )}
           </div>
 
