@@ -5,7 +5,6 @@ import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import {useBookProperty} from "@/hooks/api-calls/useBookProperty";
-import {isLetterWords, isParagraphNullable} from "@/lib/validation";
 import Label from "@/components/form/Label";
 
 interface PropertyFormProps {
@@ -29,17 +28,18 @@ export default function ProductPropertyForm({property, editData, onClose}: Prope
     const {propertyCreate, propertyUpdate} = useBookProperty(property);
 
     const validate = () => {
-        const newErrors: [{ [key: string]: string }] = [] as any;
-
-        if (!isLetterWords(formData.name, 2, 100)) {
-            newErrors.push({detail: "name", title: "Incorrect format"});
-        }
-        if (!isParagraphNullable(formData.note, 0, 200)) {
-            newErrors.push({detail: "note", title: "Incorrect format"});
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        // const newErrors: [{ [key: string]: string }] = [] as any;
+        //
+        // if (!isLetterWords(formData.name, 2, 100)) {
+        //     newErrors.push({detail: "name", title: "Incorrect format"});
+        // }
+        // if (!isParagraphNullable(formData.note, 0, 200)) {
+        //     newErrors.push({detail: "note", title: "Incorrect format"});
+        // }
+        //
+        // setErrors(newErrors);
+        // return Object.keys(newErrors).length === 0;
+        return true;
     };
 
     const handleChange = (e) => {
@@ -63,24 +63,24 @@ export default function ProductPropertyForm({property, editData, onClose}: Prope
     };
 
     return (
-        <ComponentCard title="Add">
+        <ComponentCard title="Thêm và sửa">
             <Form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 ">
                     <div>
-                        <Label>Name</Label>
+                        <Label>Tên</Label>
                         <Input type="text" placeholder="Name" name="name" defaultValue={formData.name}
                                onChange={handleChange}/>
                         <p className="text-red-400">{errors.filter((e) => e.detail === "name")?.[0]?.title}</p>
 
                     </div>
                     <div>
-                        <Label>Note</Label>
+                        <Label>Ghi chú</Label>
                         <Input type="text" placeholder="Note" name="note" onChange={handleChange}
                                defaultValue={formData.note}/>
                         <p className="text-red-400">{errors.filter((e) => e.detail === "note")?.[0]?.title}</p>
                     </div>
                     <div>
-                        <Label>Status</Label>
+                        <Label>Trạng thái</Label>
                         <select
                             name="enabled"
                             value={formData.enabled}
@@ -93,7 +93,7 @@ export default function ProductPropertyForm({property, editData, onClose}: Prope
                     </div>
                     <div className="col-span-full">
                         <Button className="w-full" size="sm">
-                            Submit
+                            Lưu
                         </Button>
                         <p className="text-red-400">{errors.filter((e) => e.detail === "server")?.[0]?.title}</p>
                     </div>
