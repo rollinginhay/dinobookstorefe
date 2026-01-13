@@ -1109,25 +1109,25 @@ export default function BillDetailPage() {
                         <tbody>
                         {items.map((item, index) => (
                             <tr key={item.id} className="border-b">
-                                <td className="px-3 py-2 text-center align-middle">
+                                <td className="px-3 py-2 text-center">
                                   {index + 1}
                                 </td>
 
                                 <td className="px-3 py-2 text-center">
                                   <img
                                     src={item.image}
-                                    className="w-12 h-12 rounded border mx-auto object-cover"
+                                    className="w-12 h-12 rounded border object-cover"
                                   />
                                 </td>
 
-                                <td className="px-3 py-2 align-middle">
+                                <td className="px-3 py-2 ">
                                   <div className="flex items-center h-full">
                                     <span>{item.name}</span>
                                   </div>
                                 </td>
 
-                                <td className="px-3 py-2 text-center">
-                                    <div className="flex flex-col items-center">
+                                <td className="px-3 py-2">
+                                    <div className="flex flex-col ">
                                         {/* ✅ Giá đã giảm (ưu tiên pricePerUnit) */}
                                         <div className="text-red-600 font-semibold">
                                             {item.pricePerUnit.toLocaleString("vi-VN")} đ
@@ -1141,15 +1141,15 @@ export default function BillDetailPage() {
                                     </div>
                                 </td>
 
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-3 py-2">
                                   {/* Số lượng fix cứng, chỉ hiển thị, không thay đổi */}
-                                  <span className="w-8 text-center inline-block">
+                                  <span className="w-8  inline-block">
                                     {item.quantity}
                                   </span>
                                 </td>
 
-                                <td className="px-3 py-2 text-center font-medium">
-                                    <div className="flex flex-col items-center">
+                                <td className="px-3 py-2  font-medium">
+                                    <div className="flex flex-col ">
                                         {/* ✅ Thành tiền đã giảm */}
                                         <div className="text-red-600 font-bold">
                                             {(item.pricePerUnit * item.quantity).toLocaleString("vi-VN")} đ
