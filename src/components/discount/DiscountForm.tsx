@@ -175,7 +175,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
             imageUrl,
             bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
             salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
-            supplyPrice: Number(attrs.supplyPrice ?? bc.supplyPrice ?? 0),
             stock: Number(attrs.stock ?? bc.stock ?? 0),
             author: book.authorName || "",
           };
@@ -462,6 +461,44 @@ export default function DiscountForm({ mode, initialData }: Props) {
         toast.error("Vui lòng nhập giảm tối đa (VNĐ)");
         return false;
       }
+      
+      // Validation 1: maxDiscount < minTotal (nếu minTotal > 0)
+      if (formData.minTotal > 0 && formData.maxDiscount >= formData.minTotal) {
+        toast.error(
+          `Số tiền giảm tối đa (${formData.maxDiscount.toLocaleString()}đ) phải nhỏ hơn giá trị đơn hàng tối thiểu (${formData.minTotal.toLocaleString()}đ)`
+        );
+        return false;
+      }
+      
+      // Validation 2: finalDiscount < subTotal (đảm bảo giá phải trả > 0)
+      // Tính finalDiscount với minTotal làm giá trị tham chiếu (nếu minTotal > 0)
+      // hoặc với một giá trị tối thiểu hợp lý (ví dụ: maxDiscount * 2) nếu minTotal = 0
+      const testSubTotal = formData.minTotal > 0 
+        ? formData.minTotal 
+        : Math.max(formData.maxDiscount * 2, 100000); // Nếu minTotal = 0, dùng giá trị test
+      
+      const rawDiscount = (testSubTotal * formData.percentage) / 100;
+      const finalDiscount = Math.min(rawDiscount, formData.maxDiscount);
+      
+      if (finalDiscount >= testSubTotal) {
+        toast.error(
+          `Số tiền giảm giá (${finalDiscount.toLocaleString()}đ) phải nhỏ hơn tổng tiền đơn hàng để đảm bảo giá phải trả luôn > 0`
+        );
+        return false;
+      }
+      
+      // Kiểm tra với minTotal nếu có
+      if (formData.minTotal > 0) {
+        const minTotalRawDiscount = (formData.minTotal * formData.percentage) / 100;
+        const minTotalFinalDiscount = Math.min(minTotalRawDiscount, formData.maxDiscount);
+        
+        if (minTotalFinalDiscount >= formData.minTotal) {
+          toast.error(
+            `Với đơn hàng tối thiểu (${formData.minTotal.toLocaleString()}đ), số tiền giảm (${minTotalFinalDiscount.toLocaleString()}đ) phải nhỏ hơn để đảm bảo giá phải trả > 0`
+          );
+          return false;
+        }
+      }
     } else if (formData.campaignType === "FLAT_DISCOUNT") {
       if (!formData.maxDiscount || formData.maxDiscount <= 0) {
         toast.error("Số tiền giảm giá phải lớn hơn 0");
@@ -474,6 +511,23 @@ export default function DiscountForm({ mode, initialData }: Props) {
       if (!selectedProducts || selectedProducts.length === 0) {
         toast.error("Vui lòng chọn ít nhất một sản phẩm để áp dụng giảm giá");
         return false;
+      }
+      
+      // Validate: Số tiền giảm không được vượt quá giá của cuốn sách rẻ nhất
+      if (selectedProducts.length > 0 && formData.maxDiscount) {
+        const prices = selectedProducts
+          .map((p) => p.salePrice || 0)
+          .filter((price) => price > 0);
+        
+        if (prices.length > 0) {
+          const minPrice = Math.min(...prices);
+          if (formData.maxDiscount > minPrice) {
+            toast.error(
+              `Số tiền giảm giá (${formData.maxDiscount.toLocaleString()}đ) không được vượt quá giá của cuốn sách rẻ nhất trong nhóm (${minPrice.toLocaleString()}đ)`
+            );
+            return false;
+          }
+        }
       }
     }
 
@@ -691,7 +745,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
               disabled={isFieldDisabled("campaignType") || isFormReadOnly}
               className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="PERCENTAGE_PRODUCT">Giảm % theo sản phẩm</option>
+              <option value="PERCENTAGE_PRODUCT">Giảm số tiền cố định theo sản phẩm</option>
               <option value="PERCENTAGE_DISCOUNT">Giảm % theo đơn</option>
             </select>
             {isFieldDisabled("campaignType") && (
@@ -738,6 +792,26 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 <p className="text-xs text-gray-500 mt-1">
                   Mỗi sản phẩm trong combo sẽ được giảm số tiền này (ví dụ: 20,000đ cho mỗi cuốn sách)
                 </p>
+                {(() => {
+                  // Tính giá sách rẻ nhất trong nhóm sản phẩm đã chọn
+                  if (selectedProducts.length > 0 && formData.maxDiscount) {
+                    const prices = selectedProducts
+                      .map((p) => p.salePrice || 0)
+                      .filter((price) => price > 0);
+                    
+                    if (prices.length > 0) {
+                      const minPrice = Math.min(...prices);
+                      if (formData.maxDiscount > minPrice) {
+                        return (
+                          <p className="text-xs text-red-600 mt-1 font-medium">
+                            ⚠️ Cảnh báo: Số tiền giảm ({formData.maxDiscount.toLocaleString()}đ) vượt quá giá của cuốn sách rẻ nhất trong nhóm ({minPrice.toLocaleString()}đ). Vui lòng điều chỉnh lại.
+                          </p>
+                        );
+                      }
+                    }
+                  }
+                  return null;
+                })()}
                 {isFieldDisabled("maxDiscount") && (
                   <p className="text-xs text-amber-600 mt-1">
                     ⚠️ Số tiền giảm không thể thay đổi khi đợt giảm giá đang diễn ra
@@ -785,47 +859,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 {isFieldDisabled("percentage") && (
                   <p className="text-xs text-amber-600 mt-1">
                     ⚠️ Phần trăm giảm giá không thể thay đổi khi đợt giảm giá đang diễn ra
-                  </p>
-                )}
-              </div>
-              
-              {/* Giảm tối đa (VNĐ) - BẮT BUỘC với giảm % */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giảm tối đa (VNĐ) <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    name="maxDiscount"
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={formData.maxDiscount !== null && formData.maxDiscount !== undefined ? formData.maxDiscount : ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || value === null || value === undefined) {
-                        setFormData(prev => ({ ...prev, maxDiscount: null }));
-                      } else {
-                        const num = parseFloat(value);
-                        if (!isNaN(num) && num >= 0) {
-                          setFormData(prev => ({ ...prev, maxDiscount: num }));
-                        }
-                      }
-                    }}
-                    disabled={isFieldDisabled("maxDiscount") || isFormReadOnly}
-                    className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="Ví dụ: 50000"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    đ
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Số tiền giảm tối đa khi áp dụng phần trăm (ví dụ: 50,000đ)
-                </p>
-                {isFieldDisabled("maxDiscount") && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    ⚠️ Giảm tối đa không thể thay đổi khi đợt giảm giá đang diễn ra
                   </p>
                 )}
               </div>
@@ -903,7 +936,119 @@ export default function DiscountForm({ mode, initialData }: Props) {
             <p className="text-xs text-gray-500 mt-1">
               Đơn hàng phải đạt giá trị này mới được áp dụng giảm giá. <span className="font-medium">Nhập 0 nếu không yêu cầu giá trị tối thiểu</span>
             </p>
+            {(() => {
+              // Cảnh báo cho PERCENTAGE_DISCOUNT
+              if (formData.campaignType === "PERCENTAGE_DISCOUNT" && formData.minTotal > 0 && formData.maxDiscount) {
+                // Validation 1: maxDiscount < minTotal
+                if (formData.maxDiscount >= formData.minTotal) {
+                  return (
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      ⚠️ Cảnh báo: Giá trị đơn hàng tối thiểu ({formData.minTotal.toLocaleString()}đ) phải lớn hơn số tiền giảm tối đa ({formData.maxDiscount.toLocaleString()}đ)
+                    </p>
+                  );
+                }
+                
+                // Validation 2: finalDiscount < minTotal (đảm bảo giá phải trả > 0)
+                if (formData.percentage) {
+                  const minTotalRawDiscount = (formData.minTotal * formData.percentage) / 100;
+                  const minTotalFinalDiscount = Math.min(minTotalRawDiscount, formData.maxDiscount);
+                  
+                  if (minTotalFinalDiscount >= formData.minTotal) {
+                    return (
+                      <p className="text-xs text-red-600 mt-1 font-medium">
+                        ⚠️ Cảnh báo: Với đơn hàng tối thiểu ({formData.minTotal.toLocaleString()}đ), số tiền giảm ({minTotalFinalDiscount.toLocaleString()}đ) phải nhỏ hơn để đảm bảo giá phải trả &gt; 0
+                      </p>
+                    );
+                  }
+                }
+              }
+              return null;
+            })()}
           </div>
+          )}
+
+          {/* Giảm tối đa (VNĐ) - BẮT BUỘC với giảm % – đặt dưới minTotal */}
+          {formData.campaignType === "PERCENTAGE_DISCOUNT" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Giảm tối đa (VNĐ) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  name="maxDiscount"
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={formData.maxDiscount !== null && formData.maxDiscount !== undefined ? formData.maxDiscount : ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || value === null || value === undefined) {
+                      setFormData(prev => ({ ...prev, maxDiscount: null }));
+                    } else {
+                      const num = parseFloat(value);
+                      if (!isNaN(num) && num >= 0) {
+                        setFormData(prev => ({ ...prev, maxDiscount: num }));
+                      }
+                    }
+                  }}
+                  disabled={isFieldDisabled("maxDiscount") || isFormReadOnly}
+                  className="input w-full disabled:bg-gray-100 disabled:cursor-not-allowed pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="Ví dụ: 50000"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  đ
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Số tiền giảm tối đa khi áp dụng phần trăm (ví dụ: 50,000đ)
+              </p>
+              {(() => {
+                // Validation 1: maxDiscount < minTotal (nếu minTotal > 0)
+                if (formData.minTotal > 0 && formData.maxDiscount && formData.maxDiscount >= formData.minTotal) {
+                  return (
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      ⚠️ Cảnh báo: Số tiền giảm tối đa ({formData.maxDiscount.toLocaleString()}đ) phải nhỏ hơn giá trị đơn hàng tối thiểu ({formData.minTotal.toLocaleString()}đ)
+                    </p>
+                  );
+                }
+                
+                // Validation 2: finalDiscount < subTotal (đảm bảo giá phải trả > 0)
+                if (formData.percentage && formData.maxDiscount && formData.minTotal > 0) {
+                  const minTotalRawDiscount = (formData.minTotal * formData.percentage) / 100;
+                  const minTotalFinalDiscount = Math.min(minTotalRawDiscount, formData.maxDiscount);
+                  
+                  if (minTotalFinalDiscount >= formData.minTotal) {
+                    return (
+                      <p className="text-xs text-red-600 mt-1 font-medium">
+                        ⚠️ Cảnh báo: Với đơn hàng tối thiểu ({formData.minTotal.toLocaleString()}đ), số tiền giảm ({minTotalFinalDiscount.toLocaleString()}đ) phải nhỏ hơn để đảm bảo giá phải trả &gt; 0
+                      </p>
+                    );
+                  }
+                }
+                
+                // Kiểm tra với giá trị test nếu minTotal = 0
+                if (formData.percentage && formData.maxDiscount && formData.minTotal === 0) {
+                  const testSubTotal = Math.max(formData.maxDiscount * 2, 100000);
+                  const rawDiscount = (testSubTotal * formData.percentage) / 100;
+                  const finalDiscount = Math.min(rawDiscount, formData.maxDiscount);
+                  
+                  if (finalDiscount >= testSubTotal) {
+                    return (
+                      <p className="text-xs text-red-600 mt-1 font-medium">
+                        ⚠️ Cảnh báo: Số tiền giảm ({finalDiscount.toLocaleString()}đ) quá lớn so với phần trăm ({formData.percentage}%), có thể khiến giá phải trả ≤ 0. Vui lòng điều chỉnh lại.
+                      </p>
+                    );
+                  }
+                }
+                
+                return null;
+              })()}
+              {isFieldDisabled("maxDiscount") && (
+                <p className="text-xs text-amber-600 mt-1">
+                  ⚠️ Giảm tối đa không thể thay đổi khi đợt giảm giá đang diễn ra
+                </p>
+              )}
+            </div>
           )}
 
           {/* Ngày bắt đầu */}
@@ -995,7 +1140,7 @@ export default function DiscountForm({ mode, initialData }: Props) {
                       </p>
                     </div>
                     <div className="mt-2 border-t pt-3 space-y-2 max-h-60 overflow-y-auto">
-                      {selectedProducts.map((p) => (
+                      {selectedProducts.slice(0, 3).map((p) => (
                         <div
                           key={p.id}
                           className="flex items-center justify-between gap-3 text-sm bg-white border rounded-md px-3 py-2"
@@ -1014,8 +1159,8 @@ export default function DiscountForm({ mode, initialData }: Props) {
                 </div>
                               <div className="text-xs text-gray-500">
                                 {p.bookFormat && `${p.bookFormat} • `}
-                                {p.supplyPrice
-                                  ? `${p.supplyPrice.toLocaleString()}đ`
+                                {p.salePrice
+                                  ? `${p.salePrice.toLocaleString()}đ`
                                   : "Chưa có giá"}
                               </div>
                             </div>
@@ -1037,6 +1182,11 @@ export default function DiscountForm({ mode, initialData }: Props) {
                           </button>
                         </div>
                       ))}
+                      {selectedProducts.length > 3 && (
+                        <p className="text-xs text-gray-500 text-center">
+                          ... và {selectedProducts.length - 3} sản phẩm khác
+                        </p>
+                      )}
                     </div>
                   </>
                 ) : (

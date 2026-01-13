@@ -34,10 +34,13 @@ export default function ProductSelector({
 
     // ✅ THÊM: Function tính giá đã giảm cho sản phẩm
     const calculateDiscountedPrice = (product: any) => {
+        // Đảm bảo có giá trị mặc định nếu supplyPrice không tồn tại
+        const supplyPrice = product.supplyPrice ?? product.salePrice ?? 0;
+        
         if (!campaigns || campaigns.length === 0) {
             return { 
-                discountedPrice: product.supplyPrice, 
-                originalPrice: product.supplyPrice, 
+                discountedPrice: supplyPrice, 
+                originalPrice: supplyPrice, 
                 hasDiscount: false 
             };
         }
@@ -55,17 +58,17 @@ export default function ProductSelector({
 
         if (applicable.length > 0) {
             const discountAmount = applicable[0].value || 0;
-            const discountedPrice = Math.max(0, product.supplyPrice - discountAmount);
+            const discountedPrice = Math.max(0, supplyPrice - discountAmount);
             return {
                 discountedPrice: discountedPrice,
-                originalPrice: product.supplyPrice,
-                hasDiscount: discountedPrice < product.supplyPrice
+                originalPrice: supplyPrice,
+                hasDiscount: discountedPrice < supplyPrice
             };
         }
 
         return { 
-            discountedPrice: product.supplyPrice, 
-            originalPrice: product.supplyPrice, 
+            discountedPrice: supplyPrice, 
+            originalPrice: supplyPrice, 
             hasDiscount: false 
         };
     };
@@ -399,14 +402,17 @@ export default function ProductSelector({
                                 <div className="text-center mt-1">
                                     {(() => {
                                         const { discountedPrice, originalPrice, hasDiscount } = calculateDiscountedPrice(item);
+                                        // Đảm bảo giá trị là số hợp lệ trước khi gọi toLocaleString
+                                        const safeDiscountedPrice = Number(discountedPrice) || 0;
+                                        const safeOriginalPrice = Number(originalPrice) || 0;
                                         return (
                                             <div className="space-y-1">
                                                 <div className="text-red-600 font-bold">
-                                                    {discountedPrice.toLocaleString()}đ
+                                                    {safeDiscountedPrice.toLocaleString()}đ
                                                 </div>
                                                 {hasDiscount && (
                                                     <div className="text-gray-500 text-xs line-through">
-                                                        {originalPrice.toLocaleString()}đ
+                                                        {safeOriginalPrice.toLocaleString()}đ
                                                     </div>
                                                 )}
                                             </div>
