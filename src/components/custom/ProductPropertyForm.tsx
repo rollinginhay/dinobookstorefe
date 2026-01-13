@@ -5,7 +5,6 @@ import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import {useBookProperty} from "@/hooks/api-calls/useBookProperty";
-import {isLetterWords, isParagraphNullable} from "@/lib/validation";
 import Label from "@/components/form/Label";
 
 interface PropertyFormProps {
@@ -29,17 +28,18 @@ export default function ProductPropertyForm({property, editData, onClose}: Prope
     const {propertyCreate, propertyUpdate} = useBookProperty(property);
 
     const validate = () => {
-        const newErrors: [{ [key: string]: string }] = [] as any;
-
-        if (!isLetterWords(formData.name, 2, 100)) {
-            newErrors.push({detail: "name", title: "Incorrect format"});
-        }
-        if (!isParagraphNullable(formData.note, 0, 200)) {
-            newErrors.push({detail: "note", title: "Incorrect format"});
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        // const newErrors: [{ [key: string]: string }] = [] as any;
+        //
+        // if (!isLetterWords(formData.name, 2, 100)) {
+        //     newErrors.push({detail: "name", title: "Incorrect format"});
+        // }
+        // if (!isParagraphNullable(formData.note, 0, 200)) {
+        //     newErrors.push({detail: "note", title: "Incorrect format"});
+        // }
+        //
+        // setErrors(newErrors);
+        // return Object.keys(newErrors).length === 0;
+        return true;
     };
 
     const handleChange = (e) => {
