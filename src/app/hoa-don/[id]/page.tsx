@@ -1055,12 +1055,13 @@ export default function HoaDon() {
                     </span>
                     <span className="text-gray-700">{info.phone}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {/* ✅ Tạm ẩn email */}
+                  {/* <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 min-w-[120px]">
                       Email:
                     </span>
                     <span className="text-gray-700">{info.email}</span>
-                  </div>
+                  </div> */}
                   <div className="flex items-start gap-2">
                     <span className="font-semibold text-gray-800 min-w-[120px]">
                       Địa chỉ:

@@ -93,18 +93,20 @@ export default function ThanhToan() {
               userData.fullName ||
               "",
             phone: defaultAddress.phone || userData.phoneNumber || "",
-            email: userData.email || "",
+            // ✅ Bỏ auto fill email
+            // email: userData.email || "",
             address: defaultAddress.addressLine || "",
             city: defaultAddress.city || "",
             district: defaultAddress.district || "",
             ward: defaultAddress.ward || "",
           }));
         } else {
-          // Không có defaultAddress, chỉ fill email và fullName từ user
+          // Không có defaultAddress, chỉ fill fullName và phone từ user
           setFormData((prev) => ({
             ...prev,
             fullName: userData.personName || userData.fullName || "",
-            email: userData.email || "",
+            // ✅ Bỏ auto fill email
+            // email: userData.email || "",
             phone: userData.phoneNumber || "",
           }));
         }
@@ -640,7 +642,7 @@ export default function ThanhToan() {
                   Đặt hàng thành công
                 </h2>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Vui lòng kiểm tra email của bạn để xem chi tiết đơn hàng
+                  Cảm ơn bạn đã đặt hàng. Bạn có thể xem chi tiết đơn hàng bằng cách nhấn nút bên dưới.
                 </p>
                 <div className="flex gap-3">
                   <button
@@ -729,14 +731,13 @@ export default function ThanhToan() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email <span className="text-red-600">*</span>
+                      Email
                     </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="email@example.com"
                     />
@@ -1053,7 +1054,7 @@ export default function ThanhToan() {
 
               {/* Mô tả */}
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Vui lòng kiểm tra email của bạn để xem chi tiết đơn hàng
+                Cảm ơn bạn đã đặt hàng tại DinoBookStore
               </p>
 
               {/* 2 nút */}

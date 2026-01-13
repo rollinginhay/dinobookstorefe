@@ -596,7 +596,7 @@ export default function Home() {
                     Đề xuất
                   </p>
                   <h2 className="text-3xl font-bold text-slate-900">
-                    Tủ Sách Nổi Bật
+                    Tủ Sách Giảm Giá
                   </h2>
                 </div>
               </div>
