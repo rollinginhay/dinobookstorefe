@@ -3,8 +3,7 @@
     "strict": true,
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "suppressImplicitAnyIndexErrors": true,
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",

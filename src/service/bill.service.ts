@@ -220,7 +220,7 @@ export const BillService = {
                 || rd.attributes?.bookCopyId;
             
             // ✅ Ưu tiên tìm bookCopy từ included (giống POS page)
-            let bookCopy = null;
+            let bookCopy: any = null;
             if (bookDetailId) {
                 bookCopy = bookCopies.find((x) => String(x.id) === String(bookDetailId));
             }
