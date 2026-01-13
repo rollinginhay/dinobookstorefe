@@ -168,13 +168,21 @@ export default function DiscountForm({ mode, initialData }: Props) {
         .map((bc: any) => {
           // Xử lý cả JSON:API format (có attributes) và plain object
           const attrs = bc.attributes || bc;
+          const supplyPrice = Number(attrs.supplyPrice ?? bc.supplyPrice ?? 0);
+
           return {
             bookId,
             id: String(bc.id ?? attrs.id ?? ""),
-            title: title + ((attrs.bookFormat ?? bc.bookFormat) ? ` - ${attrs.bookFormat ?? bc.bookFormat}` : ""),
+            title:
+              title +
+              ((attrs.bookFormat ?? bc.bookFormat)
+                ? ` - ${attrs.bookFormat ?? bc.bookFormat}`
+                : ""),
             imageUrl,
             bookFormat: attrs.bookFormat ?? bc.bookFormat ?? "",
-            salePrice: Number(attrs.salePrice ?? bc.salePrice ?? 0),
+            // ✅ Luôn dùng supplyPrice làm giá gốc; giữ salePrice = supplyPrice để tránh lệ thuộc cột sale_price
+            salePrice: supplyPrice,
+            supplyPrice,
             stock: Number(attrs.stock ?? bc.stock ?? 0),
             author: book.authorName || "",
           };

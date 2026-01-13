@@ -159,10 +159,10 @@ export default function ProductSelector({
 
             {/* MODAL */}
             <div
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] bg-white shadow-xl rounded-lg p-6 z-[999]">
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] bg-white shadow-xl rounded-lg p-4 z-[999] flex flex-col">
                 {/* Header */}
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Chọn sản phẩm</h2>
+                <div className="flex justify-between items-center mb-3 flex-shrink-0">
+                    <h2 className="text-lg font-semibold">Chọn sản phẩm</h2>
                     <button
                         className="text-gray-500 hover:text-red-500 text-xl"
                         onClick={onClose}
@@ -242,7 +242,7 @@ export default function ProductSelector({
                 <input
                     type="text"
                     placeholder="Tìm kiếm sản phẩm theo tên..."
-                    className="w-full border px-4 py-2 rounded-md mb-4"
+                    className="w-full border px-3 py-1.5 rounded-md mb-3 text-sm flex-shrink-0"
                     value={searchTerm}
                     onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -251,7 +251,7 @@ export default function ProductSelector({
                 />
 
                 {/* BỘ LỌC */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-3 gap-2 mb-3 flex-shrink-0">
                     {/* Loại bìa */}
                     <div>
                         <label className="text-sm font-medium block mb-1">
@@ -313,7 +313,7 @@ export default function ProductSelector({
 
                 {/* Chọn tất cả sản phẩm - chỉ hiển thị khi multi mode */}
                 {multi && filteredProducts.length > 0 && (
-                    <div className="mb-3 flex items-center gap-2 pb-3 border-b">
+                    <div className="mb-2 flex items-center gap-2 pb-2 border-b flex-shrink-0">
                         <input
                             type="checkbox"
                             id="select-all-products"
@@ -359,7 +359,7 @@ export default function ProductSelector({
                 )}
 
                 {/* PRODUCT LIST */}
-                <div className="grid grid-cols-3 gap-4 max-h-[450px] overflow-y-auto mb-4">
+                <div className="grid grid-cols-3 gap-3 flex-1 overflow-y-auto mb-3 min-h-0">
                     {paginatedProducts.length > 0 ? (
                         paginatedProducts.map((item) => (
                             <div
@@ -391,11 +391,11 @@ export default function ProductSelector({
                                 <img
                                     src={item.imageUrl}
                                     alt={item.title}
-                                    className="w-20 h-20 mx-auto mb-3 object-cover"
+                                    className="w-16 h-20 mx-auto mb-2 object-cover"
                                 />
-                                <div className="text-center font-semibold text-sm">{item.title}</div>
+                                <div className="text-center font-semibold text-xs line-clamp-2">{item.title}</div>
                                 {item.bookFormat && (
-                                    <div className="text-center text-xs text-gray-500 mt-1">
+                                    <div className="text-center text-xs text-gray-500 mt-0.5">
                                         {item.bookFormat}
                                     </div>
                                 )}
@@ -419,7 +419,7 @@ export default function ProductSelector({
                                         );
                                     })()}
                                 </div>
-                                <div className="text-center text-xs gray-500 mt-1 font-semibold">
+                                <div className="text-center text-xs text-gray-500 mt-0.5 font-medium">
                                     {"Còn: " + (item.stock ?? 0)}
                                 </div>
 
@@ -434,7 +434,7 @@ export default function ProductSelector({
 
                 {/* PAGINATION */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t flex-shrink-0">
                         <div className="text-sm text-gray-600">
                             Hiển
                             thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} / {filteredProducts.length} sản
@@ -491,7 +491,7 @@ export default function ProductSelector({
 
                 {/* Nút xác nhận khi chọn nhiều sản phẩm */}
                 {multi && (
-                    <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                    <div className="mt-2 pt-2 border-t flex items-center justify-between flex-shrink-0">
                         <div className="text-sm text-gray-600">
                             Đã chọn{" "}
                             <span className="font-semibold">
