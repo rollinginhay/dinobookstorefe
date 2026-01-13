@@ -36,10 +36,8 @@ export default function HoaDon() {
       .catch(() => setBanks([]));
   }, []);
 
-  useEffect(() => {
+  const fetchReceipt = async () => {
     if (!receiptId) return;
-
-    const fetchReceipt = async () => {
       try {
         // ✅ ENDPOINT API: GET /v1/receipt/{receiptId}?e=true
         // ✅ Link: ${API_BASE_URL}/v1/receipt/${receiptId}?e=true
@@ -600,9 +598,40 @@ export default function HoaDon() {
       } finally {
         setLoading(false);
       }
+  };
+
+  useEffect(() => {
+    fetchReceipt();
+  }, [receiptId]);
+
+  // ✅ Tự động cập nhật khi window focus hoặc tab trở nên visible (giống trang quản lý hóa đơn)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchReceipt();
     };
 
-    fetchReceipt();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchReceipt();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [receiptId]);
+
+  // ✅ Polling: Tự động refresh mỗi 5 giây để cập nhật trạng thái
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchReceipt();
+    }, 5000); // Refresh mỗi 5 giây
+
+    return () => clearInterval(interval);
   }, [receiptId]);
 
   if (loading) {
@@ -839,6 +868,11 @@ export default function HoaDon() {
                       setRefundError("Vui lòng nhập tên chủ tài khoản");
                       return;
                     }
+                    // Validate tên chủ TK chỉ chứa chữ (có thể có khoảng trắng và dấu tiếng Việt)
+                    if (!/^[A-Za-zÀ-ỹ\s]+$/.test(refundInfo.refundAccountHolder.trim())) {
+                      setRefundError("Tên chủ tài khoản chỉ được nhập chữ");
+                      return;
+                    }
 
                     try {
                       setRefundError(null);
@@ -930,9 +964,11 @@ export default function HoaDon() {
                     <input
                       type="text"
                       value={refundInfo.refundAccountHolder}
-                      onChange={(e) =>
-                        setRefundInfo({ ...refundInfo, refundAccountHolder: e.target.value })
-                      }
+                      onChange={(e) => {
+                        // Chỉ cho phép nhập chữ, khoảng trắng và dấu tiếng Việt
+                        const value = e.target.value.replace(/[^A-Za-zÀ-ỹ\s]/g, "");
+                        setRefundInfo({ ...refundInfo, refundAccountHolder: value });
+                      }}
                       placeholder="Nhập tên chủ tài khoản"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                       required

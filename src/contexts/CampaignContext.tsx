@@ -37,6 +37,13 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     };
 
     loadCampaigns();
+    
+    // ✅ Re-fetch mỗi phút để update khi campaigns hết hạn
+    const interval = setInterval(() => {
+      loadCampaigns();
+    }, 60000); // 60 giây
+    
+    return () => clearInterval(interval);
   }, []);
 
   const calculatePrice = (

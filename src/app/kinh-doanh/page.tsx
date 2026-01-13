@@ -16,6 +16,8 @@ type SortOption =
 type ViewMode = "grid" | "list";
 
 export default function KinhDoanh() {
+  const { calculatePrice } = useCampaign(); // ✅ Lấy calculatePrice từ CampaignContext
+
   // =========================
   // STATE
   // =========================
@@ -356,43 +358,8 @@ export default function KinhDoanh() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* FILTER BAR – màu vàng như cũ */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* SEARCH */}
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="🔍 Tìm kiếm sách, tác giả..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-12 pr-4 py-3 border-2 border-yellow-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* SORT */}
-            <select
-              value={sortOption}
-              onChange={(e) => {
-                setSortOption(e.target.value as SortOption);
-                setCurrentPage(1);
-              }}
-              className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 text-sm font-semibold"
-            >
-              <option value="default">📊 Mặc định</option>
-              <option value="bestseller">🔥 Bán chạy</option>
-              <option value="newest">🆕 Mới nhất</option>
-              <option value="price-asc">💰 Giá thấp → cao</option>
-              <option value="price-desc">💰 Giá cao → thấp</option>
-            </select>
-          </div>
-        </div>
-
         {/* TOP BAR */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
             <span className="text-yellow-600 font-bold">
@@ -400,27 +367,21 @@ export default function KinhDoanh() {
             </span>{" "}
             sản phẩm
           </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                viewMode === "grid"
-                  ? "bg-yellow-600 text-white border-2 border-yellow-600"
-                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
-              }`}
+          <div className="flex gap-3 items-center">
+            <select
+              value={sortOption}
+              onChange={(e) => {
+                setSortOption(e.target.value as SortOption);
+                setCurrentPage(1);
+              }}
+              className="px-6 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 text-sm font-semibold"
             >
-              🔲 Grid
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                viewMode === "list"
-                  ? "bg-orange-600 text-white border-2 border-orange-600"
-                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              ☰ List
-            </button>
+              <option value="default">📊 Mặc định</option>
+              <option value="bestseller">🔥 Bán chạy</option>
+              <option value="newest">🆕 Mới nhất</option>
+              <option value="price-asc">💰 Giá thấp → cao</option>
+              <option value="price-desc">💰 Giá cao → thấp</option>
+            </select>
           </div>
         </div>
 

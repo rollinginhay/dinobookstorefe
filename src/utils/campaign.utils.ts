@@ -79,18 +79,39 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
     
     const filtered = converted
       .filter((c: any) => {
-        // Chỉ lấy campaigns đang hoạt động
+        // ✅ LUÔN LUÔN check date range cho TẤT CẢ campaigns (kể cả PERCENTAGE_PRODUCT)
+        // ✅ Backend không check date cho PERCENTAGE_PRODUCT, nên frontend PHẢI check
+        const campaignType = c.campaignType;
+        
         if (c.startDate && c.endDate) {
           try {
             const startDate = new Date(c.startDate);
             const endDate = new Date(c.endDate);
             endDate.setHours(23, 59, 59, 999);
-            return now >= startDate && now <= endDate;
+            const isActive = now >= startDate && now <= endDate;
+            if (!isActive) {
+              console.log("⏰ [fetchCampaigns] Campaign đã hết hạn:", {
+                id: c.id,
+                name: c.name,
+                type: campaignType,
+                startDate,
+                endDate,
+                now
+              });
+            }
+            return isActive;
           } catch (e) {
-            return true;
+            console.error("❌ [fetchCampaigns] Lỗi parse date:", e);
+            return false; // ✅ Nếu lỗi parse date, không giữ campaign
           }
         }
-        return true;
+        
+        // ✅ Nếu không có date range: Bỏ tất cả (không giữ campaigns không có date range)
+        console.log("⚠️ [fetchCampaigns] Campaign không có date range (bỏ qua):", {
+          id: c.id,
+          type: campaignType
+        });
+        return false;
       })
       .map((c: any) => {
         // Map campaignType sang type (giống admin POS)

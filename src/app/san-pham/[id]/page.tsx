@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -27,8 +27,8 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const [campaignDiscount, setCampaignDiscount] = useState<number>(0);
   const [campaignName, setCampaignName] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchBookAndRelated() {
+  // ✅ Refactor: Định nghĩa hàm fetchBookAndRelated với useCallback để có thể gọi từ nhiều nơi
+  const fetchBookAndRelated = useCallback(async () => {
       try {
         setLoading(true);
 
@@ -500,10 +500,46 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
       } finally {
         setLoading(false);
       }
-    }
-
-    fetchBookAndRelated();
   }, [bookId, router]);
+
+  // ✅ Fetch dữ liệu khi component mount hoặc bookId thay đổi
+  useEffect(() => {
+    fetchBookAndRelated();
+  }, [fetchBookAndRelated]);
+
+  // ✅ Tự động cập nhật khi window focus hoặc tab trở nên visible
+  useEffect(() => {
+    if (loading) return; // Không refetch khi đang loading
+    
+    const handleFocus = () => {
+      fetchBookAndRelated();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchBookAndRelated();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchBookAndRelated, loading]);
+
+  // ✅ Polling: Tự động refresh mỗi 30 giây để cập nhật thông tin sản phẩm
+  useEffect(() => {
+    if (loading) return; // Không refetch khi đang loading
+    
+    const interval = setInterval(() => {
+      fetchBookAndRelated();
+    }, 30000); // Refresh mỗi 30 giây
+
+    return () => clearInterval(interval);
+  }, [fetchBookAndRelated, loading]);
   // =========================
   // API TẠO HÓA ĐƠN
   // =========================
@@ -603,7 +639,16 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   console.log("💰 [Price] Giá gốc:", originalPrice || discountedPrice, "| Discount:", discount + "%", "| Giá sau giảm:", discountedPrice);
 
   const handleQuantityChange = (v: number) => {
-    if (v < 1 || v > 10) return;
+    if (v < 1) {
+      setQuantity(1);
+      return;
+    }
+    // Validate không cho vượt quá số lượng tồn kho
+    const maxStock = book?.sold || 0;
+    if (v > maxStock) {
+      setQuantity(maxStock);
+      return;
+    }
     setQuantity(v);
   };
 
@@ -611,7 +656,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     // Kiểm tra đăng nhập
     const token = localStorage.getItem("jwtToken");
     if (!token) {
-      router.push("/dang-nhap");
+      const currentPath = window.location.pathname + window.location.search;
+      console.log("🔍 [ProductDetail] Redirect đến đăng nhập với returnUrl:", currentPath);
+      router.push(`/dang-nhap?returnUrl=${encodeURIComponent(currentPath)}`);
       return;
     }
     addToCart(book, quantity);
@@ -621,7 +668,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     // Kiểm tra đăng nhập
     const token = localStorage.getItem("jwtToken");
     if (!token) {
-      router.push("/dang-nhap");
+      const currentPath = window.location.pathname + window.location.search;
+      console.log("🔍 [ProductDetail] Redirect đến đăng nhập với returnUrl (buyNow):", currentPath);
+      router.push(`/dang-nhap?returnUrl=${encodeURIComponent(currentPath)}`);
       return;
     }
 
@@ -837,12 +886,31 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                   <input
                     type="number"
                     value={quantity}
-                    onChange={(e) =>
-                      handleQuantityChange(parseInt(e.target.value) || 1)
-                    }
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      // Cho phép nhập rỗng tạm thời khi đang gõ
+                      if (inputValue === "") {
+                        setQuantity(1);
+                        return;
+                      }
+                      const numValue = parseInt(inputValue) || 1;
+                      handleQuantityChange(numValue);
+                    }}
+                    onBlur={(e) => {
+                      // Khi blur, đảm bảo giá trị hợp lệ
+                      const numValue = parseInt(e.target.value) || 1;
+                      const maxStock = book?.sold || 0;
+                      if (numValue < 1) {
+                        setQuantity(1);
+                      } else if (numValue > maxStock) {
+                        setQuantity(maxStock);
+                      } else {
+                        setQuantity(numValue);
+                      }
+                    }}
                     className="w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0"
                     min={1}
-                    max={10}
+                    max={book?.sold || 1}
                   />
                   <button
                     onClick={() => handleQuantityChange(quantity + 1)}

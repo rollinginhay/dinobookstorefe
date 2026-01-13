@@ -56,6 +56,7 @@ const STATUS_MAP: Record<
   cancelled: { label: "Đã hủy", color: "bg-gray-200 text-gray-600", dot: "bg-gray-500" },
   failed: { label: "Giao thất bại", color: "bg-red-100 text-red-600", dot: "bg-red-500" },
   refunded: { label: "Hoàn tiền", color: "bg-purple-100 text-purple-700", dot: "bg-purple-500" },
+  waiting_refund_info: { label: "Chờ thông tin hoàn tiền", color: "bg-yellow-100 text-yellow-700", dot: "bg-yellow-500" },
 };
 
 export default function TrangTaiKhoan() {
@@ -71,6 +72,8 @@ export default function TrangTaiKhoan() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showReturnConfirmModal, setShowReturnConfirmModal] = useState(false);
   const [returnReason, setReturnReason] = useState("");
@@ -260,7 +263,7 @@ export default function TrangTaiKhoan() {
   };
   const normalizeStatus = (status?: string) => (status || "").toLowerCase();
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (page: number = 1) => {
     const token = localStorage.getItem("jwtToken");
     const userId = localStorage.getItem("userId");
     if (!token || !API_BASE_URL || !userId) {
@@ -271,8 +274,9 @@ export default function TrangTaiKhoan() {
     try {
       setLoadingOrders(true);
       // Dùng endpoint receipts (có relationships) để lọc theo customer.id = userId
+      // Fetch tất cả rồi phân trang client-side
       const res = await fetch(
-        `${API_BASE_URL}/v1/receipts?e=true&page=0&limit=100&sort=updatedAt;desc`,
+        `${API_BASE_URL}/v1/receipts?e=true&page=0&limit=1000&sort=updatedAt;desc`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -348,6 +352,12 @@ export default function TrangTaiKhoan() {
     }
   };
 
+  // Tính toán phân trang
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = orders.slice(startIndex, endIndex);
+
   useEffect(() => {
     const token = localStorage.getItem("jwtToken");
     const userId = localStorage.getItem("userId");
@@ -359,6 +369,48 @@ export default function TrangTaiKhoan() {
     }
     setIsLoggedIn(true);
     fetchOrders();
+  }, []);
+
+  // ✅ Tự động cập nhật khi window focus hoặc tab trở nên visible
+  useEffect(() => {
+    const handleFocus = () => {
+      const token = localStorage.getItem("jwtToken");
+      const userId = localStorage.getItem("userId");
+      if (token && userId) {
+        fetchOrders();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const token = localStorage.getItem("jwtToken");
+        const userId = localStorage.getItem("userId");
+        if (token && userId) {
+          fetchOrders();
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // ✅ Polling: Tự động refresh mỗi 10 giây để cập nhật lịch sử đơn hàng
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const token = localStorage.getItem("jwtToken");
+      const userId = localStorage.getItem("userId");
+      if (token && userId) {
+        fetchOrders();
+      }
+    }, 10000); // Refresh mỗi 10 giây
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -438,27 +490,21 @@ export default function TrangTaiKhoan() {
     window.location.href = "/dang-nhap";
   };
 
-  if (!isLoggedIn) {
+  // Chỉ redirect khi đã loading xong VÀ vẫn chưa login (để tránh redirect khi đang check token)
+  if (!isLoggedIn && !loadingProfile && !loadingOrders) {
+    // Redirect về trang đăng nhập chỉ khi đã check xong và vẫn chưa login
+    if (typeof window !== "undefined") {
+      window.location.href = "/dang-nhap";
+    }
+    return null;
+  }
+
+  // Nếu đang loading, hiển thị loading state thay vì redirect
+  if (loadingProfile || loadingOrders) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-2xl p-8 text-center space-y-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Bạn chưa đăng nhập
-          </h1>
-          <p className="text-gray-600">
-            Vui lòng đăng nhập để xem và quản lý trang cá nhân của bạn tại Dino
-            Bookstore.
-          </p>
-          <Link
-            href="/dang-nhap"
-            className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors block"
-          >
-            Đăng nhập ngay
-          </Link>
-          <p className="text-xs text-gray-400">
-            Sau khi đăng nhập, bạn có thể xem thông tin cá nhân, lịch sử đơn
-            hàng và danh sách yêu thích.
-          </p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-600">Đang tải...</div>
         </div>
       </div>
     );
@@ -612,6 +658,7 @@ export default function TrangTaiKhoan() {
         throw new Error(data.message || "Hủy đơn thất bại");
       }
       await fetchOrders();
+      setCurrentPage(1); // Reset về trang 1 sau khi hủy đơn
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -643,6 +690,11 @@ export default function TrangTaiKhoan() {
     }
     if (!returnAccountName.trim()) {
       setActionError("Vui lòng nhập tên chủ tài khoản");
+      return;
+    }
+    // Validate tên chủ TK chỉ chứa chữ (có thể có khoảng trắng và dấu tiếng Việt)
+    if (!/^[A-Za-zÀ-ỹ\s]+$/.test(returnAccountName.trim())) {
+      setActionError("Tên chủ tài khoản chỉ được nhập chữ");
       return;
     }
     setActionError(null);
@@ -1063,8 +1115,9 @@ export default function TrangTaiKhoan() {
                   tại đây nhé!
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {orders.map((order) => {
+                <>
+                  <div className="space-y-3">
+                    {paginatedOrders.map((order) => {
                     const statusKey = normalizeStatus(order.status);
                     const canCancel = ["pending", "authorized"].includes(statusKey);
                     // Chỉ hiện nút "Yêu cầu trả hàng" khi status = PAID (theo spec)
@@ -1162,7 +1215,64 @@ export default function TrangTaiKhoan() {
                       </div>
                     );
                   })}
-                </div>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-6 flex justify-center">
+                      <nav className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ← Trước
+                        </button>
+
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                          // Hiển thị trang đầu, cuối, trang hiện tại và các trang xung quanh
+                          if (
+                            pageNum === 1 ||
+                            pageNum === totalPages ||
+                            (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                          ) {
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`px-4 py-2 text-sm font-medium rounded-lg border-2 ${
+                                  currentPage === pageNum
+                                    ? "bg-red-600 text-white border-red-600"
+                                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          } else if (
+                            pageNum === currentPage - 2 ||
+                            pageNum === currentPage + 2
+                          ) {
+                            return (
+                              <span key={pageNum} className="px-2 text-gray-500">
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Sau →
+                        </button>
+                      </nav>
+                    </div>
+                  )}
+                </>
               )}
             </section>
 
@@ -1269,7 +1379,11 @@ export default function TrangTaiKhoan() {
                 <input
                   type="text"
                   value={returnAccountName}
-                  onChange={(e) => setReturnAccountName(e.target.value)}
+                  onChange={(e) => {
+                    // Chỉ cho phép nhập chữ, khoảng trắng và dấu tiếng Việt
+                    const value = e.target.value.replace(/[^A-Za-zÀ-ỹ\s]/g, "");
+                    setReturnAccountName(value);
+                  }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
                   placeholder="VD: NGUYEN VAN A"
                 />

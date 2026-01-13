@@ -1,11 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import BookCard, { Book } from "@/components/BookCard";
 import Breadcrumb from "@/components/Breadcrumb";
 import FilterSidebar from "@/components/FilterSidebar";
 import { useCampaign } from "@/contexts/CampaignContext";
+
+const FilterSidebarDynamic = dynamic(
+  () => import("@/components/FilterSidebar"),
+  { ssr: false }
+);
 
 type SortOption =
   | "default"
@@ -16,8 +22,9 @@ type SortOption =
 
 type ViewMode = "grid" | "list";
 
-function KyNangSong() {
-  const { calculatePrice } = useCampaign(); // ✅ Lấy calculatePrice từ CampaignContext
+function TimKiemContent() {
+  const searchParams = useSearchParams();
+  const query = searchParams?.get("q") || "";
 
   // =========================
   // STATE
@@ -26,11 +33,11 @@ function KyNangSong() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allGenres, setAllGenres] = useState<string[]>([]);
-  const [page] = useState(0);
-  const limit = 50;
+  const limit = 100; // Tăng limit để có đủ sách để tìm kiếm
+  const { calculatePrice } = useCampaign();
 
   // =========================
-  // FETCH DATA (cấu trúc giống Sách nước ngoài)
+  // FETCH DATA
   // =========================
   useEffect(() => {
     async function fetchBooks() {
@@ -38,12 +45,8 @@ function KyNangSong() {
         setLoading(true);
         setError(null);
 
-        const parentGenre = "Kỹ năng sống";
-
         const res = await fetch(
-          `http://localhost:8080/v1/books?e=true&page=${page}&limit=${limit}&genre=${encodeURIComponent(
-            parentGenre
-          )}`
+          `http://localhost:8080/v1/books?e=true&page=0&limit=${limit}`
         );
 
         if (!res.ok) {
@@ -58,7 +61,6 @@ function KyNangSong() {
           includedMap.set(`${i.type}-${i.id}`, i)
         );
 
-        // Lấy genre con
         const genreSet = new Set<string>();
 
         json.data.forEach((item: any) => {
@@ -73,8 +75,7 @@ function KyNangSong() {
               name &&
               name !== "Sách trong nước" &&
               name !== "Sách nước ngoài" &&
-              name !== "Sách thiếu nhi" &&
-              name !== "Kỹ năng sống"
+              name !== "Sách thiếu nhi"
             ) {
               genreSet.add(name);
             }
@@ -85,7 +86,6 @@ function KyNangSong() {
 
         const parsed: Book[] =
           json.data?.map((item: any) => {
-            // AUTHORS
             const creatorIds =
               item.relationships?.creators?.data?.map((c: any) => c.id) || [];
 
@@ -98,7 +98,6 @@ function KyNangSong() {
                 .filter(Boolean)
                 .join(", ") || "Không rõ tác giả";
 
-            // GENRES
             const genreIds =
               item.relationships?.genres?.data?.map((g: any) => g.id) || [];
 
@@ -114,21 +113,15 @@ function KyNangSong() {
               (g: string) =>
                 g !== "Sách trong nước" &&
                 g !== "Sách nước ngoài" &&
-                g !== "Sách thiếu nhi" &&
-                g !== "Kỹ năng sống"
+                g !== "Sách thiếu nhi"
             );
 
             const genres = genreChildren.length > 0 ? genreChildren : ["Khác"];
 
-            // PRICE
             const copyIds =
               item.relationships?.bookCopies?.data?.map((b: any) => b.id) || [];
-
             const detailObj = includedMap.get(`bookDetail-${copyIds[0]}`);
             const detail = detailObj?.attributes || {};
-
-            // const detail =
-            //   includedMap.get(`bookDetail-${copyIds[0]}`)?.attributes || {};
 
             const publisherId = item.relationships?.publisher?.data?.id;
             const publisherName =
@@ -137,26 +130,32 @@ function KyNangSong() {
                   ?.name) ||
               "Không rõ";
 
-            // ✅ LẤY SUPPLY_PRICE LÀM GIÁ GỐC (KHÔNG DÙNG SALE_PRICE)
+            const soldValue = item.attributes?.sold ?? 0;
+
             const supplyPrice = detail.supplyPrice || 0;
             const bookDetailId = Number(copyIds[0]);
-            
-            // ✅ Tính giá đã giảm từ campaign PERCENTAGE_PRODUCT
+
             const productCampaignInfo = calculatePrice(bookDetailId, supplyPrice);
-            const discountedPrice = productCampaignInfo.hasDiscount ? productCampaignInfo.discountedPrice : supplyPrice;
+            const discountedPrice = productCampaignInfo.hasDiscount
+              ? productCampaignInfo.discountedPrice
+              : supplyPrice;
             const hasDiscount = productCampaignInfo.hasDiscount;
-            const discountAmount = hasDiscount ? supplyPrice - discountedPrice : 0;
-            const discount = hasDiscount ? Math.round((discountAmount / supplyPrice) * 100) : 0;
-            
+            const discountAmount = hasDiscount
+              ? supplyPrice - discountedPrice
+              : 0;
+            const discount = hasDiscount
+              ? Math.round((discountAmount / supplyPrice) * 100)
+              : 0;
+
             return {
               id: Number(item.id),
               title: item.attributes?.title,
               author: authors,
               genres,
-              price: discountedPrice, // ✅ Giá đã giảm (từ campaign hoặc supplyPrice)
-              originalPrice: hasDiscount ? supplyPrice : undefined, // ✅ Chỉ set originalPrice nếu có giảm giá
+              price: discountedPrice,
+              originalPrice: hasDiscount ? supplyPrice : undefined,
               discount: discount,
-              sold: item.attributes?.sold || 0,
+              sold: soldValue,
               description: item.attributes?.description || "",
               image: item.attributes?.imageUrl,
               publisher: publisherName,
@@ -176,14 +175,14 @@ function KyNangSong() {
     }
 
     fetchBooks();
-  }, [page, limit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // =========================
-  // CATEGORY + FILTER STATE
+  // FILTER STATE
   // =========================
   const allCategories = ["Tất cả", ...allGenres];
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [sortOption, setSortOption] = useState<SortOption>("default");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -203,7 +202,7 @@ function KyNangSong() {
   };
 
   // =========================
-  // COUNT PUBLISHER & PRICE
+  // COUNTS
   // =========================
   const publisherCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -239,12 +238,23 @@ function KyNangSong() {
   }, [books]);
 
   // =========================
-  // FILTERING
+  // FILTERING (Lọc theo query từ URL)
   // =========================
   const filteredBooks = useMemo(() => {
     let filtered = books;
 
-    // price
+    // ⭐ LỌC THEO QUERY (TỪ KHÓA TÌM KIẾM)
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      filtered = filtered.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.author.toLowerCase().includes(q) ||
+          (b.description || "").toLowerCase().includes(q)
+      );
+    }
+
+    // ⭐ LỌC THEO GIÁ
     if (filterValues.priceRange.length > 0) {
       filtered = filtered.filter((book) =>
         filterValues.priceRange.some((range: string) => {
@@ -255,38 +265,27 @@ function KyNangSong() {
       );
     }
 
-    // publisher
+    // ⭐ LỌC THEO NHÀ XUẤT BẢN
     if (filterValues.publisher.length > 0) {
       filtered = filtered.filter((book) =>
         filterValues.publisher.includes(book.publisher)
       );
     }
 
-    // search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q) ||
-          (b.description || "").toLowerCase().includes(q)
-      );
-    }
-
-    // genres (sidebar)
+    // ⭐ LỌC THEO GENRE CON (SIDEBAR)
     if (filterValues.genres && filterValues.genres.length > 0) {
       filtered = filtered.filter((b) =>
         b.genres?.some((g) => filterValues.genres.includes(g))
       );
     }
 
-    // category (dropdown)
+    // ⭐ LỌC THEO CATEGORY (dropdown trên Filter bar)
     if (selectedCategory !== "Tất cả") {
       filtered = filtered.filter((b) => b.genres?.includes(selectedCategory));
     }
 
     return filtered;
-  }, [books, searchQuery, selectedCategory, filterValues]);
+  }, [books, query, selectedCategory, filterValues]);
 
   // =========================
   // SORTING
@@ -296,7 +295,12 @@ function KyNangSong() {
 
     switch (sortOption) {
       case "bestseller":
-        return sorted.sort((a, b) => (b.sold || 0) - (a.sold || 0));
+        return sorted.sort((a, b) => {
+          const soldA = a.sold || 0;
+          const soldB = b.sold || 0;
+          if (soldB === soldA) return 0;
+          return soldB - soldA;
+        });
       case "newest":
         return sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
       case "price-asc":
@@ -338,26 +342,30 @@ function KyNangSong() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Breadcrumb
-        items={[{ label: "Trang chủ", href: "/" }, { label: "Kỹ năng sống" }]}
+        items={[
+          { label: "Trang chủ", href: "/" },
+          { label: "Kết quả tìm kiếm" },
+        ]}
       />
 
-      {/* HEADER — GIỮ MÀU XANH CỦA KNS */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold mb-3">💼 Kỹ Năng Sống</h1>
-          <p className="text-lg text-green-100">
-            Khám phá những cuốn sách hay nhất về phát triển bản thân và kỹ năng
-            sống
+      {/* HEADER */}
+      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4">
+          <h1 className="text-4xl font-bold mb-3">
+            🔍 Kết quả tìm kiếm cho từ khoá '{query}'
+          </h1>
+          <p className="text-lg text-red-100">
+            Tìm thấy {sortedBooks.length} kết quả
           </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* TOP BAR */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
-            <span className="text-green-600 font-bold">
+            <span className="text-red-600 font-bold">
               {sortedBooks.length}
             </span>{" "}
             sản phẩm
@@ -369,7 +377,7 @@ function KyNangSong() {
                 setSortOption(e.target.value as SortOption);
                 setCurrentPage(1);
               }}
-              className="px-6 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 text-sm font-semibold"
+              className="px-6 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 text-sm font-semibold"
             >
               <option value="default">📊 Mặc định</option>
               <option value="bestseller">🔥 Bán chạy</option>
@@ -380,11 +388,13 @@ function KyNangSong() {
           </div>
         </div>
 
-        {/* MAIN SECTION: sidebar + content */}
+        {/* ====================== */}
+        {/*   SIDEBAR + GRID LIST   */}
+        {/* ====================== */}
         <div className="flex gap-8">
           {/* SIDEBAR */}
           <div className="hidden lg:block w-64">
-            <FilterSidebar
+            <FilterSidebarDynamic
               onFilterChange={handleFilterChange}
               priceCounts={priceCounts}
               publisherCounts={publisherCounts}
@@ -392,7 +402,7 @@ function KyNangSong() {
             />
           </div>
 
-          {/* CONTENT */}
+          {/* MAIN LIST AREA */}
           <div className="flex-1">
             {paginatedBooks.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm p-12 text-center">
@@ -401,107 +411,121 @@ function KyNangSong() {
                   Không tìm thấy sách
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  {searchQuery
-                    ? `Không có kết quả cho "${searchQuery}"`
-                    : "Không có sách trong danh mục này"}
+                  Không có kết quả cho "{query}"
                 </p>
               </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
-                {paginatedBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
-              </div>
             ) : (
-              <div className="space-y-4">
-                {paginatedBooks.map((book) => (
-                  <div
-                    key={book.id}
-                    className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
-                  >
-                    <div className="aspect-[3/4] w-32 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg overflow-hidden relative flex-shrink-0">
-                      <img
-                        src={book.image}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        alt={book.title}
-                      />
-                    </div>
-
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">
-                        {book.title}
-                      </h3>
-
-                      <p className="text-gray-600 mb-2">
-                        Tác giả:{" "}
-                        <span className="font-medium">{book.author}</span>
-                      </p>
-
-                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">
-                        {book.description}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-red-600">
-                          {book.price.toLocaleString("vi-VN")} ₫
-                        </span>
-
-                        <a
-                          href={`/san-pham/${book.id}`}
-                          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-                        >
-                          Xem chi tiết
-                        </a>
-                      </div>
-                    </div>
+              <>
+                {viewMode === "grid" && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+                    {paginatedBooks.map((book) => (
+                      <BookCard key={book.id} book={book} />
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* PAGINATION */}
-            {totalPages > 1 && (
-              <div className="mt-16 flex justify-center">
-                <nav className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm border-2 border-gray-300 rounded-lg text-gray-600 bg-white disabled:opacity-50"
-                  >
-                    ← Trước
-                  </button>
+                {viewMode === "list" && (
+                  <div className="space-y-4">
+                    {paginatedBooks.map((book) => (
+                      <div
+                        key={book.id}
+                        className="bg-white rounded-xl shadow-sm p-6 flex gap-6 hover:shadow-lg transition-all"
+                      >
+                        <div className="aspect-[3/4] w-32 bg-gradient-to-br from-rose-50 to-red-100 rounded-lg overflow-hidden relative flex-shrink-0">
+                          <img
+                            src={book.image}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            alt={book.title}
+                          />
+                        </div>
 
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg border-2 ${
-                        currentPage === i + 1
-                          ? "bg-green-600 text-white border-green-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {book.title}
+                          </h3>
 
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm border-2 border-gray-300 rounded-lg text-gray-600 bg-white disabled:opacity-50"
-                  >
-                    Sau →
-                  </button>
-                </nav>
-              </div>
+                          <p className="text-gray-600 mb-2">
+                            Tác giả:{" "}
+                            <span className="font-medium">{book.author}</span>
+                          </p>
+
+                          <p className="text-sm text-gray-500 mb-4 line-clamp-2">
+                            {book.description}
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-red-600">
+                              {book.price.toLocaleString("vi-VN")} ₫
+                            </span>
+
+                            <a
+                              href={`/san-pham/${book.id}`}
+                              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                            >
+                              Xem chi tiết
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
+
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="mt-16 flex justify-center">
+            <nav className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                ← Trước
+              </button>
+
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                    currentPage === i + 1
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  } border-2`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-500 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sau →
+              </button>
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default dynamic(() => Promise.resolve(KyNangSong), { ssr: false });
+export default function TimKiem() {
+  return (
+    <Suspense fallback={
+      <div className="h-96 flex items-center justify-center text-gray-500 text-lg">
+        ⏳ Đang tải...
+      </div>
+    }>
+      <TimKiemContent />
+    </Suspense>
+  );
+}

@@ -78,9 +78,10 @@ export default function DangNhapPage() {
     setLoginLoading(true);
 
     try {
-      if (!validatePassword(loginForm.password)) {
-        throw new Error(passwordHint);
-      }
+      // Bỏ validate password khi đăng nhập (chỉ validate khi đăng ký)
+      // if (!validatePassword(loginForm.password)) {
+      //   throw new Error(passwordHint);
+      // }
 
       const data = await callAuthApi("/v1/auth/loginOnline", {
         email: loginForm.email,

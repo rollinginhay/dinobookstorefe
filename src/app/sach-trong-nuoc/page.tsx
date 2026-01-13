@@ -17,6 +17,8 @@ type SortOption =
 type ViewMode = "grid" | "list";
 
 function SachTrongNuoc() {
+  const { calculatePrice } = useCampaign(); // ✅ Lấy calculatePrice từ CampaignContext
+
   // =========================
   // STATE
   // =========================
@@ -350,58 +352,8 @@ function SachTrongNuoc() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* FILTER BAR – logic giống thiếu nhi, màu như sách trong nước */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* SEARCH */}
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="🔍 Tìm kiếm sách, tác giả..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-12 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500"
-              />
-              <svg
-                className="absolute left-4 top-3.5 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-
-            {/* CATEGORY + SORT */}
-            <div className="flex gap-3">
-              <select
-                value={sortOption}
-                onChange={(e) => {
-                  setSortOption(e.target.value as SortOption);
-                  setCurrentPage(1);
-                }}
-                className="px-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-              >
-                <option value="default">📊 Mặc định</option>
-                <option value="bestseller">🔥 Bán chạy</option>
-                <option value="newest">🆕 Mới nhất</option>
-                <option value="price-asc">💰 Giá thấp → cao</option>
-                <option value="price-desc">💰 Giá cao → thấp</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         {/* TOP BAR */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           <p className="text-gray-600 font-medium">
             Tìm thấy{" "}
             <span className="text-cyan-600 font-bold">
@@ -409,27 +361,21 @@ function SachTrongNuoc() {
             </span>{" "}
             sản phẩm
           </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                viewMode === "grid"
-                  ? "bg-purple-600 text-white border-2 border-purple-600"
-                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
-              }`}
+          <div className="flex gap-3 items-center">
+            <select
+              value={sortOption}
+              onChange={(e) => {
+                setSortOption(e.target.value as SortOption);
+                setCurrentPage(1);
+              }}
+              className="px-6 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
             >
-              🔲 Grid
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                viewMode === "list"
-                  ? "bg-pink-600 text-white border-2 border-pink-600"
-                  : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              ☰ List
-            </button>
+              <option value="default">📊 Mặc định</option>
+              <option value="bestseller">🔥 Bán chạy</option>
+              <option value="newest">🆕 Mới nhất</option>
+              <option value="price-asc">💰 Giá thấp → cao</option>
+              <option value="price-desc">💰 Giá cao → thấp</option>
+            </select>
           </div>
         </div>
 

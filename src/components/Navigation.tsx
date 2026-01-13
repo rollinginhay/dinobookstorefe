@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorite } from "@/contexts/FavoriteContext";
 
+interface SearchBook {
+  id: number;
+  title: string;
+  author: string;
+  image?: string;
+}
+
 export default function Navigation() {
+  const router = useRouter();
   const { totalItems } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchBook[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const { data: session, status } = useSession();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -62,6 +75,101 @@ export default function Navigation() {
     // Bắt buộc quay về trang đăng nhập
     window.location.href = "/dang-nhap";
   };
+
+  // Fetch books khi user nhập vào search bar (với debounce)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        const res = await fetch(
+          `http://localhost:8080/v1/books?e=true&page=0&limit=50`
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch books");
+        }
+
+        const json = await res.json();
+        const includedMap = new Map();
+        json.included?.forEach((i: any) =>
+          includedMap.set(`${i.type}-${i.id}`, i)
+        );
+
+        const queryLower = searchQuery.toLowerCase().trim();
+        const matched: SearchBook[] = [];
+
+        json.data?.forEach((item: any) => {
+          const title = item.attributes?.title || "";
+          const creatorIds =
+            item.relationships?.creators?.data?.map((c: any) => c.id) || [];
+          const authors =
+            creatorIds
+              .map((id: string) => {
+                const c = includedMap.get(`creator-${id}`);
+                return c?.attributes?.name;
+              })
+              .filter(Boolean)
+              .join(", ") || "";
+
+          // Tìm theo title hoặc author
+          if (
+            title.toLowerCase().includes(queryLower) ||
+            authors.toLowerCase().includes(queryLower)
+          ) {
+            matched.push({
+              id: Number(item.id),
+              title: title,
+              author: authors || "Không rõ tác giả",
+              image: item.attributes?.imageUrl,
+            });
+          }
+        });
+
+        // Giới hạn tối đa 5 kết quả
+        setSearchResults(matched.slice(0, 5));
+        setShowSuggestions(matched.length > 0);
+      } catch (error) {
+        console.error("Error searching books:", error);
+        setSearchResults([]);
+        setShowSuggestions(false);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Đóng suggestions khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleBookClick = (bookId: number) => {
+    setSearchQuery("");
+    setShowSuggestions(false);
+    router.push(`/san-pham/${bookId}`);
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      setShowSuggestions(false);
+      router.push(`/tim-kiem?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,13 +192,26 @@ export default function Navigation() {
           </Link>
 
           {/* Search Bar */}
-          <div className="flex-1 max-w-2xl w-full">
+          <div className="flex-1 max-w-2xl w-full" ref={searchRef}>
             <div className="relative">
               <input
                 type="text"
                 placeholder="Tìm kiếm sách, tác giả, NXB..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (searchResults.length > 0) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearchSubmit();
+                  }
+                }}
                 className="w-full px-5 py-3 pl-12 pr-24 border-2 border-red-200 rounded-full focus:outline-none focus:border-red-600 transition-colors placeholder:text-gray-400"
               />
               <svg
@@ -106,9 +227,57 @@ export default function Navigation() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-              <button className="absolute right-2 top-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-2 rounded-full font-semibold transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+              <button
+                onClick={handleSearchSubmit}
+                className="absolute right-2 top-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-2 rounded-full font-semibold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+              >
                 Tìm
               </button>
+
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && searchQuery.trim() && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-4 text-center text-gray-500">
+                      Đang tìm kiếm...
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="py-2">
+                      {searchResults.map((book) => (
+                        <button
+                          key={book.id}
+                          onClick={() => handleBookClick(book.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-left"
+                        >
+                          {book.image ? (
+                            <img
+                              src={book.image}
+                              alt={book.title}
+                              className="w-12 h-16 object-cover rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-16 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
+                              <span className="text-2xl">📚</span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">
+                              {book.title}
+                            </div>
+                            <div className="text-sm text-gray-500 truncate">
+                              {book.author}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500">
+                      Không tìm thấy sách nào
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -132,23 +301,21 @@ export default function Navigation() {
                     href="/tai-khoan"
                     className="flex items-center gap-2 max-w-[200px] group"
                   >
-                    {userAvatar ? (
-                      <img
-                        src={userAvatar}
-                        alt={userFullName ?? "User"}
-                        className="w-8 h-8 rounded-full border border-gray-200 group-hover:border-red-300 transition-colors"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-200" />
-                    )}
+                    {/* Avatar với gradient đỏ-cam và glow effect */}
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-lg font-bold text-white shadow-md">
+                        {(userFullName?.[0] || "U").toUpperCase()}
+                      </div>
+                      {/* Glow effect - halo màu hồng nhạt xung quanh */}
+                      <div className="absolute inset-0 rounded-2xl bg-red-200/30 blur-md -z-10 opacity-60"></div>
+                    </div>
 
                     <div className="flex flex-col text-left">
-                      <span className="text-xs text-gray-400">Xin chào,</span>
-                      <span className="text-sm font-semibold text-gray-700 truncate group-hover:text-red-600">
-                        {userFullName ?? "Người dùng"}
+                      <span className="text-xs font-semibold text-red-500 uppercase tracking-[0.2em]">
+                        DINO MEMBER
                       </span>
-                      <span className="text-[10px] text-red-500 uppercase tracking-wide">
-                        Trang cá nhân
+                      <span className="text-sm font-bold text-gray-900 truncate group-hover:text-red-600">
+                        {userFullName ?? "Người dùng"}
                       </span>
                     </div>
                   </Link>

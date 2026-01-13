@@ -59,8 +59,17 @@ export default function GioHang() {
   const handleQuantityChange = (cartDetailId: number, newQuantity: number) => {
     if (isNaN(newQuantity)) return;
 
-    if (newQuantity < 1) newQuantity = 1;
-    if (newQuantity > 10) newQuantity = 10;
+    // Tìm item để lấy stock
+    const item = currentCartItems.find(i => i.cartDetailId === cartDetailId);
+    if (!item) return;
+
+    const maxStock = getItemStock(item);
+    
+    if (newQuantity < 1) {
+      newQuantity = 1;
+    } else if (newQuantity > maxStock) {
+      newQuantity = maxStock;
+    }
 
     updateQuantity(cartDetailId, newQuantity);
   };
@@ -362,19 +371,36 @@ export default function GioHang() {
                                   value={
                                     isNaN(item.quantity) ? 1 : item.quantity
                                   }
-                                  onChange={(e) =>
-                                    !isOutOfStock &&
-                                    handleQuantityChange(
-                                      item.cartDetailId,
-                                      parseInt(e.target.value) || 1
-                                    )
-                                  }
+                                  onChange={(e) => {
+                                    if (isOutOfStock) return;
+                                    const inputValue = e.target.value;
+                                    // Cho phép nhập rỗng tạm thời khi đang gõ
+                                    if (inputValue === "") {
+                                      handleQuantityChange(item.cartDetailId, 1);
+                                      return;
+                                    }
+                                    const numValue = parseInt(inputValue) || 1;
+                                    handleQuantityChange(item.cartDetailId, numValue);
+                                  }}
+                                  onBlur={(e) => {
+                                    if (isOutOfStock) return;
+                                    // Khi blur, đảm bảo giá trị hợp lệ
+                                    const numValue = parseInt(e.target.value) || 1;
+                                    const maxStock = getItemStock(item);
+                                    if (numValue < 1) {
+                                      handleQuantityChange(item.cartDetailId, 1);
+                                    } else if (numValue > maxStock) {
+                                      handleQuantityChange(item.cartDetailId, maxStock);
+                                    } else {
+                                      handleQuantityChange(item.cartDetailId, numValue);
+                                    }
+                                  }}
                                   disabled={isOutOfStock}
                                   className={`w-16 text-center border-x border-gray-300 py-2 focus:outline-none focus:ring-0 ${
                                     isOutOfStock ? "cursor-not-allowed" : ""
                                   }`}
                                   min={1}
-                                  max={10}
+                                  max={getItemStock(item) || 1}
                                 />
 
                                 <button
