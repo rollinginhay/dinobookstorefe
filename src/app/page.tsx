@@ -511,13 +511,13 @@ export default function Home() {
     };
   }, [campaignsLoading]);
 
-  // ✅ Polling: Tự động refresh mỗi 30 giây để cập nhật danh sách sách và giá
+  // ✅ Polling: Tự động refresh mỗi 10 giây để cập nhật danh sách sách và giá
   useEffect(() => {
     const interval = setInterval(() => {
       if (!campaignsLoading) {
         fetchAllBooks();
       }
-    }, 30000); // Refresh mỗi 30 giây
+    }, 10000); // Refresh mỗi 10 giây
 
     return () => clearInterval(interval);
   }, [campaignsLoading]);

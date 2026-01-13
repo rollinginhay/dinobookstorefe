@@ -33,7 +33,6 @@ export default function ThanhToan() {
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successReceiptId, setSuccessReceiptId] = useState<string | null>(null);
-  const [saveAsDefault, setSaveAsDefault] = useState(true);
   const [prefillLocationDone, setPrefillLocationDone] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -100,7 +99,6 @@ export default function ThanhToan() {
             district: defaultAddress.district || "",
             ward: defaultAddress.ward || "",
           }));
-          setSaveAsDefault(true);
         } else {
           // Không có defaultAddress, chỉ fill email và fullName từ user
           setFormData((prev) => ({
@@ -247,8 +245,6 @@ export default function ThanhToan() {
   };
 
   const persistDefaultShipping = async () => {
-    if (!saveAsDefault) return;
-
     // Lưu địa chỉ mặc định vào backend thay vì localStorage
     try {
       const token = localStorage.getItem("jwtToken");
@@ -832,16 +828,6 @@ export default function ThanhToan() {
                     placeholder="Số nhà, tên đường..."
                   />
                 </div>
-
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={saveAsDefault}
-                    onChange={(e) => setSaveAsDefault(e.target.checked)}
-                    className="h-4 w-4 text-orange-500"
-                  />
-                  <span>Đặt làm địa chỉ mặc định</span>
-                </label>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

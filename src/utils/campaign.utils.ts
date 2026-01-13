@@ -127,7 +127,7 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
         if (c.campaignType === "PERCENTAGE_RECEIPT" || c.campaignType === "PERCENTAGE_DISCOUNT") {
           value = c.percentage || 0;
         } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
-          value = c.maxDiscount || 0; // Giảm cố định từ maxDiscount
+          value = c.percentage || 0; // ✅ SỬA: Giảm theo phần trăm (giống POS)
         }
         
         // Tạo label
@@ -138,7 +138,7 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
             label += ` (tối đa ${c.maxDiscount.toLocaleString()}đ)`;
           }
         } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
-          label = `Giảm ${(c.maxDiscount || 0).toLocaleString()}đ/sp`;
+          label = `Giảm ${c.percentage || 0}%`; // ✅ SỬA: Hiển thị phần trăm (giống POS)
         }
         
         return {
@@ -192,8 +192,10 @@ export function calculateDiscountedPrice(
   });
 
   if (applicable.length > 0) {
-    // ✅ Giảm giá cố định: pricePerUnit = originalPrice - discountAmount
-    const discountAmount = applicable[0].value || 0;
+    // ✅ SỬA: Giảm giá theo phần trăm (giống POS)
+    // value là phần trăm giảm giá (VD: 15 = 15%)
+    const percentage = applicable[0].value || 0;
+    const discountAmount = (originalPrice * percentage) / 100;
     const discountedPrice = Math.max(0, originalPrice - discountAmount);
     return {
       discountedPrice: discountedPrice,
