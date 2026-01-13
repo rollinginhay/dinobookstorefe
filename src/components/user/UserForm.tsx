@@ -904,10 +904,9 @@ export default function UserForm({ mode, initialData }: Props) {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`input w-full ${mode === "edit" ? "bg-gray-100 cursor-not-allowed" : ""}`}
+              className="input w-full"
               placeholder="example@email.com"
               required
-              disabled={mode === "edit"}
             />
           </div>
 

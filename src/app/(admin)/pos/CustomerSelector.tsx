@@ -79,7 +79,7 @@ export default function CustomerSelector({
                     onClick={() => setShowAddForm(true)}
                 >
                     + Thêm khách hàng
-                </button>
+                </button> 
 
                 {/* Bảng danh sách */}
                 <div className="border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
