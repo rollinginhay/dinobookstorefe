@@ -149,14 +149,14 @@ export default function TrangTaiKhoan() {
         console.log("📦 User ID:", userId);
         
         // Parse defaultAddress từ note field
-        let defaultAddress = null;
-        if (userData.note) {
-          try {
-            defaultAddress = JSON.parse(userData.note);
-          } catch (e) {
-            console.error("Lỗi parse defaultAddress từ note:", e);
-          }
-        }
+        // let defaultAddress = null;
+        // if (userData.note) {
+        //   try {
+        //     defaultAddress = JSON.parse(userData.note);
+        //   } catch (e) {
+        //     console.error("Lỗi parse defaultAddress từ note:", e);
+        //   }
+        // }
 
         const userInfo = {
           id: userId,
@@ -168,7 +168,7 @@ export default function TrangTaiKhoan() {
             userData.email ??
             (session?.user?.email || ""),
           phoneNumber: userData.phoneNumber ?? "",
-          defaultAddress: defaultAddress,
+          // defaultAddress: defaultAddress,
         };
         
         console.log("✅ Setting backendUser:", userInfo);
@@ -413,69 +413,69 @@ export default function TrangTaiKhoan() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!backendUser || backendUser.defaultAddress) return;
+  // useEffect(() => {
+  //   if (!backendUser || backendUser.defaultAddress) return;
 
-    try {
-      const saved = localStorage.getItem("defaultShippingInfo");
-      if (!saved) return;
-      const info = JSON.parse(saved);
+  //   try {
+  //     const saved = localStorage.getItem("defaultShippingInfo");
+  //     if (!saved) return;
+  //     const info = JSON.parse(saved);
 
-      setBackendUser((prev) => ({
-        ...(prev || { id: "local" }),
-        fullName:
-          prev?.fullName ||
-          info.fullName ||
-          info.receiverName ||
-          "Người dùng",
-        email: prev?.email || info.email || "",
-        phoneNumber: prev?.phoneNumber || info.phone || "",
-        defaultAddress: {
-          receiverName:
-            info.fullName ||
-            info.receiverName ||
-            prev?.defaultAddress?.receiverName ||
-            prev?.fullName,
-          phone: info.phone || prev?.defaultAddress?.phone,
-          addressLine:
-            info.addressLine ||
-            info.address ||
-            prev?.defaultAddress?.addressLine,
-          ward: info.ward || prev?.defaultAddress?.ward,
-          district: info.district || prev?.defaultAddress?.district,
-          city: info.city || prev?.defaultAddress?.city,
-        },
-      }));
-    } catch (err) {
-      console.error("Lỗi đọc defaultShippingInfo:", err);
-    }
-  }, [backendUser]);
+  //     setBackendUser((prev) => ({
+  //       ...(prev || { id: "local" }),
+  //       fullName:
+  //         prev?.fullName ||
+  //         info.fullName ||
+  //         info.receiverName ||
+  //         "Người dùng",
+  //       email: prev?.email || info.email || "",
+  //       phoneNumber: prev?.phoneNumber || info.phone || "",
+  //       defaultAddress: {
+  //         receiverName:
+  //           info.fullName ||
+  //           info.receiverName ||
+  //           prev?.defaultAddress?.receiverName ||
+  //           prev?.fullName,
+  //         phone: info.phone || prev?.defaultAddress?.phone,
+  //         addressLine:
+  //           info.addressLine ||
+  //           info.address ||
+  //           prev?.defaultAddress?.addressLine,
+  //         ward: info.ward || prev?.defaultAddress?.ward,
+  //         district: info.district || prev?.defaultAddress?.district,
+  //         city: info.city || prev?.defaultAddress?.city,
+  //       },
+  //     }));
+  //   } catch (err) {
+  //     console.error("Lỗi đọc defaultShippingInfo:", err);
+  //   }
+  // }, [backendUser]);
 
   // Prefill form thêm địa chỉ với địa chỉ mặc định (city/district/ward)
-  useEffect(() => {
-    const da = backendUser?.defaultAddress;
-    if (!da || !cities.length) return;
+  // useEffect(() => {
+  //   const da = backendUser?.defaultAddress;
+  //   if (!da || !cities.length) return;
 
-    const province = cities.find((c) => c.name === da.city);
-    const provinceCode = province?.code ? String(province.code) : "";
+  //   const province = cities.find((c) => c.name === da.city);
+  //   const provinceCode = province?.code ? String(province.code) : "";
 
-    setNewAddress((prev) => ({
-      ...prev,
-      receiverName: da.receiverName || prev.receiverName,
-      phone: da.phone || prev.phone,
-      addressLine: da.addressLine || prev.addressLine,
-      city: provinceCode,
-      district: "",
-      ward: "",
-    }));
+  //   setNewAddress((prev) => ({
+  //     ...prev,
+  //     receiverName: da.receiverName || prev.receiverName,
+  //     phone: da.phone || prev.phone,
+  //     addressLine: da.addressLine || prev.addressLine,
+  //     city: provinceCode,
+  //     district: "",
+  //     ward: "",
+  //   }));
 
-    if (provinceCode) {
-      handleCityChange(provinceCode, {
-        districtName: da.district,
-        wardName: da.ward,
-      });
-    }
-  }, [backendUser?.defaultAddress, cities]);
+  //   if (provinceCode) {
+  //     handleCityChange(provinceCode, {
+  //       districtName: da.district,
+  //       wardName: da.ward,
+  //     });
+  //   }
+  // }, [backendUser?.defaultAddress, cities]);
 
   const handleLogout = () => {
     localStorage.removeItem("jwtToken");
@@ -527,95 +527,95 @@ export default function TrangTaiKhoan() {
   };
 
   // Handle add new address
-  const handleAddAddress = async (e: FormEvent) => {
-    e.preventDefault();
-    setSavingAddress(true);
-    setAddressMessage(null);
+  // const handleAddAddress = async (e: FormEvent) => {
+  //   e.preventDefault();
+  //   setSavingAddress(true);
+  //   setAddressMessage(null);
 
-    try {
-      const token = localStorage.getItem("jwtToken");
-      if (!token || !API_BASE_URL) throw new Error("Không tìm thấy token/API");
+  //   try {
+  //     const token = localStorage.getItem("jwtToken");
+  //     if (!token || !API_BASE_URL) throw new Error("Không tìm thấy token/API");
 
-      const selectedCityName =
-        cities.find((c) => String(c.code) === String(newAddress.city))?.name ||
-        newAddress.city;
-      const selectedDistrictName =
-        districts.find((d) => String(d.code) === String(newAddress.district))?.name ||
-        newAddress.district;
+  //     const selectedCityName =
+  //       cities.find((c) => String(c.code) === String(newAddress.city))?.name ||
+  //       newAddress.city;
+  //     const selectedDistrictName =
+  //       districts.find((d) => String(d.code) === String(newAddress.district))?.name ||
+  //       newAddress.district;
       
-      // Format JSON:API như backend expect
-      const payload = {
-        data: {
-          type: "user",
-          id: "0", // Backend sẽ lấy từ token
-          attributes: {
-            personName: newAddress.receiverName,
-            phoneNumber: newAddress.phone,
-            address: `${newAddress.addressLine}, ${newAddress.ward}, ${selectedDistrictName}, ${selectedCityName}`,
-            // Lưu defaultAddress vào note field dưới dạng JSON string
-            note: JSON.stringify({
-              receiverName: newAddress.receiverName,
-              phone: newAddress.phone,
-              addressLine: newAddress.addressLine,
-              city: selectedCityName,
-              district: selectedDistrictName,
-              ward: newAddress.ward,
-            }),
-          },
-        },
-      };
+  //     // Format JSON:API như backend expect
+  //     const payload = {
+  //       data: {
+  //         type: "user",
+  //         id: "0", // Backend sẽ lấy từ token
+  //         attributes: {
+  //           personName: newAddress.receiverName,
+  //           phoneNumber: newAddress.phone,
+  //           address: `${newAddress.addressLine}, ${newAddress.ward}, ${selectedDistrictName}, ${selectedCityName}`,
+  //           // Lưu defaultAddress vào note field dưới dạng JSON string
+  //           note: JSON.stringify({
+  //             receiverName: newAddress.receiverName,
+  //             phone: newAddress.phone,
+  //             addressLine: newAddress.addressLine,
+  //             city: selectedCityName,
+  //             district: selectedDistrictName,
+  //             ward: newAddress.ward,
+  //           }),
+  //         },
+  //       },
+  //     };
 
-      const res = await fetch(`${API_BASE_URL}/v1/user/update`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/vnd.api+json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+  //     const res = await fetch(`${API_BASE_URL}/v1/user/update`, {
+  //       method: "PUT",
+  //       headers: {
+  //         "Content-Type": "application/vnd.api+json",
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       body: JSON.stringify(payload),
+  //     });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Thêm địa chỉ thất bại");
-      }
+  //     if (!res.ok) {
+  //       const errData = await res.json();
+  //       throw new Error(errData.message || "Thêm địa chỉ thất bại");
+  //     }
 
-      const data = await res.json();
-      const userData = data.data?.attributes || data;
+  //     const data = await res.json();
+  //     const userData = data.data?.attributes || data;
 
-      // Parse defaultAddress từ note field
-      let defaultAddress = null;
-      if (userData.note) {
-        try {
-          defaultAddress = JSON.parse(userData.note);
-        } catch (e) {
-          console.error("Lỗi parse defaultAddress từ note:", e);
-        }
-      }
+  //     // Parse defaultAddress từ note field
+  //     // let defaultAddress = null;
+  //     // if (userData.note) {
+  //     //   try {
+  //     //     defaultAddress = JSON.parse(userData.note);
+  //     //   } catch (e) {
+  //     //     console.error("Lỗi parse defaultAddress từ note:", e);
+  //     //   }
+  //     // }
 
-      // Update local backendUser
-      setBackendUser((prev) => ({
-        ...prev!,
-        defaultAddress: defaultAddress,
-        personName: userData.personName || prev?.personName,
-        phoneNumber: userData.phoneNumber || prev?.phoneNumber,
-      }));
+  //     // Update local backendUser
+  //     setBackendUser((prev) => ({
+  //       ...prev!,
+  //       // defaultAddress: defaultAddress,
+  //       fullName: userData.personName || prev?.fullName || "",
+  //       phoneNumber: userData.phoneNumber || prev?.phoneNumber,
+  //     }));
 
-      setAddressMessage("Đã thêm địa chỉ thành công!");
-      setNewAddress({
-        receiverName: "",
-        phone: "",
-        addressLine: "",
-        ward: "",
-        district: "",
-        city: "",
-      });
-    } catch (err: any) {
-      console.error("Lỗi thêm địa chỉ:", err);
-      setAddressMessage(err.message);
-    } finally {
-      setSavingAddress(false);
-    }
-  };
+  //     setAddressMessage("Đã thêm địa chỉ thành công!");
+  //     setNewAddress({
+  //       receiverName: "",
+  //       phone: "",
+  //       addressLine: "",
+  //       ward: "",
+  //       district: "",
+  //       city: "",
+  //     });
+  //   } catch (err: any) {
+  //     console.error("Lỗi thêm địa chỉ:", err);
+  //     setAddressMessage(err.message);
+  //   } finally {
+  //     setSavingAddress(false);
+  //   }
+  // };
 
   const renderStatusBadge = (status: string) => {
     const key = normalizeStatus(status);
@@ -932,14 +932,11 @@ export default function TrangTaiKhoan() {
                   )}
                 </div> */}
 
-                <div id="section-address" className="space-y-3 scroll-mt-32">
+                {/* <div id="section-address" className="space-y-3 scroll-mt-32">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-gray-900">
                       Địa chỉ giao hàng mặc định
                     </h4>
-                    {/* <span className="text-[11px] text-gray-400 italic">
-                      (Lấy từ backend nếu có)
-                    </span> */}
                   </div>
 
                   {backendUser?.defaultAddress ? (
@@ -967,7 +964,7 @@ export default function TrangTaiKhoan() {
                     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                       Chưa có địa chỉ giao hàng mặc định.
                     </div>
-                  )}
+                  )} */}
 
                   {/* Form thêm địa chỉ */}
                   {/* <form
@@ -1080,7 +1077,6 @@ export default function TrangTaiKhoan() {
                       {savingAddress ? "Đang lưu..." : "Lưu địa chỉ"}
                     </button>
                   </form> */}
-                </div>
               </div>
             </section>
 
