@@ -16,8 +16,8 @@ export function mapDiscountList(raw: any[]) {
         discountLabel = `${a.maxDiscount?.toLocaleString() || 0}đ`;
       }
     } else if (campaignType === "PERCENTAGE_PRODUCT") {
-      // Combo: giảm cố định cho mỗi sản phẩm
-      discountLabel = `${a.maxDiscount?.toLocaleString() || 0}đ`;
+      // Combo: giảm theo phần trăm cho mỗi sản phẩm
+      discountLabel = a.percentage ? `${a.percentage}%` : "0%";
     } else if (campaignType === "FLAT_DISCOUNT") {
       // Giảm cố định đơn hàng
       discountLabel = `${a.maxDiscount?.toLocaleString() || 0}đ`;
