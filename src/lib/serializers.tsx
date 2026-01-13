@@ -43,7 +43,6 @@ export function serializeBook(type: string, formData: any) {
         genres: toMany(rels.genres ?? [], "genre"),
         creators: toMany(rels.creators ?? [], "creator"),
         publisher: toOne(rels.publisher ?? null, "publisher"),
-        series: toOne(rels.series ?? null, "series"),
         bookCopies: toMany(rels.bookCopies ?? [], "bookDetail")
     };
 
@@ -52,7 +51,6 @@ export function serializeBook(type: string, formData: any) {
         genres: "genre",
         creators: "creator",
         publisher: "publisher",
-        series: "series",
         bookCopies: "bookDetail"
     };
 
@@ -119,7 +117,6 @@ export function deserializeBook(book: any) {
         genres,
         creators,
         publisher,
-        series,
         tags,
         reviews,
         bookCopies,
@@ -136,7 +133,6 @@ export function deserializeBook(book: any) {
             genres: toMany(book.genres),
             creators: toMany(book.creators),
             publisher: toOne(book.publisher),
-            series: toOne(book.series),
             bookCopies: toMany(book.bookCopies)
         }
     };

@@ -6,7 +6,6 @@ export const API_ROUTES = {
     DELETE_BOOK_DELETE: ({id}: { id: string | number }) => `/v1/book/${id}`,
     MULTI_BOOK_RELATIONSHIP_CREATOR: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/creator`,
     MULTI_BOOK_RELATIONSHIP_PUBLISHER: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/publisher`,
-    MULTI_BOOK_RELATIONSHIP_SERIES: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/series`,
     MULTI_BOOK_RELATIONSHIP_GENRE: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/genre`,
     MULTI_BOOK_RELATIONSHIP_BOOK_DETAIL: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/bookDetail`,
     MULTI_BOOK_RELATIONSHIP_REVIEW: ({id}: { id: string | number }) => `/v1/book/${id}/relationships/review`,
@@ -24,11 +23,6 @@ export const API_ROUTES = {
     POST_PUBLISHER_CREATE: "/v1/publisher/create",
     PUT_PUBLISHER_UPDATE: "/v1/publisher/update",
     DELETE_PUBLISHER_DELETE: ({id}: { id: string | number }) => `/v1/publisher/${id}`,
-    GET_SERIES: "/v1/seriess",
-    GET_SERIES_BY_ID: ({id}: { id: string | number }) => `/v1/series/${id}`,
-    POST_SERIES_CREATE: "/v1/series/create",
-    PUT_SERIES_UPDATE: "/v1/series/update",
-    DELETE_SERIES_DELETE: ({id}: { id: string | number }) => `/v1/series/${id}`,
     GET_CREATORS: "/v1/creators",
     GET_CREATOR_BY_ID: ({id}: { id: string | number }) => `/v1/creator/${id}`,
     POST_CREATOR_CREATE: "/v1/creator/create",
@@ -121,14 +115,6 @@ export const API_ROUTES_TREE = {
             update: API_ROUTES.PUT_PUBLISHER_UPDATE,
             delete: API_ROUTES.DELETE_PUBLISHER_DELETE
         },
-        series: {
-            getMultiple: API_ROUTES.GET_SERIES,
-            getOne: API_ROUTES.GET_SERIES_BY_ID,
-            create: API_ROUTES.POST_SERIES_CREATE,
-            update: API_ROUTES.PUT_SERIES_UPDATE,
-            delete: API_ROUTES.DELETE_SERIES_DELETE
-        },
-
     },
     book: {
         getMultiple: API_ROUTES.GET_BOOKS,

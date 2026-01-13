@@ -17,7 +17,6 @@ export interface Book {
     reviews: Review[];
     publisher?: Publisher;
     bookCopies: BookDetail[];
-    series?: Series;
     imageUrl?: string;
 }
 
@@ -125,15 +124,6 @@ export interface Review {
 }
 
 export interface Role {
-    createdAt: string;
-    updatedAt: string;
-    enabled: boolean;
-    note?: string;
-    id: string;
-    name: string;
-}
-
-export interface Series {
     createdAt: string;
     updatedAt: string;
     enabled: boolean;

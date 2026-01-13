@@ -1261,11 +1261,19 @@ export default function POS() {
                                 <button
                                     type="button"
                                     className="text-red-500 text-xs underline mt-1 justify-self-start"
-                                    onClick={() => updateOrder({
-                                        relationships: {
-                                            customer: null,
-                                        },
-                                    })}
+                                    onClick={() => {
+                                        // Xóa cả relationship và attributes khi quay về khách lẻ
+                                        updateOrder({
+                                            relationships: {
+                                                customer: null,
+                                            },
+                                            attributes: {
+                                                customerName: "",
+                                                customerPhone: "",
+                                                customerAddress: "",
+                                            },
+                                        });
+                                    }}
                                 >
                                     Đổi khách hàng
                                 </button>
@@ -1772,10 +1780,16 @@ export default function POS() {
                                 // ✅ Tự động hiển thị preview hóa đơn sau khi tạo đơn thành công
                                 try {
                                     const billDetail = await BillService.getById(Number(saved.data.id));
+                                    // Nếu không có customer relationship thì là khách lẻ
+                                    const isGuestCustomer = !order.relationships.customer;
                                     await previewBill({
                                         id: Number(saved.data.id),
-                                        customerName: billDetail.customer.name || order.attributes.customerName || "Khách lẻ",
-                                        customerPhone: billDetail.customer.phone || order.attributes.customerPhone || "-",
+                                        customerName: isGuestCustomer 
+                                            ? "Khách lẻ" 
+                                            : (billDetail.customer?.name || order.attributes.customerName || "Khách lẻ"),
+                                        customerPhone: isGuestCustomer 
+                                            ? "-" 
+                                            : (billDetail.customer?.phone || order.attributes.customerPhone || "-"),
                                         totalAmount: billDetail.amountPaid,
                                         orderDate: billDetail.orderDate || billDetail.createdAt,
                                         orderType: "POS",
@@ -1836,11 +1850,21 @@ export default function POS() {
                     <ProductSelector
                         onClose={() => setShowProductPopup(false)}
                         onSelect={(p) => {
-                            addProduct(p);
+                            // Xử lý cả trường hợp chọn một hoặc nhiều sản phẩm
+                            if (Array.isArray(p)) {
+                                // Chọn nhiều sản phẩm
+                                p.forEach(product => {
+                                    addProduct({ ...product, quantity: 1 });
+                                });
+                            } else {
+                                // Chọn một sản phẩm (fallback)
+                                addProduct(p);
+                            }
                             setShowProductPopup(false);
                         }}
                         products={SEARCH_PRODUCTS}
                         campaigns={VOUCHERS}
+                        multi={true}
                     />
                 )
             }

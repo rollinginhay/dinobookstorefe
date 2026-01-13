@@ -39,7 +39,6 @@ const allNavItems: NavItem[] = [
             {name: "Nhà xuất bản", path: "/publishers"},
             {name: "Thể loại", path: "/genres"},
             {name: "Tác giả", path: "/creators"},
-            {name: "Bộ sách", path: "/series"},
         ],
     },
     {
