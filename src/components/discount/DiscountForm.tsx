@@ -763,6 +763,75 @@ export default function DiscountForm({ mode, initialData }: Props) {
             )}
           </div>
 
+          {/* Chọn sản phẩm áp dụng - chỉ cho SALE ĐỢT / SALE COMBO - ĐẶT SAU LOẠI GIẢM GIÁ */}
+          {formData.campaignType === "PERCENTAGE_PRODUCT" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Chọn sản phẩm áp dụng <span className="text-red-500">*</span>
+              </label>
+              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
+                <p className="text-sm text-gray-600">
+                  Chọn các sản phẩm sẽ được giảm số tiền cố định trong đợt này. Mỗi sản phẩm được chọn sẽ giảm {formData.maxDiscount ? `${formData.maxDiscount.toLocaleString()}đ` : 'X đồng'}.
+                </p>
+
+                <button
+                  type="button"
+                  disabled={isFieldDisabled("products") || isFormReadOnly || !bookQuery.isSuccess}
+                  onClick={() => setShowProductSelector(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bookQuery.isLoading ? "Đang tải danh sách sách..." : "+ Chọn sản phẩm"}
+                </button>
+
+                {selectedProducts.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    Chưa có sản phẩm nào được chọn.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">
+                      Đã chọn {selectedProducts.length} sản phẩm:
+                    </p>
+                    <div className="max-h-48 overflow-y-auto space-y-2">
+                      {selectedProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {product.title}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Giá: {product.salePrice?.toLocaleString() || 0}đ
+                            </p>
+                          </div>
+                          {!isFieldDisabled("products") && !isFormReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProducts((prev) =>
+                                  prev.filter((p) => p.id !== product.id)
+                                );
+                                setHasChanges(true);
+                              }}
+                              className="ml-2 text-red-600 hover:text-red-700 text-sm"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Mỗi sản phẩm được chọn sẽ được giảm số tiền cố định đã thiết lập ở trên. Bạn có thể quản lý danh sách sản phẩm áp dụng ngay tại đây.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Giá trị giảm */}
           {formData.campaignType === "PERCENTAGE_PRODUCT" && (
             <>
@@ -1119,95 +1188,6 @@ export default function DiscountForm({ mode, initialData }: Props) {
           </div>
           )}
 
-          {/* Chọn sản phẩm áp dụng - chỉ cho SALE ĐỢT / SALE COMBO */}
-          {formData.campaignType === "PERCENTAGE_PRODUCT" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Chọn sản phẩm áp dụng <span className="text-red-500">*</span>
-              </label>
-              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
-                <p className="text-sm text-gray-600">
-                  Chọn các sản phẩm sẽ được giảm số tiền cố định trong đợt này. Mỗi sản phẩm được chọn sẽ giảm {formData.maxDiscount ? `${formData.maxDiscount.toLocaleString()}đ` : 'X đồng'}.
-                </p>
-
-                <button
-                  type="button"
-                  disabled={isFieldDisabled("products") || isFormReadOnly || !bookQuery.isSuccess}
-                  onClick={() => setShowProductSelector(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {bookQuery.isLoading ? "Đang tải danh sách sách..." : "+ Chọn sản phẩm"}
-                </button>
-
-                {/* Danh sách sản phẩm đã chọn */}
-                {selectedProducts.length > 0 ? (
-                  <>
-                    <div className="mt-3">
-                      <p className="text-sm font-medium text-gray-700">
-                        Đã chọn {selectedProducts.length} sản phẩm
-                      </p>
-                    </div>
-                    <div className="mt-2 border-t pt-3 space-y-2 max-h-60 overflow-y-auto">
-                      {selectedProducts.slice(0, 3).map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between gap-3 text-sm bg-white border rounded-md px-3 py-2"
-                        >
-                          <div className="flex items-center gap-3">
-                            {p.imageUrl && (
-                              <img
-                                src={p.imageUrl}
-                                alt={p.title}
-                                className="w-10 h-14 object-cover rounded"
-                              />
-                            )}
-                            <div>
-                              <div className="font-medium text-gray-900 line-clamp-1">
-                                {p.title}
-                </div>
-                              <div className="text-xs text-gray-500">
-                                {p.bookFormat && `${p.bookFormat} • `}
-                                {p.salePrice
-                                  ? `${p.salePrice.toLocaleString()}đ`
-                                  : "Chưa có giá"}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="text-xs text-red-600 hover:text-red-700 font-semibold"
-                            onClick={() => {
-                              setSelectedProducts((prev) => {
-                                const newProducts = prev.filter((sp) => sp.id !== p.id);
-                                console.log("🗑️ [DiscountForm] Removed product:", p.title, "Remaining:", newProducts.length);
-                                return newProducts;
-                              });
-                              // ✅ Đánh dấu có thay đổi khi xóa sản phẩm
-                              setHasChanges(true);
-                            }}
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      ))}
-                      {selectedProducts.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center">
-                          ... và {selectedProducts.length - 3} sản phẩm khác
-                        </p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    Chưa có sản phẩm nào được chọn.
-                  </p>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Mỗi sản phẩm được chọn sẽ được giảm số tiền cố định đã thiết lập ở trên. Bạn có thể quản lý danh sách sản phẩm áp dụng ngay tại đây.
-              </p>
-            </div>
-          )}
 
           {/* Trạng thái kích hoạt - chỉ hiển thị khi sửa */}
           {mode === "edit" && (

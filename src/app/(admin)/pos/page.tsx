@@ -1667,15 +1667,26 @@ export default function POS() {
                     {/* NÚT XÁC NHẬN ĐƠN HÀNG */}
                     <button
                         type="button"
-                        disabled={paymentMethod === "TRANSFER" && !isPaymentConfirmed}
+                        disabled={
+                            (paymentMethod === "TRANSFER" && !isPaymentConfirmed) ||
+                            !activeOrder.relationships.receiptDetails ||
+                            activeOrder.relationships.receiptDetails.length === 0
+                        }
                         className={`btn btn-primary w-full py-2.5 text-sm font-semibold shadow-lg hover:shadow-xl transition-shadow flex-shrink-0 ${
-                            paymentMethod === "TRANSFER" && !isPaymentConfirmed 
+                            (paymentMethod === "TRANSFER" && !isPaymentConfirmed) ||
+                            !activeOrder.relationships.receiptDetails ||
+                            activeOrder.relationships.receiptDetails.length === 0
                                 ? "opacity-50 cursor-not-allowed" 
                                 : ""
                         }`}
                         onClick={async () => {
                             const order = structuredClone(activeOrder);
-                            if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) return;
+                            
+                            // Validate: Chưa chọn sản phẩm thì không cho xác nhận
+                            if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) {
+                                toast.error("Vui lòng chọn ít nhất một sản phẩm trước khi xác nhận đơn hàng!");
+                                return;
+                            }
 
                             // Kiểm tra nếu chọn chuyển khoản nhưng chưa xác nhận
                             if (paymentMethod === "TRANSFER" && !isPaymentConfirmed) {
