@@ -57,7 +57,10 @@ export default function ProductSelector({
         });
 
         if (applicable.length > 0) {
-            const discountAmount = applicable[0].value || 0;
+            // ✅ SỬA: Giảm giá theo phần trăm (tối đa 50%)
+            // value là phần trăm giảm giá (VD: 10 = 10%)
+            const percentage = applicable[0].value || 0;
+            const discountAmount = (supplyPrice * percentage) / 100;
             const discountedPrice = Math.max(0, supplyPrice - discountAmount);
             return {
                 discountedPrice: discountedPrice,
@@ -388,6 +391,21 @@ export default function ProductSelector({
                                         />
                                     </div>
                                 )}
+                                {/* Badge phần trăm giảm giá - góc trên bên trái */}
+                                {(() => {
+                                    const { discountedPrice, originalPrice, hasDiscount } = calculateDiscountedPrice(item);
+                                    if (hasDiscount && originalPrice > 0) {
+                                        const discountPercent = Math.round(((originalPrice - discountedPrice) / originalPrice) * 100);
+                                        if (discountPercent > 0) {
+                                            return (
+                                                <div className="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-md z-10">
+                                                    -{discountPercent}%
+                                                </div>
+                                            );
+                                        }
+                                    }
+                                    return null;
+                                })()}
                                 <img
                                     src={item.imageUrl}
                                     alt={item.title}

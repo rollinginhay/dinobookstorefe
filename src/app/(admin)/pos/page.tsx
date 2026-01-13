@@ -175,8 +175,8 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
             // Giảm theo phần trăm
             value = c.percentage || 0;
         } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
-            // ✅ SỬA: Combo giảm cố định - lấy từ maxDiscount
-            value = c.maxDiscount || 0;
+            // ✅ SỬA: Combo giảm theo phần trăm - lấy từ percentage
+            value = c.percentage || 0;
         } else if (c.campaignType === "FLAT_DISCOUNT") {
             value = c.discount || 0;
         }
@@ -190,8 +190,8 @@ function convertCampaigns(campaigns: any[]): Campaign[] {
                 label += ` (tối đa ${c.maxDiscount.toLocaleString()}đ)`;
             }
         } else if (c.campaignType === "PERCENTAGE_PRODUCT") {
-            // ✅ SỬA: Combo giảm cố định - hiển thị số tiền giảm
-            label = `Giảm ${(c.maxDiscount || 0).toLocaleString()}đ/sp`;
+            // ✅ SỬA: Combo giảm theo phần trăm - hiển thị phần trăm
+            label = `Giảm ${c.percentage || 0}%`;
         } else if (c.campaignType === "FLAT_DISCOUNT") {
             label = `${(c.discount || 0).toLocaleString()}đ`;
         } else {
@@ -915,15 +915,17 @@ export default function POS() {
             let pricePerUnit = product.supplyPrice;
             
             if (applicable.length > 0) {
-                // ✅ SỬA: Giảm giá cố định thay vì phần trăm
-                // Logic mới: pricePerUnit = supplyPrice - discountAmount
-                const discountAmount = applicable[0].value || 0; // value là số tiền giảm cố định (VD: 20000)
+                // ✅ SỬA: Giảm giá theo phần trăm (tối đa 50%)
+                // Logic mới: pricePerUnit = supplyPrice * (1 - percentage/100)
+                const percentage = applicable[0].value || 0; // value là phần trăm giảm giá (VD: 10 = 10%)
+                const discountAmount = (product.supplyPrice * percentage) / 100;
                 pricePerUnit = Math.max(0, product.supplyPrice - discountAmount);
                 
                 console.log("🎯 [POS] Áp dụng giảm giá combo:", {
                     productId: product.id,
                     productTitle: product.title,
                     originalPrice: product.supplyPrice,
+                    percentage: percentage,
                     discountAmount: discountAmount,
                     finalPrice: pricePerUnit,
                     campaignId: applicable[0].id,
