@@ -185,36 +185,45 @@ export default function ThanhToan() {
   // ✅ Tính giảm giá theo đơn (PERCENTAGE_RECEIPT) - giống POS admin
   const calculateOrderDiscount = (subtotal: number) => {
     if (!campaigns || campaigns.length === 0 || subtotal <= 0) return 0;
-    
+
     // Tìm campaign PERCENTAGE_RECEIPT đủ điều kiện
     const orderCampaigns = campaigns.filter(
       (c) => c.type === "PERCENTAGE_RECEIPT" && subtotal >= c.minTotal
     );
-    
+
     if (orderCampaigns.length === 0) return 0;
-    
+
     // Lấy campaign tốt nhất (giảm nhiều nhất)
     const bestCampaign = orderCampaigns.reduce((best, current) => {
       const bestDiscount = (subtotal * best.value) / 100;
       const currentDiscount = (subtotal * current.value) / 100;
-      const bestFinal = Math.min(bestDiscount, best.maxDiscount || bestDiscount);
-      const currentFinal = Math.min(currentDiscount, current.maxDiscount || currentDiscount);
+      const bestFinal = Math.min(
+        bestDiscount,
+        best.maxDiscount || bestDiscount
+      );
+      const currentFinal = Math.min(
+        currentDiscount,
+        current.maxDiscount || currentDiscount
+      );
       return currentFinal > bestFinal ? current : best;
     });
-    
+
     // Tính discount: (subtotal * percentage) / 100, tối đa maxDiscount
     const rawDiscount = (subtotal * bestCampaign.value) / 100;
-    const finalDiscount = Math.min(rawDiscount, bestCampaign.maxDiscount || rawDiscount);
-    
+    const finalDiscount = Math.min(
+      rawDiscount,
+      bestCampaign.maxDiscount || rawDiscount
+    );
+
     return Math.round(finalDiscount);
   };
 
   // ✅ Subtotal = tổng giá các sản phẩm (đã giảm từ PERCENTAGE_PRODUCT nếu có)
   const subtotal = selectedTotalPrice;
-  
+
   // ✅ Giảm giá theo đơn
   const orderDiscount = calculateOrderDiscount(subtotal);
-  
+
   // ✅ Tổng cộng = subtotal - giảm giá theo đơn + phí ship
   const finalTotal = subtotal - orderDiscount + shipping;
 
@@ -308,59 +317,61 @@ export default function ThanhToan() {
     const userId = localStorage.getItem("userId");
 
     // Tạo included trước để có thể dùng cho relationships
-    const receiptDetailsIncluded: any[] = selectedCartItems.map((item) => {
-      // Item thường: tạo 1 receiptDetail
-      const bookDetailIdRaw = item.bookDetailId || item.id;
-      let bookDetailId: string | number;
+    const receiptDetailsIncluded: any[] = selectedCartItems
+      .map((item) => {
+        // Item thường: tạo 1 receiptDetail
+        const bookDetailIdRaw = item.bookDetailId || item.id;
+        let bookDetailId: string | number;
 
-      // Kiểm tra và đảm bảo bookDetailId là số hợp lệ
-      if (typeof bookDetailIdRaw === "string") {
-        if ((bookDetailIdRaw as string).startsWith("combo-")) {
-          console.error("Invalid bookDetailId for item:", item);
-          return null;
-        } else {
-          const parsed = Number(bookDetailIdRaw);
-          if (!isNaN(parsed)) {
-            bookDetailId = parsed;
-          } else {
-            console.error("Cannot parse bookDetailId:", bookDetailIdRaw);
+        // Kiểm tra và đảm bảo bookDetailId là số hợp lệ
+        if (typeof bookDetailIdRaw === "string") {
+          if ((bookDetailIdRaw as string).startsWith("combo-")) {
+            console.error("Invalid bookDetailId for item:", item);
             return null;
+          } else {
+            const parsed = Number(bookDetailIdRaw);
+            if (!isNaN(parsed)) {
+              bookDetailId = parsed;
+            } else {
+              console.error("Cannot parse bookDetailId:", bookDetailIdRaw);
+              return null;
+            }
           }
+        } else if (typeof bookDetailIdRaw === "number") {
+          bookDetailId = bookDetailIdRaw;
+        } else {
+          console.error("Invalid bookDetailId type:", bookDetailIdRaw);
+          return null;
         }
-      } else if (typeof bookDetailIdRaw === "number") {
-        bookDetailId = bookDetailIdRaw;
-      } else {
-        console.error("Invalid bookDetailId type:", bookDetailIdRaw);
-        return null;
-      }
 
-      // ✅ Debug: Log để kiểm tra bookDetailId có đúng không
-      console.log("📦 [Checkout] ReceiptDetail payload:", {
-        itemTitle: item.title,
-        bookDetailId: bookDetailId,
-        quantity: item.quantity,
-        price: item.price,
-        hasOriginalPrice: !!item.originalPrice, // Sản phẩm có sale nếu có originalPrice
-      });
-
-      return {
-        type: "receiptDetail",
-        id: String(item.cartDetailId || item.id),
-        attributes: {
+        // ✅ Debug: Log để kiểm tra bookDetailId có đúng không
+        console.log("📦 [Checkout] ReceiptDetail payload:", {
+          itemTitle: item.title,
+          bookDetailId: bookDetailId,
           quantity: item.quantity,
-          pricePerUnit: item.price,
-          bookDetailId: Number(bookDetailId), // ✅ Gửi bookDetailId trong attributes để BE map đúng
-        },
-        relationships: {
-          bookCopy: {
-            data: {
-              type: "bookCopy",
-              id: String(bookDetailId), // ✅ Đảm bảo bookCopy relationship có đúng bookDetailId
+          price: item.price,
+          hasOriginalPrice: !!item.originalPrice, // Sản phẩm có sale nếu có originalPrice
+        });
+
+        return {
+          type: "receiptDetail",
+          id: String(item.cartDetailId || item.id),
+          attributes: {
+            quantity: item.quantity,
+            pricePerUnit: item.price,
+            bookDetailId: Number(bookDetailId), // ✅ Gửi bookDetailId trong attributes để BE map đúng
+          },
+          relationships: {
+            bookCopy: {
+              data: {
+                type: "bookCopy",
+                id: String(bookDetailId), // ✅ Đảm bảo bookCopy relationship có đúng bookDetailId
+              },
             },
           },
-        },
-      };
-    }).filter((rd: any) => rd !== null);
+        };
+      })
+      .filter((rd: any) => rd !== null);
 
     const receiptPayload = {
       data: {
@@ -407,7 +418,6 @@ export default function ThanhToan() {
       //   },
       // },
     };
-
 
     try {
       // Lấy token để gửi kèm request
@@ -957,11 +967,15 @@ export default function ThanhToan() {
                           ₫
                         </span>
                         {/* ✅ Hiển thị giá gốc (supplyPrice) nếu có - đơn giản như trang chủ */}
-                        {item.originalPrice && item.originalPrice > item.price && (
-                          <span className="text-gray-400 text-xs line-through">
-                            {(item.originalPrice * item.quantity).toLocaleString("vi-VN")} ₫
-                          </span>
-                        )}
+                        {item.originalPrice &&
+                          item.originalPrice > item.price && (
+                            <span className="text-gray-400 text-xs line-through">
+                              {(
+                                item.originalPrice * item.quantity
+                              ).toLocaleString("vi-VN")}{" "}
+                              ₫
+                            </span>
+                          )}
                       </div>
                     </div>
                   </div>
