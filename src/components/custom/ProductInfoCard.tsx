@@ -111,7 +111,7 @@ export default function ProductInfoCard({book, bookCopies = []}) {
                                         <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Bộ
                                             sách</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                            {book.series.data ? book.series.data.name : ""}
+                                            {book.series ? book.series.data.name : ""}
                                         </p>
                                     </div>
 
