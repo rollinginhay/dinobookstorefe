@@ -15,15 +15,15 @@ export default function ProductInfoCard({book, bookCopies = []}) {
             hasTopLevelPublished: !!book.published
         });
     }
-    
+
     // Tính tổng tồn kho từ tất cả các bookCopies
-    const totalStock = bookCopies.reduce((sum, copy) => {
+    const totalStock = bookCopies.reduce((sum, copy: any) => {
         const stock = parseInt(copy.stock) || 0;
         return sum + stock;
     }, 0);
 
     // Lấy danh sách ISBN (có thể có nhiều ISBN nếu có nhiều copy)
-    const isbns = bookCopies.map(copy => copy.isbn).filter(Boolean);
+    const isbns = bookCopies.map((copy: any) => copy.isbn).filter(Boolean);
 
     return (
         <>
@@ -59,21 +59,24 @@ export default function ProductInfoCard({book, bookCopies = []}) {
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-7 2xl:gap-x-32">
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mã sách</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mã
+                                            sách</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {"B" + book.id}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Tác giả</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Tác
+                                            giả</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.creators.data.map(e => e.name).join(", ")}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Thể loại</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Thể
+                                            loại</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.genres.data.map(e => e.name).join(", ")}
                                         </p>
@@ -87,7 +90,8 @@ export default function ProductInfoCard({book, bookCopies = []}) {
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngày xuất bản</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngày
+                                            xuất bản</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {(() => {
                                                 // Kiểm tra cả book.published và book.attributes?.published
@@ -104,14 +108,16 @@ export default function ProductInfoCard({book, bookCopies = []}) {
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Bộ sách</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Bộ
+                                            sách</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                                            {book.series.data?.name}
+                                            {book.series.data ? book.series.data.name : ""}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngôn ngữ</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngôn
+                                            ngữ</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.language || book.attributes?.language || "-"}
                                         </p>
@@ -127,7 +133,8 @@ export default function ProductInfoCard({book, bookCopies = []}) {
 
                                     {/* BLURB — full width row */}
                                     <div className="col-span-full">
-                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mô tả</p>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Mô
+                                            tả</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {book.blurb}
                                             .
