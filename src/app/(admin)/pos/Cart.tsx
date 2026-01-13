@@ -29,11 +29,42 @@ export default function Cart({ items, onItemsChange }: CartProps) {
   const changeQty = (id: number, amount: number) => {
     onItemsChange(
       items
-        .map((i) =>
-          i.id === id
-            ? { ...i, qty: Math.max(1, i.qty + amount) }
-            : i
-        )
+        .map((i) => {
+          if (i.id === id) {
+            const newQty = i.qty + amount;
+            const maxStock = i.stock || i.bookCopy?.stock || Infinity;
+            // Validate không cho vượt quá stock
+            if (newQty < 1) {
+              return { ...i, qty: 1 };
+            } else if (newQty > maxStock) {
+              return { ...i, qty: maxStock };
+            }
+            return { ...i, qty: newQty };
+          }
+          return i;
+        })
+        .filter((i) => i.qty > 0)
+    );
+  };
+
+  const handleQuantityInputChange = (id: number, newQty: number) => {
+    if (isNaN(newQty)) return;
+    
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    
+    const maxStock = item.stock || item.bookCopy?.stock || Infinity;
+    
+    // Validate không cho vượt quá stock
+    if (newQty < 1) {
+      newQty = 1;
+    } else if (newQty > maxStock) {
+      newQty = maxStock;
+    }
+    
+    onItemsChange(
+      items
+        .map((i) => (i.id === id ? { ...i, qty: newQty } : i))
         .filter((i) => i.qty > 0)
     );
   };
@@ -102,18 +133,36 @@ export default function Cart({ items, onItemsChange }: CartProps) {
           <td className="p-3 align-middle">
             <div className="flex items-center justify-center gap-3">
               <button
-                className="w-9 h-9 border rounded flex items-center justify-center text-lg"
+                className="w-9 h-9 border rounded flex items-center justify-center text-lg hover:bg-gray-100 transition-colors"
                 onClick={() => changeQty(item.id, -1)}
               >
                 -
               </button>
 
-              <span className="w-10 text-center font-medium text-[17px]">
-                {item.qty}
-              </span>
+              <input
+                type="number"
+                value={item.qty}
+                onChange={(e) => {
+                  const inputValue = e.target.value;
+                  // Cho phép nhập rỗng tạm thời khi đang gõ
+                  if (inputValue === "") {
+                    return;
+                  }
+                  const numValue = parseInt(inputValue) || 1;
+                  handleQuantityInputChange(item.id, numValue);
+                }}
+                onBlur={(e) => {
+                  // Khi blur, đảm bảo giá trị hợp lệ
+                  const numValue = parseInt(e.target.value) || 1;
+                  handleQuantityInputChange(item.id, numValue);
+                }}
+                className="w-16 text-center font-medium text-[17px] border border-gray-300 rounded py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min={1}
+                max={item.stock || item.bookCopy?.stock || undefined}
+              />
 
               <button
-                className="w-9 h-9 border rounded flex items-center justify-center text-lg"
+                className="w-9 h-9 border rounded flex items-center justify-center text-lg hover:bg-gray-100 transition-colors"
                 onClick={() => changeQty(item.id, +1)}
               >
                 +

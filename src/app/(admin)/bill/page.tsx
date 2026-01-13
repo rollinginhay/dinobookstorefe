@@ -6,6 +6,8 @@ import DatePicker, {registerLocale} from "react-datepicker";
 import {vi} from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
 import {BillService} from "@/service/bill.service";
+import {exportBillToPDF} from "@/utils/pdf.utils";
+import {exportBillsToExcel} from "@/utils/excel.utils";
 
 registerLocale("vi", vi);
 
@@ -136,11 +138,21 @@ export default function BillList() {
     const handleSearch = () => {
         let result = [...bills];
 
-        // Tìm theo mã hóa đơn
+        // Tìm kiếm theo mã hóa đơn, tên khách hàng, số điện thoại
         if (searchCode.trim() !== "") {
-            result = result.filter((b) =>
-                ("HD" + b.id).toLowerCase().includes(searchCode.toLowerCase())
-            );
+            const searchLower = searchCode.toLowerCase().trim();
+            result = result.filter((b) => {
+                // Tìm theo mã hóa đơn (HD + id)
+                const billCode = ("HD" + b.id).toLowerCase();
+                // Tìm theo tên khách hàng
+                const customerName = (b.customerName || "").toLowerCase();
+                // Tìm theo số điện thoại
+                const customerPhone = (b.customerPhone || "").toLowerCase();
+                
+                return billCode.includes(searchLower) || 
+                       customerName.includes(searchLower) || 
+                       customerPhone.includes(searchLower);
+            });
         }
 
         // Loại đơn hàng
@@ -175,6 +187,12 @@ export default function BillList() {
     useEffect(() => {
         handleSearch();
     }, [activeTab]); // eslint-disable-line
+
+    // Tự động tìm kiếm khi searchCode, filterType, startDate, endDate thay đổi
+    useEffect(() => {
+        handleSearch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchCode, filterType, startDate, endDate]);
 
     // ===========================
     // STATUS BADGE
@@ -256,11 +274,11 @@ export default function BillList() {
             {/* SEARCH BAR */}
             <div className="card flex flex-wrap items-end gap-4">
                 <div className="w-full md:w-64">
-                    <label className="form-label">Tìm kiếm theo mã</label>
+                    <label className="form-label">Tìm kiếm</label>
                     <input
                         type="text"
                         className="input"
-                        placeholder="Nhập mã hóa đơn"
+                        placeholder="Mã, tên khách hàng, số điện thoại"
                         value={searchCode}
                         onChange={(e) => setSearchCode(e.target.value)}
                     />
@@ -315,10 +333,39 @@ export default function BillList() {
                     />
                 </div>
 
-
-                <button className="btn btn-primary" onClick={handleSearch}>
-                    Tìm kiếm
-                </button>
+                {/* Nút tìm kiếm và xuất Excel - căn phải */}
+                <div className="w-full md:w-auto flex gap-3 ml-auto">
+                    <button className="btn btn-primary" onClick={handleSearch}>
+                        Tìm kiếm
+                    </button>
+                    <button 
+                        className="btn bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => {
+                            // Validate: Chỉ xuất đơn hoàn thành
+                            const paidBills = filteredBills.filter(bill => bill.status === 'PAID');
+                            
+                            if (paidBills.length === 0) {
+                                alert('Không có đơn hàng hoàn thành để xuất Excel. Chỉ có thể xuất đơn hàng đã hoàn thành.');
+                                return;
+                            }
+                            
+                            const excelData = paidBills.map(bill => ({
+                                id: bill.id,
+                                code: `HD${bill.id}`,
+                                customerName: bill.customerName,
+                                customerPhone: bill.customerPhone,
+                                totalAmount: bill.totalAmount,
+                                orderDate: bill.orderDate,
+                                orderType: bill.orderType,
+                                status: bill.status,
+                            }));
+                            exportBillsToExcel(excelData);
+                        }}
+                        title="Xuất danh sách hóa đơn hoàn thành ra Excel"
+                    >
+                        📊 Xuất Excel
+                    </button>
+                </div>
             </div>
 
             {/* ✅ THÔNG BÁO ĐƠN CHỜ HOÀN TIỀN - CHỈ HIỂN THỊ KHI KHÁCH ĐÃ SUBMIT THÔNG TIN HOÀN TIỀN */}
@@ -468,12 +515,54 @@ export default function BillList() {
 
                                 <td>
                                     <div className="flex gap-3 text-lg">
-                                        <Link href={`/bill/${bill.id}`} className="text-blue-600">
+                                        <Link href={`/bill/${bill.id}`} className="text-blue-600 hover:text-blue-800" title="Xem chi tiết">
                                             📄
                                         </Link>
-                                        <Link href="#" className="text-green-600">
+                                        <button 
+                                            onClick={async () => {
+                                                // Chỉ cho phép in khi đơn đã hoàn thành
+                                                if (bill.status !== "PAID") {
+                                                    return;
+                                                }
+                                                try {
+                                                    // Fetch chi tiết hóa đơn để lấy items
+                                                    const billDetail = await BillService.getById(bill.id);
+                                                    await exportBillToPDF({
+                                                        id: bill.id,
+                                                        customerName: bill.customerName,
+                                                        customerPhone: bill.customerPhone,
+                                                        totalAmount: bill.totalAmount,
+                                                        orderDate: bill.orderDate,
+                                                        orderType: bill.orderType,
+                                                        status: bill.status,
+                                                        items: billDetail.items.map((item: any) => ({
+                                                            name: item.name,
+                                                            quantity: item.quantity,
+                                                            pricePerUnit: item.pricePerUnit,
+                                                        })),
+                                                        shippingFee: billDetail.shippingFee,
+                                                        discount: billDetail.discount,
+                                                        voucher: billDetail.voucher,
+                                                    });
+                                                } catch (error) {
+                                                    console.error("Lỗi khi xuất PDF:", error);
+                                                    alert("Không thể xuất PDF. Vui lòng thử lại.");
+                                                }
+                                            }}
+                                            disabled={bill.status !== "PAID"}
+                                            className={
+                                                bill.status === "PAID"
+                                                    ? "text-green-600 hover:text-green-800 cursor-pointer"
+                                                    : "text-gray-300 cursor-not-allowed opacity-50"
+                                            }
+                                            title={
+                                                bill.status === "PAID"
+                                                    ? "Xuất PDF"
+                                                    : "Chỉ có thể xuất PDF khi đơn hàng đã hoàn thành"
+                                            }
+                                        >
                                             🖨️
-                                        </Link>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

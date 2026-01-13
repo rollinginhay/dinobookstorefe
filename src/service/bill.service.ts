@@ -375,10 +375,10 @@ export const BillService = {
                 ? (bookFormat ? `${bookTitle} - ${bookFormat}` : bookTitle)
                 : (bookFormat ? `Sách - ${bookFormat}` : "Sách");
 
-            // ✅ Lấy giá gốc từ bookDetail (salePrice) thay vì giá đã giảm từ receiptDetail
-            // pricePerUnit trong receiptDetail là giá ĐÃ GIẢM (sau khi áp dụng campaign giảm giá sản phẩm)
-            // Để tính tổng tiền hàng gốc, cần dùng salePrice từ bookDetail
-            const originalPrice = bd?.attributes?.salePrice ?? rd.attributes?.pricePerUnit ?? 0;
+            // ✅ Lấy giá gốc từ bookDetail (supplyPrice) để so sánh với pricePerUnit
+            // pricePerUnit trong receiptDetail là giá ĐÃ GIẢM (sau khi áp dụng campaign giảm giá sản phẩm) hoặc giá gốc nếu không có giảm
+            // Để hiển thị đúng, so sánh pricePerUnit với supplyPrice từ bookDetail
+            const originalPrice = bd?.attributes?.supplyPrice ?? rd.attributes?.pricePerUnit ?? 0;
             const discountedPrice = rd.attributes?.pricePerUnit ?? 0; // Giá đã giảm (nếu có)
             
             // ✅ Lấy ảnh: ưu tiên bookImageUrl từ bookCopy, sau đó bd.imageUrl, cuối cùng là default

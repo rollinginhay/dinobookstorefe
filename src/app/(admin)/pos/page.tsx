@@ -13,6 +13,8 @@ import {useReceipt} from "@/hooks/api-calls/useReceipt";
 import {useUser} from "@/hooks/api-calls/useUser";
 import {useAuth} from "@/context/auth-context";
 import {toast} from "sonner";
+import {exportBillToPDF, previewBill} from "@/utils/pdf.utils";
+import {BillService} from "@/service/bill.service";
 
 // ===============================
 // DEMO VOUCHER LIST (POS PANEL)
@@ -513,6 +515,7 @@ export default function POS() {
     // Popup
     const [showProductPopup, setShowProductPopup] = useState(false);
     const [showCustomerPopup, setShowCustomerPopup] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
 
     // Payment method
     const [paymentMethod, setPaymentMethod] = useState<"CASH" | "TRANSFER">("CASH");
@@ -676,12 +679,17 @@ export default function POS() {
     // Tạo mã đơn hàng khi chọn chuyển khoản
     useEffect(() => {
         if (paymentMethod === "TRANSFER") {
-            const tempCode = `ORD${Date.now()}`;
-            setOrderCode(tempCode);
+            // Chỉ tạo mã mới nếu chưa có orderCode (giữ nguyên mã khi đóng modal mà chưa xác nhận)
+            if (!orderCode) {
+                const tempCode = `ORD${Date.now()}`;
+                setOrderCode(tempCode);
+            }
+            // Modal sẽ được mở từ onChange của radio button
         } else {
             setOrderCode("");
+            setShowQRModal(false); // Đóng modal khi chuyển về tiền mặt
+            setIsPaymentConfirmed(false); // Reset trạng thái khi chuyển về tiền mặt
         }
-        setIsPaymentConfirmed(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [paymentMethod]);
 
@@ -997,17 +1005,17 @@ export default function POS() {
     // RENDER
     // ===============================
     return (
-        <div className="space-y-6">
-            <h2 className="section-title">Bán hàng tại quầy</h2>
+        <div className="flex flex-col h-[calc(100vh-120px)] space-y-4">
+            <h2 className="section-title flex-shrink-0">Bán hàng tại quầy</h2>
 
             {/* ============ MAIN LAYOUT ============ */}
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)]">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)] items-stretch flex-1 min-h-0 overflow-hidden">
                 {/* =======================================
             LEFT COLUMN: PRODUCTS + CUSTOMER + VOUCHER + SHIPPING
         ======================================== */}
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
                     {/* SẢN PHẨM */}
-                    <div className="card shadow-sm">
+                    <div className="card shadow-sm flex flex-col flex-1 min-h-0">
                         {/* HOÁ ĐƠN TABS */}
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                             <div className="flex flex-wrap gap-2">
@@ -1063,8 +1071,9 @@ export default function POS() {
 
 
                         {/* GIỎ HÀNG TABLE */}
-                        <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white">
-                            <table className="table min-w-[700px]">
+                        <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white flex-1 flex flex-col min-h-0">
+                            <div className="flex-1 overflow-y-auto">
+                                <table className="table min-w-[700px]">
                                 <thead>
                                 <tr>
                                     <th className="w-[50px] text-center">#</th>
@@ -1119,40 +1128,56 @@ export default function POS() {
                                                 <input
                                                     type="number"
                                                     min="1"
+                                                    max={receiptDetail.bookCopy.stock || 1}
                                                     className="w-20 text-center font-medium border border-gray-300 rounded-md py-1.5 px-2"
                                                     value={receiptDetail.quantity}
                                                     onChange={(e) => {
-                                                        let newQty = parseInt(e.target.value) || 1;
-                                                        if (newQty >= 1) {
-                                                            updateOrder({
-                                                                relationships: {
-                                                                    receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) => {
-                                                                            if (newQty > item.bookCopy.stock) {
-                                                                                newQty = item.bookCopy.stock;
-                                                                            }
-                                                                            return item.bookCopy.id === receiptDetail.bookCopy.id
-                                                                                ? {...item, quantity: newQty}
-                                                                                : item
-
-                                                                        }
-                                                                    )
-                                                                }
-                                                            });
+                                                        const inputValue = e.target.value;
+                                                        // Cho phép nhập rỗng tạm thời khi đang gõ
+                                                        if (inputValue === "") {
+                                                            return;
                                                         }
+                                                        let newQty = parseInt(inputValue) || 1;
+                                                        const maxStock = receiptDetail.bookCopy.stock || 1;
+                                                        
+                                                        // Validate không cho vượt quá stock
+                                                        if (newQty < 1) {
+                                                            newQty = 1;
+                                                        } else if (newQty > maxStock) {
+                                                            newQty = maxStock;
+                                                        }
+                                                        
+                                                        updateOrder({
+                                                            relationships: {
+                                                                receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) =>
+                                                                    item.bookCopy.id === receiptDetail.bookCopy.id
+                                                                        ? {...item, quantity: newQty}
+                                                                        : item
+                                                                )
+                                                            }
+                                                        });
                                                     }}
                                                     onBlur={(e) => {
-                                                        const value = parseInt(e.target.value);
-                                                        if (!value || value < 1) {
-                                                            updateOrder({
-                                                                relationships: {
-                                                                    receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) =>
-                                                                        item.bookCopy.id === receiptDetail.bookCopy.id
-                                                                            ? {...item, quantity: 1}
-                                                                            : item
-                                                                    )
-                                                                }
-                                                            });
+                                                        const inputValue = e.target.value;
+                                                        let value = parseInt(inputValue) || 1;
+                                                        const maxStock = receiptDetail.bookCopy.stock || 1;
+                                                        
+                                                        // Đảm bảo giá trị hợp lệ khi blur
+                                                        if (value < 1) {
+                                                            value = 1;
+                                                        } else if (value > maxStock) {
+                                                            value = maxStock;
                                                         }
+                                                        
+                                                        updateOrder({
+                                                            relationships: {
+                                                                receiptDetails: activeOrder.relationships.receiptDetails.map((item: any) =>
+                                                                    item.bookCopy.id === receiptDetail.bookCopy.id
+                                                                        ? {...item, quantity: value}
+                                                                        : item
+                                                                )
+                                                            }
+                                                        });
                                                     }}
                                                 />
                                             </div>
@@ -1189,6 +1214,7 @@ export default function POS() {
                                 ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
 
                         <button
@@ -1485,10 +1511,10 @@ export default function POS() {
                 {/* =======================================
             RIGHT COLUMN: SUMMARY + PAYMENT + CONFIRM
         ======================================== */}
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
                     {/* TỔNG KẾT THANH TOÁN */}
-                    <div className="card shadow-sm bg-gradient-to-br from-blue-50 to-white border-blue-100">
-                        <h3 className="card-title mb-4 text-gray-800">Tổng thanh toán</h3>
+                    <div className="card shadow-sm bg-gradient-to-br from-blue-50 to-white border-blue-100 flex-shrink-0">
+                        <h3 className="card-title mb-3 text-gray-800">Tổng thanh toán</h3>
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span>Tổng:</span>
@@ -1591,95 +1617,62 @@ export default function POS() {
                     </div>
 
                     {/* PHƯƠNG THỨC THANH TOÁN */}
-                    <div className="card shadow-sm">
-                        <h3 className="card-title mb-4">Phương thức thanh toán</h3>
-                        <div className="space-y-3">
+                    <div className="card shadow-sm flex-shrink-0">
+                        <h3 className="card-title mb-3">Phương thức thanh toán</h3>
+                        <div className="space-y-2">
 
                             <label
-                                className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+                                className="flex items-center gap-2 cursor-pointer p-2 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     name="paymentMethod"
-                                    className="w-5 h-5 text-blue-600"
+                                    className="w-4 h-4 text-blue-600"
                                     checked={paymentMethod === "CASH"}
                                     onChange={() => setPaymentMethod("CASH")}
                                 />
                                 <div className="flex-1">
-                                    <div className="font-medium text-gray-800">Tiền mặt</div>
+                                    <div className="font-medium text-sm text-gray-800">Tiền mặt</div>
                                 </div>
                             </label>
 
                             <label
-                                className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
+                                className="flex items-center gap-2 cursor-pointer p-2 border-2 rounded-lg transition-all hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm">
                                 <input
                                     type="radio"
                                     name="paymentMethod"
-                                    className="w-5 h-5 text-blue-600"
+                                    className="w-4 h-4 text-blue-600"
                                     checked={paymentMethod === "TRANSFER"}
-                                    onChange={() => setPaymentMethod("TRANSFER")}
+                                    onChange={() => {
+                                        setPaymentMethod("TRANSFER");
+                                        // Nếu chưa có orderCode, tạo mã mới
+                                        if (!orderCode) {
+                                            const tempCode = `ORD${Date.now()}`;
+                                            setOrderCode(tempCode);
+                                        }
+                                        // Nếu chưa xác nhận, reset trạng thái và mở modal
+                                        if (!isPaymentConfirmed) {
+                                            setIsPaymentConfirmed(false);
+                                        }
+                                        // Luôn mở modal khi chọn chuyển khoản
+                                        setShowQRModal(true);
+                                    }}
                                 />
                                 <div className="flex-1">
-                                    <div className="font-medium text-gray-800">Chuyển khoản</div>
+                                    <div className="font-medium text-sm text-gray-800">Chuyển khoản</div>
                                 </div>
                             </label>
                         </div>
-
-                        {/* HIỂN THỊ QR CODE KHI CHỌN CHUYỂN KHOẢN */}
-                        {paymentMethod === "TRANSFER" && orderCode && (
-                            <div
-                                className="mt-4 p-5 border-2 border-blue-300 rounded-xl bg-gradient-to-br from-blue-50 to-white shadow-md">
-                                <div className="text-center mb-3">
-                                    <div className="text-sm text-gray-600 mb-2">Số tiền:</div>
-                                    <div className="text-xl font-bold text-red-600 mb-3">
-                                        {grandTotal.toLocaleString()}đ
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <QRCodeDisplay value={orderCode} size={220}/>
-                                    </div>
-
-                                    {!isPaymentConfirmed && (
-                                        <button
-                                            type="button"
-                                            className="btn bg-green-500 hover:bg-green-600 text-white w-full mt-2 py-3 text-base font-semibold"
-                                            onClick={() => {
-                                                setIsPaymentConfirmed(true);
-                                                updateOrder({
-                                                    relationships: {
-                                                        paymentDetail: {
-                                                            id: Date.now(),
-                                                            paymentType: "TRANSFER",
-                                                        },
-                                                    },
-                                                    attributes: {
-                                                        orderStatus: "PAID"
-                                                    }
-                                                });
-                                            }}
-                                        >
-                                            ✓ Đã nhận tiền
-                                        </button>
-                                    )}
-
-                                    {isPaymentConfirmed && (
-                                        <div
-                                            className="w-full p-4 bg-green-100 border-2 border-green-400 rounded-lg text-center">
-                                            <div className="text-green-700 font-semibold text-base">
-                                                ✓ Đã xác nhận nhận tiền
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     {/* NÚT XÁC NHẬN ĐƠN HÀNG */}
                     <button
                         type="button"
-                        className="btn btn-primary w-full py-3 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow"
+                        disabled={paymentMethod === "TRANSFER" && !isPaymentConfirmed}
+                        className={`btn btn-primary w-full py-2.5 text-sm font-semibold shadow-lg hover:shadow-xl transition-shadow flex-shrink-0 ${
+                            paymentMethod === "TRANSFER" && !isPaymentConfirmed 
+                                ? "opacity-50 cursor-not-allowed" 
+                                : ""
+                        }`}
                         onClick={async () => {
                             const order = structuredClone(activeOrder);
                             if (!order.relationships.receiptDetails || order.relationships.receiptDetails.length === 0) return;
@@ -1762,6 +1755,31 @@ export default function POS() {
                             // Cập nhật orderCode với ID thật từ backend nếu cần
                             if (saved.data.id) {
                                 setOrderCode(`ORD${saved.data.id}`);
+                                
+                                // ✅ Tự động hiển thị preview hóa đơn sau khi tạo đơn thành công
+                                try {
+                                    const billDetail = await BillService.getById(Number(saved.data.id));
+                                    await previewBill({
+                                        id: Number(saved.data.id),
+                                        customerName: billDetail.customer.name || order.attributes.customerName || "Khách lẻ",
+                                        customerPhone: billDetail.customer.phone || order.attributes.customerPhone || "-",
+                                        totalAmount: billDetail.amountPaid,
+                                        orderDate: billDetail.orderDate || billDetail.createdAt,
+                                        orderType: "POS",
+                                        status: billDetail.status,
+                                        items: billDetail.items.map((item: any) => ({
+                                            name: item.name,
+                                            quantity: item.quantity,
+                                            pricePerUnit: item.pricePerUnit,
+                                        })),
+                                        shippingFee: billDetail.shippingFee,
+                                        discount: billDetail.discount,
+                                        voucher: billDetail.voucher,
+                                    });
+                                } catch (error) {
+                                    console.error("Lỗi khi hiển thị preview hóa đơn:", error);
+                                    // Không hiển thị alert để không làm gián đoạn flow
+                                }
                             }
 
                             setOrders((prev) => {
@@ -1844,6 +1862,92 @@ export default function POS() {
                     />
                 )
             }
+
+            {/* MODAL QR CODE CHUYỂN KHOẢN */}
+            {showQRModal && paymentMethod === "TRANSFER" && orderCode && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    onClick={() => {
+                        // Đóng modal khi click vào backdrop
+                        setShowQRModal(false);
+                    }}
+                >
+                    <div 
+                        className="bg-white rounded-2xl shadow-2xl p-5 max-w-md w-full mx-4 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Nút đóng */}
+                        <button
+                            type="button"
+                            onClick={() => setShowQRModal(false)}
+                            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            ×
+                        </button>
+
+                        {/* Nội dung modal */}
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-gray-800 mb-3">Thanh toán chuyển khoản</h3>
+                            
+                            <div className="my-4">
+                                <div className="text-sm text-gray-600 mb-1">Số tiền cần thanh toán:</div>
+                                <div className="text-2xl font-bold text-red-600">
+                                    {grandTotal.toLocaleString()}đ
+                                </div>
+                            </div>
+
+                            {/* QR Code */}
+                            <div className="bg-white p-4 rounded-xl shadow-lg border-2 border-gray-200 mb-4 flex justify-center">
+                                <QRCodeDisplay value={orderCode} size={240}/>
+                            </div>
+
+                            <div className="text-sm text-gray-500 mb-4">
+                                Vui lòng quét mã QR để thanh toán
+                            </div>
+
+                            {/* Nút xác nhận */}
+                            {!isPaymentConfirmed ? (
+                                <div className="space-y-2">
+                                    <button
+                                        type="button"
+                                        className="btn bg-green-500 hover:bg-green-600 text-white w-full py-2.5 text-base font-semibold"
+                                        onClick={() => {
+                                            setIsPaymentConfirmed(true);
+                                            setShowQRModal(false);
+                                            updateOrder({
+                                                relationships: {
+                                                    paymentDetail: {
+                                                        id: Date.now(),
+                                                        paymentType: "TRANSFER",
+                                                    },
+                                                },
+                                                attributes: {
+                                                    orderStatus: "PAID"
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        ✓ Đã nhận tiền
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn bg-gray-200 hover:bg-gray-300 text-gray-700 w-full py-2 text-sm"
+                                        onClick={() => setShowQRModal(false)}
+                                    >
+                                        Đóng
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="w-full p-3 bg-green-100 border-2 border-green-400 rounded-lg text-center">
+                                    <div className="text-green-700 font-semibold text-sm">
+                                        ✓ Đã xác nhận nhận tiền
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     )

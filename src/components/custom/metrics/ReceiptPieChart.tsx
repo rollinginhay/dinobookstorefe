@@ -58,6 +58,7 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
         FAILED: "Thanh toán thất bại",
         REFUNDED: "Đã hoàn tiền",
         CANCELLED: "Đã hủy",
+        WAITING_REFUND_INFO: "Chờ hoàn tiền",
     }
     const [selectedGroup, setSelectedGroup] = useState<GroupValue>(GROUPS.ALL);
 
@@ -219,7 +220,7 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
 
     return (
         <div
-            className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 overflow-hidden">
             <div className="flex items-center justify-between mb-5">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
                     Tổng quan hóa đơn - {selectedGroup.label}
@@ -277,8 +278,8 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center gap-8 xl:flex-row">
-                    <div id="chartDarkStyle">
+                <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start">
+                    <div id="chartDarkStyle" className="flex-shrink-0">
                         <ReactApexChart
                             options={options}
                             series={chartData.series}
@@ -288,7 +289,7 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
                     </div>
 
                     {/* Legend */}
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2 xl:flex-1">
                         {chartData.labels.map((status, index) => {
                             const count = chartData.series[index];
                             const percentage = chartData.total > 0
@@ -299,19 +300,19 @@ export default function ReceiptPieChart({receipts}: ReceiptPieChartProps) {
                             return (
                                 <div key={status} className="flex items-start gap-2.5">
                                     <div
-                                        className="mt-1.5 h-2 w-2 rounded-full"
+                                        className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
                                         style={{backgroundColor: colors[index % colors.length]}}
                                     ></div>
-                                    <div>
-                                        <h5 className="mb-1 font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                    <div className="min-w-0 flex-1">
+                                        <h5 className="mb-1 font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
                                             {status}
                                         </h5>
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                                 {percentage}%
                                             </p>
-                                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                                            <p className="text-gray-500 text-theme-sm dark:text-gray-400">
+                                            <div className="w-1 h-1 bg-gray-400 rounded-full flex-shrink-0"></div>
+                                            <p className="text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                                 {count} đơn hàng
                                             </p>
                                         </div>

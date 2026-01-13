@@ -111,6 +111,13 @@ export default function ProductInfoCard({book, bookCopies = []}) {
                                     </div>
 
                                     <div>
+                                        <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Ngôn ngữ</p>
+                                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                                            {book.language || book.attributes?.language || "-"}
+                                        </p>
+                                    </div>
+
+                                    <div>
                                         <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">ISBN</p>
                                         <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                                             {isbns.length > 0 ? isbns.join(", ") : "Chưa có ISBN"}

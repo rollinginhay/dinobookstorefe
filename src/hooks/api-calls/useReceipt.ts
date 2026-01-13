@@ -37,7 +37,7 @@ export function useReceipt(
             await queryClient.invalidateQueries({queryKey: ["receipts"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["users"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["user"], exact: false});
-            toast.success("Success");
+            toast.success("Xóa đơn hàng thành công!");
         },
     });
 
@@ -58,7 +58,7 @@ export function useReceipt(
             await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["users"], exact: false})
             await queryClient.invalidateQueries({queryKey: ["user"], exact: false})
-            toast.success("Success");
+            toast.success("Tạo đơn hàng thành công!");
         },
 
     });
@@ -81,7 +81,7 @@ export function useReceipt(
             await queryClient.invalidateQueries({queryKey: ["bookDetails"], exact: false});
             await queryClient.invalidateQueries({queryKey: ["users"], exact: false})
             await queryClient.invalidateQueries({queryKey: ["user"], exact: false})
-            toast.success("Success");
+            toast.success("Cập nhật đơn hàng thành công!");
         },
     });
 

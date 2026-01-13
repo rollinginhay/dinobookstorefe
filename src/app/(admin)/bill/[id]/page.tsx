@@ -580,10 +580,9 @@ export default function BillDetailPage() {
 
     // ---------- MOCK DATA TỪ HÓA ĐƠN 23 ----------
     // Tự bật timeline khi trạng thái đơn thay đổi
-    useEffect(() => {
-    if (!receiptId || Number.isNaN(receiptId)) return;
-
     const fetchData = async () => {
+      if (!receiptId || Number.isNaN(receiptId)) return;
+      
       try {
         setIsLoading(true);
         setLoadError(null);
@@ -721,8 +720,39 @@ export default function BillDetailPage() {
       }
     };
 
-    fetchData();
-  }, [receiptId]);
+    useEffect(() => {
+      fetchData();
+    }, [receiptId]);
+
+    // ✅ Tự động cập nhật khi window focus hoặc tab trở nên visible (giống trang quản lý hóa đơn)
+    useEffect(() => {
+      const handleFocus = () => {
+        fetchData();
+      };
+
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          fetchData();
+        }
+      };
+
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }, [receiptId]);
+
+    // ✅ Polling: Tự động refresh mỗi 5 giây để cập nhật trạng thái
+    useEffect(() => {
+      const interval = setInterval(() => {
+        fetchData();
+      }, 5000); // Refresh mỗi 5 giây
+
+      return () => clearInterval(interval);
+    }, [receiptId]);
 
     // ---------- TÍNH TIỀN ----------
     // Tổng tiền hàng: tính từ giá đã giảm (pricePerUnit)

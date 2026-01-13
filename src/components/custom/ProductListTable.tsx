@@ -38,7 +38,8 @@ const ProductListTable: React.FC = () => {
     const [editingItem, setEditingItem] = useState(null);
 
     // Fetch tất cả books (không dùng pagination từ API) để có đủ data cho filter
-    const {bookQuery, bookDelete} = useBook(0, fetchLimit, enabled ?? true, keyword);
+    // ✅ SỬA: Không gửi keyword lên API, sẽ filter ở client-side để đảm bảo tìm kiếm hoạt động
+    const {bookQuery, bookDelete} = useBook(0, fetchLimit, enabled ?? true, "");
 
     const formRef: any = useRef(null);
 
@@ -60,12 +61,74 @@ const ProductListTable: React.FC = () => {
         setInputValue(page + 1);
     }, [page]);
 
+    // Tự động tìm kiếm khi searchInput thay đổi (với debounce ngắn hơn)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setKeyword(searchInput);
+            setPage(0);
+        }, 150); // Debounce 150ms để tìm kiếm nhanh hơn
+
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // ✅ Tự động cập nhật khi window focus hoặc tab trở nên visible
+    useEffect(() => {
+        if (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading) return;
+        
+        const handleFocus = () => {
+            bookQuery.refetch();
+            genreQuery.refetch();
+            publisherQuery.refetch();
+            creatorQuery.refetch();
+        };
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                bookQuery.refetch();
+                genreQuery.refetch();
+                publisherQuery.refetch();
+                creatorQuery.refetch();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [bookQuery, genreQuery, publisherQuery, creatorQuery]);
+
+    // ✅ Polling: Tự động refresh mỗi 30 giây để cập nhật danh sách sách
+    useEffect(() => {
+        if (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading) return;
+        
+        const interval = setInterval(() => {
+            bookQuery.refetch();
+            genreQuery.refetch();
+            publisherQuery.refetch();
+            creatorQuery.refetch();
+        }, 30000); // Refresh mỗi 30 giây
+
+        return () => clearInterval(interval);
+    }, [bookQuery, genreQuery, publisherQuery, creatorQuery]);
+
     if (bookQuery.isLoading || genreQuery.isLoading || publisherQuery.isLoading || creatorQuery.isLoading) {
         return <p className="p-6">Đang tải...</p>;
     }
     const resBody = bookQuery.data;
-    const items: any[] = resBody?.data || [];
+    let items: any[] = resBody?.data || [];
     const meta = resBody?.meta;
+    
+    // ✅ THÊM: Filter client-side theo keyword để đảm bảo tìm kiếm hoạt động
+    if (keyword && keyword.trim()) {
+        const searchLower = keyword.toLowerCase().trim();
+        items = items.filter((book) => {
+            const title = (book.title || "").toLowerCase();
+            return title.includes(searchLower);
+        });
+    }
     
     // Tạo mảng rows để hiển thị: mỗi copy là một row (bao gồm cả ngừng bán)
     const tableRows: any[] = [];
