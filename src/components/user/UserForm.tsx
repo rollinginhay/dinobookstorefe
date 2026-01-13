@@ -497,22 +497,23 @@ export default function UserForm({ mode, initialData }: Props) {
 
     // Nếu có nhập password (tạo mới hoặc thay đổi), validate độ dài và độ mạnh
     if (formData.password && formData.password.trim()) {
-      if (formData.password.length < 6) {
-        toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+      if (formData.password.length < 8) {
+        toast.error("Mật khẩu phải có ít nhất 8 ký tự");
         return false;
       }
 
-      if (formData.password.length > 100) {
-        toast.error("Mật khẩu không được vượt quá 100 ký tự");
+      if (formData.password.length > 255) {
+        toast.error("Mật khẩu không được vượt quá 255 ký tự");
         return false;
       }
 
-      // Có thể thêm validation mạnh hơn nếu cần
-      // const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-      // if (!passwordRegex.test(formData.password)) {
-      //   toast.error("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt");
-      //   return false;
-      // }
+      // Validation mạnh: yêu cầu chữ hoa, chữ thường, số và ký tự đặc biệt
+      // Pattern khớp với backend và web chính
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      if (!passwordRegex.test(formData.password)) {
+        toast.error("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt");
+        return false;
+      }
     }
 
     return true;
@@ -1011,7 +1012,7 @@ export default function UserForm({ mode, initialData }: Props) {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {mode === "create" 
-                ? "Mật khẩu phải có ít nhất 6 ký tự" 
+                ? "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt" 
                 : "Ô này luôn trắng. Nhập mật khẩu mới sẽ thay đổi mật khẩu của nhân viên."}
             </p>
           </div>
