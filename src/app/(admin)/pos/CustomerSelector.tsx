@@ -35,10 +35,13 @@ export default function CustomerSelector({
 
     // Filter tìm kiếm
     const filteredCustomers = customers.filter((c) => {
+        if (!searchTerm.trim()) return true;
         const keyword = searchTerm.toLowerCase();
         return (
-            c.personName.toLowerCase().includes(keyword) ||
-            c.phoneNumber.toLowerCase().includes(keyword)
+            (c.personName?.toLowerCase() || "").includes(keyword) ||
+            (c.phoneNumber?.toLowerCase() || "").includes(keyword) ||
+            (c.email?.toLowerCase() || "").includes(keyword) ||
+            (c.username?.toLowerCase() || "").includes(keyword)
         );
     });
 
@@ -74,12 +77,12 @@ export default function CustomerSelector({
                 />
 
                 {/* Nút thêm khách hàng */}
-                <button
+                {/* <button
                     className="bg-blue-600 text-white px-4 py-2 rounded-md mb-4"
                     onClick={() => setShowAddForm(true)}
                 >
                     + Thêm khách hàng
-                </button> 
+                </button>  */}
 
                 {/* Bảng danh sách */}
                 <div className="border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">

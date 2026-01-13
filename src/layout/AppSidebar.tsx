@@ -157,11 +157,32 @@ const AppSidebar: React.FC = () => {
             return allNavItems;
         }
 
-        // ROLE_EMPLOYEE (staff): chỉ thấy Bán hàng tại quầy và Danh sách hóa đơn
+        // ROLE_EMPLOYEE (staff): thấy Bán hàng tại quầy, Danh sách hóa đơn và Quản lý khách hàng
         if (isStaff()) {
-            return allNavItems.filter(item =>
-                item.path === "/pos" || item.path === "/bill"
-            );
+            return allNavItems
+                .filter(item => {
+                    // Cho phép menu có path trực tiếp: /pos, /bill
+                    if (item.path === "/pos" || item.path === "/bill") {
+                        return true;
+                    }
+                    // Cho phép menu "Người dùng" (có subItems)
+                    if (item.name === "Người dùng" && item.subItems) {
+                        return true;
+                    }
+                    return false;
+                })
+                .map(item => {
+                    // Nếu là menu "Người dùng", filter subItems để chỉ giữ "Quản lý khách hàng"
+                    if (item.name === "Người dùng" && item.subItems) {
+                        return {
+                            ...item,
+                            subItems: item.subItems.filter(subItem => 
+                                subItem.path === "/users" // Chỉ giữ "Quản lý khách hàng", loại bỏ "Quản lý nhân viên"
+                            )
+                        };
+                    }
+                    return item;
+                });
         }
 
         // ROLE_USER: không thấy sidebar này (trả về empty array)
